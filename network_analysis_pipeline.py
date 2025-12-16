@@ -111,8 +111,7 @@ def run_pipeline(atlas_path, labels_path, root_in, root_out, subj_id):
 
     # Run various analyses (ultimately wrap this into a single script in the network_definitions file and set up a 
     # config file that allows the selection of options)
-    subject = "TAU10000"
-    out_path = os.path.join(root_out, f"{subject}_atlas.nii.gz")
+    out_path = os.path.join(root_out, f"{subj_id}_atlas.nii.gz")
 
     # Run a series of analyses:
     #intra_network_analysis(matrix, out_path, definition_path)

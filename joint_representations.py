@@ -50,7 +50,7 @@ def create_combined_matrices(structural_filepath, functional_filepath, subj_id, 
    # Run the analyses
    
    # First, run the basic weighting
-   simple_weighting_filepath = os.path.join(save_path, f"{subj_id}_simp_weighting.npy")
+   simple_weighting_filepath = os.path.join(save_path, f"{}joint_representations" f"{subj_id}_simp_weighting.npy")
    if check_existence(simple_weighting_filepath) is False:
       simple_matrix = simple_weighting(SC, FC)
       save_array(simple_weighting_filepath, simple_matrix)
