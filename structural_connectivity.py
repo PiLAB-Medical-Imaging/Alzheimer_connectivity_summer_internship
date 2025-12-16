@@ -59,10 +59,8 @@ def compute_connectivity_matrix(trk_file, label_volume):
 
 def generate_connectivity_matrix(root_in, out_path, subj_id, atlas_path, label_path):
     """ Main function that generates the connectivity matrix from preprocessed dMRI data. It saves t at out_path. Also returns the matrix as a variable. """
-    
-    subject_specific_location = os.path.join(out_path, subj_id)
-    matrix_path = os.path.join(subject_specific_location, "connec_mat.npy")
-    saved_map_path = os.path.join(subject_specific_location, "map.pkl")
+    matrix_path = os.path.join(out_path, "connec_mat.npy")
+    saved_map_path = os.path.join(out_path, "map.pkl")
     subject_load_path = os.path.join(root_in, subj_id)
     subj_file = os.path.join(subject_load_path, f"dMRI/microstructure/dti/{subj_id}_FA.nii.gz")
 
@@ -78,7 +76,7 @@ def generate_connectivity_matrix(root_in, out_path, subj_id, atlas_path, label_p
     label_volume = apply_transform(label_path, mapping, labels=True)
     img = nib.load(subj_file)
     out = nib.Nifti1Image(label_volume.astype(float), img.affine)
-    sbj_atlas_path = os.path.join(subject_specific_location, f"{subj_id}_atlas.nii.gz")
+    sbj_atlas_path = os.path.join(out_path, f"{subj_id}_atlas.nii.gz") # maybe add the artlas name to this.
     out.to_filename(sbj_atlas_path)
 
     # Compute the connectivity matrix
@@ -86,7 +84,7 @@ def generate_connectivity_matrix(root_in, out_path, subj_id, atlas_path, label_p
     matrix = compute_connectivity_matrix(trk_file, label_volume)
 
     # Save the matrix
-    os.makedirs(subject_specific_location, exist_ok=True)
-    np.save(matrix_path, matrix)
+    # os.makedirs(subject_specific_location, exist_ok=True)
+    # np.save(matrix_path, matrix)
 
     return matrix
