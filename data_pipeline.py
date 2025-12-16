@@ -5,6 +5,7 @@ import structural_connectivity as sc
 import joint_representations as jr
 import network_extraction as ne
 import graph_metrics as gm
+import json
 
 def load_dataset(filepath):
     dataset = pd.read_excel(filepath)
@@ -17,9 +18,6 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
 
     # Generate connectivity matrices and the combined representations (remaining is the fMRI computation)
     ####################################################################################################
-    
-    
-
     # Define a save path for the three matrices and metrics
     SC_save_path = os.path.join(out_path, "structural")
     FC_save_path = os.path.join(out_path, "functional")
@@ -29,7 +27,7 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
     os.makedirs(JR_save_path, exist_ok=True)
 
 
-    # Generate and save the connectivity matrix
+    # Generate and save the structural matrix
     SC = sc.generate_connectivity_matrix(dMRI_data_path, out_path, subj_id, atlas_path, label_path)
     SC_filepath = os.path.join(SC_save_path, "SC_matrix.npy")
     np.save(SC_filepath, SC)
@@ -39,7 +37,7 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
     FC_filepath = os.path.join(FC_save_path, "FC_matrix.npy")
     np.save(FC_filepath, FC)
 
-    # Generate and save the joint metrics
+    # Generate and save the joint matrices
     JR =  jr.create_combined_matrices(dMRI_data_path, fMRI_data_path,subj_id, out_path)
     JR_filepath = os.path.join(JR_save_path, "JR_matrix.npy")
     np.save(JR_filepath, JR)
@@ -55,9 +53,21 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
     functional_networks =  ne.network_extraction(FC_save_path, FC_filepath,subj_id,definitions_filepath, "AAL116" )
     process_dictionary2save(functional_networks, fMRI_network_path)
 
-    
+    combined_network_path = os.path.join(JR_save_path, "networks")
+    os.makedirs(combined_network_path, exist_ok=True)
+    combined_networks =  ne.network_extraction(JR_save_path, JR_filepath,subj_id,definitions_filepath, "AAL116" )
+    process_dictionary2save(combined_networks, combined_network_path)
+
     # Graph metrics on each graph that is designated
-    #gm.analyse_graph()
+    network_path_names = [dMRI_network_path, fMRI_network_path, combined_network_path]
+
+    for network_path in network_path_names:
+        for network_file in os.listdir(network_path):
+            adj_matrix = np.load(os.path.join(network_path, network_file))
+            graph_metrics = gm.analyse_graph(adj_matrix)
+            identifier = network_file.split(".")[0]
+            with open(f"graph-metrics_{identifier}_values.json", "w") as f:
+                json.dump(graph_metrics, f, indent=2)    
 
 
 
