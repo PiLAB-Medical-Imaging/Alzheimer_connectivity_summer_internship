@@ -30,7 +30,8 @@ def edge_level_analysis():
     pass
 
 #### Driving Function ####
-def analyse_graph(graph):
+def analyse_graph(adjacency_matrix):
+    graph = nx.from_numpy_array(adjacency_matrix)
     graph_level = graph_level_metrics(graph)
     #node_level = node_level_analysis(graph)
     #edge_level = edge_level_analysis(graph)
