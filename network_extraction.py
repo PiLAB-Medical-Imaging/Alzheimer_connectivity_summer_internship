@@ -97,14 +97,16 @@ def define_network(connectivity_matrix_filepath, subject_atlas_path, definitions
 
 
 ###### Main logic #####
-def network_extraction(root_directory, subj_id, definitions_filepath, out_path, atlas):
-    matrix_filepath = os.path.join(root_directory, f"connec_mat.npy")
-    atlas_filepath = os.path.join(root_directory, f"{subj_id}_atlas.nii.gz")
+def network_extraction(subj_connectivity_folder, matrix_filepath, subj_id, definitions_filepath, out_path, atlas):
+    atlas_filepath = os.path.join(subj_connectivity_folder, f"{subj_id}_atlas.nii.gz")
+
+    return_networks = {}
+
     for network in NETWORKS:
         selected_network = define_network(matrix_filepath,atlas_filepath,definitions_filepath, atlas, network)
-        save_path = os.path.join(out_path, f"{atlas}_{network}_{subj_id}.npy")
-        np.save(save_path, selected_network)
+        return_networks[f"{atlas}_{network}_{subj_id}"] = selected_network
 
+    return return_networks
 
 
 

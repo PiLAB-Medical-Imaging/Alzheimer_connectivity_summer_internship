@@ -39,21 +39,18 @@ def check_existence(filepath):
 
 
 ############### Driver Function ###################
-def create_combined_matrices(structural_filepath, functional_filepath, subj_id, save_path, overwrite = False):
+def create_combined_matrices(structural_filepath, functional_filepath, subj_id, save_path, type, overwrite = False):
 
    # Load the raw matrices
-   SC_file = os.path.join(structural_filepath, f"{subj_id}_sc_matrix.npy")
-   FC_file = os.path.join(functional_filepath, f"{subj_id}_fc_matrix.npy")
-   SC = np.load(SC_file)
-   FC = np.load(FC_file)
+   SC = np.load(structural_filepath)
+   FC = np.load(functional_filepath)
 
    # Run the analyses
    
    # First, run the basic weighting
-   simple_weighting_filepath = os.path.join(save_path, f"{}joint_representations" f"{subj_id}_simp_weighting.npy")
-   if check_existence(simple_weighting_filepath) is False:
-      simple_matrix = simple_weighting(SC, FC)
-      save_array(simple_weighting_filepath, simple_matrix)
+   simple_matrix = simple_weighting(SC, FC)
+   return simple_matrix
+      
 
 
 
