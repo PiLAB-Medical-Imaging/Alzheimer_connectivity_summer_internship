@@ -39,7 +39,7 @@ def check_existence(filepath):
 
 
 ############### Driver Function ###################
-def create_combined_matrices(structural_filepath, functional_filepath, subj_id, save_path, type, overwrite = False):
+def create_combined_matrices(structural_filepath, functional_filepath, subj_id, save_path, overwrite = False):
 
    # Load the raw matrices
    SC = np.load(structural_filepath)
