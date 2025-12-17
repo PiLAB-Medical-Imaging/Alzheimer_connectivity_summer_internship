@@ -6,6 +6,7 @@ import joint_representations as jr
 import network_extraction as ne
 import graph_metrics as gm
 import json
+import sys
 
 def load_dataset(filepath):
     dataset = pd.read_excel(filepath)
@@ -70,8 +71,21 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
                 json.dump(graph_metrics, f, indent=2)    
 
 
-
+############ Utility ###############
 def process_dictionary2save(network_object, parent_folder):
     for key in network_object:
         save_destination = os.path.join(parent_folder, f"network_{key}")
         np.save(save_destination, network_object[key])
+
+
+
+########### Main #####################
+if __name__ == "__main__":
+    dMRI_data_path = sys.argv[1]
+    fMRI_data_path = sys.argv[2]
+    subj_id = sys.argv[3]
+    atlas_path = sys.argv[4]
+    label_path = sys.argv[5]
+    definitions_filepath = sys.argv[6]
+
+    dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, atlas_path, label_path, definitions_filepath)
