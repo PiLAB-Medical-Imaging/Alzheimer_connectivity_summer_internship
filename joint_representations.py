@@ -42,8 +42,15 @@ def check_existence(filepath):
 def create_combined_matrices(structural_filepath, functional_filepath, subj_id, save_path, overwrite = False):
 
    # Load the raw matrices
+   print(f"Loading {structural_filepath} for {subj_id}")
    SC = np.load(structural_filepath)
+
+   print(f"\nThe structural array for {subj_id} is: \n")
+   print(SC)
    FC = np.load(functional_filepath)
+
+   print(f"\nThe functional array for {subj_id} is: \n")
+   print(FC)
 
    # Run the analyses
    

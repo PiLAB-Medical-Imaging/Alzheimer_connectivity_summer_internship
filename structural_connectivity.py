@@ -87,4 +87,7 @@ def generate_connectivity_matrix(root_in, out_path, subj_id, atlas_path, label_p
     # os.makedirs(subject_specific_location, exist_ok=True)
     # np.save(matrix_path, matrix)
 
+    print(f"The structural matrix for {subj_id} is:")
+    print(matrix)
+
     return matrix
