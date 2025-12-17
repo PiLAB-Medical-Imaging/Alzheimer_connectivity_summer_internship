@@ -16,14 +16,17 @@ def retrieve_participant_data(root_direc, subj_id):
     # Iterate through and capture participant data. 
     for network in network_types:
         directory = os.path.join(root_direc, subj_id, network, "networks")
-        for file_name in os.listdir(directory):
-            if file_name.__contains__("json"):
+        try:
+            for file_name in os.listdir(directory):
+                if file_name.__contains__("json"):
 
-                data_path = os.path.join(directory, file_name)
-                with open(data_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                identifier = file_name.split(".")[0]
-                participant_data[f"{network}_{identifier}"] = data
+                    data_path = os.path.join(directory, file_name)
+                    with open(data_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    identifier = file_name.split(".")[0]
+                    participant_data[f"{network}_{identifier}"] = data
+        except:
+            print(f"Warning: {subj_id} did not find {directory}! Skipping. ")
 
     return participant_data
 
