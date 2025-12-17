@@ -53,6 +53,7 @@ if __name__=="__main__":
     data_frame_version = pd.DataFrame.from_dict(bulk_data, orient="index")
     print(data_frame_version)
 
-    with open("data.json", "w") as f:
+    file_path = os.path.join(root_directory, "data.json")
+    with open(file_path, "w") as f:
         json.dump(bulk_data, f, indent = 4)
 
