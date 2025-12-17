@@ -47,17 +47,21 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
     # for each type of representation, compute networks. Output each to a different subfolder
     dMRI_network_path = os.path.join(SC_save_path, "networks")
     os.makedirs(dMRI_network_path, exist_ok=True)
-    structural_networks = ne.network_extraction(SC_save_path, SC_filepath, subj_id, definitions_filepath, "AAL116")
+    structural_networks = ne.network_extraction(subj_connectivity_folder=out_path, 
+                                                out_path = SC_filepath, 
+                                                subj_id=subj_id, 
+                                                definitions_filepath=definitions_filepath, 
+                                                atlas="AAL116")
     process_dictionary2save(structural_networks, dMRI_network_path)
 
     fMRI_network_path = os.path.join(FC_save_path, "networks")
     os.makedirs(fMRI_network_path, exist_ok=True)
-    functional_networks =  ne.network_extraction(FC_save_path, FC_filepath,subj_id,definitions_filepath, "AAL116" )
+    functional_networks =  ne.network_extraction(out_path, FC_filepath,subj_id,definitions_filepath, "AAL116" )
     process_dictionary2save(functional_networks, fMRI_network_path)
 
     combined_network_path = os.path.join(JR_save_path, "networks")
     os.makedirs(combined_network_path, exist_ok=True)
-    combined_networks =  ne.network_extraction(JR_save_path, JR_filepath,subj_id,definitions_filepath, "AAL116" )
+    combined_networks =  ne.network_extraction(out_path, JR_filepath, subj_id, definitions_filepath, "AAL116" )
     process_dictionary2save(combined_networks, combined_network_path)
 
     # Graph metrics on each graph that is designated
