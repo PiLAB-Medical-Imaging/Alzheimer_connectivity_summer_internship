@@ -33,15 +33,20 @@ def retrieve_participant_data(root_direc, subj_id):
 def build_dataset(root_directory, patient_list_json_path):
     with open(patient_list_json_path, "r") as f:
         patient_list = json.load(f)
+    
+    all_data = {}
 
     for patient in patient_list:
         print(patient)
         patient_data = retrieve_participant_data(root_directory, patient)
-
+        all_data[f"{patient}"] = patient_data
+    
+    return all_data
 
 if __name__=="__main__":
     root_directory = sys.argv[1]
     patient_list_path = sys.argv[2]
-    build_dataset(root_directory, patient_list_path)
+    bulk_data = build_dataset(root_directory, patient_list_path)
+    data_frame_version = pd.DataFrame.from_dict(bulk_data, orient="index")
 
 
