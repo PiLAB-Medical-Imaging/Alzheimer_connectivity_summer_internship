@@ -87,14 +87,7 @@ def generate_connectivity_matrix(root_in, out_path, subj_id, atlas_path, label_p
     mapping = load_or_compute_mapping(atlas_path, subj_file, saved_map_path)
 
     # Apply the mapping to the label volume
-    ref_img = nib.load(subj_file)
-
-    label_volume = apply_transform(
-        label_path,
-        mapping,
-        labels=True,
-        target_shape=ref_img.shape
-)
+    label_volume = apply_transform(label_path, mapping, labels=True)
     img = nib.load(subj_file)
     out = nib.Nifti1Image(label_volume.astype(float), img.affine)
     sbj_atlas_path = os.path.join(out_path, f"{subj_id}_atlas.nii.gz") # maybe add the artlas name to this.

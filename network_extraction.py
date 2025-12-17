@@ -97,7 +97,7 @@ def define_network(connectivity_matrix_filepath, subject_atlas_path, definitions
 
 
 ###### Main logic #####
-def network_extraction(subj_connectivity_folder, matrix_filepath, subj_id, definitions_filepath, out_path, atlas):
+def network_extraction(subj_connectivity_folder, matrix_filepath, subj_id, definitions_filepath, atlas):
     atlas_filepath = os.path.join(subj_connectivity_folder, f"{subj_id}_atlas.nii.gz")
 
     return_networks = {}
