@@ -18,7 +18,9 @@ def retrieve_participant_data(root_direc, subj_id):
         directory = os.path.join(root_direc, subj_id, network, "networks")
         for file_name in os.listdir(directory):
             if file_name.__contains__("json"):
-                with open("data.json", "r", encoding="utf-8") as f:
+
+                data_path = os.path.join(directory, file_name)
+                with open(data_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 identifier = file_name.split(".")[0]
                 participant_data[f"{network}_{identifier}"] = data
