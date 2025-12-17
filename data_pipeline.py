@@ -87,9 +87,10 @@ if __name__ == "__main__":
     atlas_path = sys.argv[4]
     label_path = sys.argv[5]
     definitions_filepath = sys.argv[6]
+    out_path = sys.argv[7]
 
     print("The values that are input are: ")
     for element in sys.argv:
         print(element)
 
-    dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, atlas_path, label_path, definitions_filepath)
+    dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_path, label_path, definitions_filepath)
