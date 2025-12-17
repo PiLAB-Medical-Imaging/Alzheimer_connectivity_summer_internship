@@ -72,7 +72,9 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
             adj_matrix = np.load(os.path.join(network_path, network_file))
             graph_metrics = gm.analyse_graph(adj_matrix)
             identifier = network_file.split(".")[0]
-            with open(f"graph-metrics_{identifier}_values.json", "w") as f:
+
+            saving_location = os.path.join(network_path, f"graph-metrics_{identifier}_values.json")
+            with open(saving_location, "w") as f:
                 json.dump(graph_metrics, f, indent=2)    
 
 
