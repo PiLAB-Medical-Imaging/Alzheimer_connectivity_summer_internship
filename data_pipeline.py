@@ -34,12 +34,20 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
     SC_filepath = os.path.join(SC_save_path, "SC_matrix.npy")
     np.save(SC_filepath, SC)
 
+    
     # Generate and save the functional matrix
-    FC = np.random.rand(116,116)
+    FC = np.random.rand(len(SC),len(SC)) # This is just until I have the data for fMRI processed
     FC_filepath = os.path.join(FC_save_path, "FC_matrix.npy")
     np.save(FC_filepath, FC)
 
+
     # Generate and save the joint matrices
+
+    # Safety check for dimensions
+    if SC.shape != FC.shape:
+        print(f"The size of the structral and functional connectivity matrices are not compatible for {subj_id}")
+        raise ValueError
+
     JR =  jr.create_combined_matrices(SC_filepath, FC_filepath, subj_id, out_path)
     JR_filepath = os.path.join(JR_save_path, "JR_matrix.npy")
     np.save(JR_filepath, JR)
