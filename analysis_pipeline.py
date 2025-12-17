@@ -44,9 +44,9 @@ def build_dataset(root_directory, patient_list_json_path):
     return all_data
 
 def dict2DF(dictionary_version):
-
+    # There is probably a way to refactor this nicely.
     reordered_dict = {}
-    for top_level_key, idx in enumerate(dictionary_version.keys()):
+    for idx, top_level_key in enumerate(dictionary_version.keys()):
         split_key = top_level_key.split("_")
         subj_num = split_key[1]
         session_num = split_key[2]
