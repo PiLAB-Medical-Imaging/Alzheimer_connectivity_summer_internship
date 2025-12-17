@@ -88,6 +88,10 @@ def process_dictionary2save(network_object, parent_folder):
 
 ########### Main #####################
 if __name__ == "__main__":
+
+    print("The values that are input are: ")
+    for element in sys.argv:
+        print(element)
     dMRI_data_path = sys.argv[1]
     fMRI_data_path = sys.argv[2]
     subj_id = sys.argv[3]
@@ -96,8 +100,6 @@ if __name__ == "__main__":
     definitions_filepath = sys.argv[6]
     out_path = sys.argv[7]
 
-    print("The values that are input are: ")
-    for element in sys.argv:
-        print(element)
+
 
     dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_path, label_path, definitions_filepath)
