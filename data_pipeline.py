@@ -47,11 +47,11 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
     # for each type of representation, compute networks. Output each to a different subfolder
     dMRI_network_path = os.path.join(SC_save_path, "networks")
     os.makedirs(dMRI_network_path, exist_ok=True)
-    structural_networks = ne.network_extraction(subj_connectivity_folder=out_path, 
-                                                out_path = SC_filepath, 
-                                                subj_id=subj_id, 
-                                                definitions_filepath=definitions_filepath, 
-                                                atlas="AAL116")
+    structural_networks = ne.network_extraction(out_path, 
+                                                SC_filepath, 
+                                                subj_id, 
+                                                definitions_filepath, 
+                                                "AAL116")
     process_dictionary2save(structural_networks, dMRI_network_path)
 
     fMRI_network_path = os.path.join(FC_save_path, "networks")
