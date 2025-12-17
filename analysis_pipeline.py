@@ -48,5 +48,5 @@ if __name__=="__main__":
     patient_list_path = sys.argv[2]
     bulk_data = build_dataset(root_directory, patient_list_path)
     data_frame_version = pd.DataFrame.from_dict(bulk_data, orient="index")
-
+    print(data_frame_version)
 
