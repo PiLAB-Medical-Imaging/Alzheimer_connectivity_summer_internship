@@ -44,7 +44,28 @@ def build_dataset(root_directory, patient_list_json_path):
     return all_data
 
 def dict2DF(dictionary_version):
-    pass
+
+    reordered_dict = {}
+    for top_level_key, idx in enumerate(dictionary_version.keys()):
+        split_key = top_level_key.split("_")
+        subj_num = split_key[1]
+        session_num = split_key[2]
+        reordered_dict[idx] = {"subject_num":subj_num}
+
+        for secondary_key in dictionary_version[top_level_key].keys():
+            split_secondary_key = secondary_key.split("_")
+            net_type = split_secondary_key[0]
+            atlas = split_secondary_key[3]
+            network = split_secondary_key[4]
+
+            for tertiary_key in dictionary_version[top_level_key][secondary_key].keys():
+                    new_label = f"{session_num}_{network}_{atlas}_{net_type}_{tertiary_key}"
+                    reordered_dict[idx][new_label] = dictionary_version[top_level_key][secondary_key][tertiary_key]
+
+    return reordered_dict
+
+
+
 
 if __name__=="__main__":
     root_directory = sys.argv[1]
@@ -52,8 +73,12 @@ if __name__=="__main__":
     bulk_data = build_dataset(root_directory, patient_list_path)
     data_frame_version = pd.DataFrame.from_dict(bulk_data, orient="index")
     print(data_frame_version)
-
+    reordered_version = dict2DF(bulk_data)
     file_path = os.path.join(root_directory, "data.json")
     with open(file_path, "w") as f:
         json.dump(bulk_data, f, indent = 4)
+    
+    file_path_reordered = os.path.join(root_directory, "reordered.json")
+    with open(file_path_reordered, "w") as f:
+        json.dump(reordered_version, f, indent = 4)
 
