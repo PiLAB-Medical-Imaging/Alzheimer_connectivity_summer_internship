@@ -44,9 +44,12 @@ def compute_connectivity_matrix(trk_file, label_volume):
     """
     Generate the connectivity matrix from tractography and labels.
     """
+
+    print(f"Attempting to load trk file: {trk_file} with label volume: {label_volume}")
     trk = load_tractogram(trk_file, 'same')
     trk.to_vox()
     trk.to_corner()
+
     streamlines = trk.streamlines
     matrix = connectivity_matrix(streamlines, label_volume, inclusive=False)
 
@@ -67,7 +70,12 @@ def generate_connectivity_matrix(root_in, out_path, subj_id, atlas_path, label_p
     # Return cached matrix if it exists
     if os.path.exists(matrix_path):
         print("Using cached connectivity matrix")
-        return np.load(matrix_path, allow_pickle=True)
+        matrix =  np.load(matrix_path, allow_pickle=True)
+
+        if matrix.size == 0:
+            print("Matrix is empty, attempting to recompute")
+        else:
+            return matrix
 
     # Load or compute the mapping
     mapping = load_or_compute_mapping(atlas_path, subj_file, saved_map_path)
@@ -81,6 +89,9 @@ def generate_connectivity_matrix(root_in, out_path, subj_id, atlas_path, label_p
 
     # Compute the connectivity matrix
     trk_file = os.path.join(subject_load_path, "dMRI", "tractography", f"{subj_id}_tractogram.trk")
+
+    # Insert the sift2 shenanigans here.
+
     matrix = compute_connectivity_matrix(trk_file, label_volume)
 
     # Save the matrix
