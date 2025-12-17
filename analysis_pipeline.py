@@ -77,6 +77,6 @@ if __name__=="__main__":
     reordered_version = dict2DF(bulk_data)
     print(reordered_version) 
 
-    excel_filename = os.path.join(root_directory, "network_data")
-    reordered_version.to_excel(excel_filename)
+    excel_filename = os.path.join(root_directory, "network_data.csv")
+    reordered_version.to_csv(excel_filename)
 
