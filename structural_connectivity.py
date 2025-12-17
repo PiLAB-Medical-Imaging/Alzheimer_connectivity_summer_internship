@@ -51,6 +51,12 @@ def compute_connectivity_matrix(trk_file, label_volume):
     trk.to_corner()
 
     streamlines = trk.streamlines
+
+    print("Label volume shape:", label_volume.shape)
+    print("Tractogram reference shape:", trk._data_per_streamline[0].shape if hasattr(trk, '_data_per_streamline') else "unknown")
+    print("Streamline bounds:", np.min(np.vstack(trk.streamlines)), np.max(np.vstack(trk.streamlines)))
+
+
     matrix = connectivity_matrix(streamlines, label_volume, inclusive=False)
 
     # Remove background row/column (index 0)
