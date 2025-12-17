@@ -20,8 +20,8 @@ def retrieve_participant_data(root_direc, subj_id):
             if file_name.__contains__("json"):
                 with open("data.json", "r", encoding="utf-8") as f:
                     data = json.load(f)
-
-                participant_data[f"{network}_{file_name.split(".")[0]}"] = data
+                identifier = file_name.split(".")[0]
+                participant_data[f"{network}_{identifier}"] = data
 
     return participant_data
 
@@ -38,5 +38,5 @@ if __name__=="__main__":
     root_directory = sys.argv[1]
     patient_list_path = sys.argv[2]
     build_dataset(root_directory, patient_list_path)
-    
+
 
