@@ -15,7 +15,8 @@ def load_dataset(filepath):
 def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_path, label_path, definitions_filepath):
     # Create the out_path if it doesnt already exist
     os.makedirs(out_path, exist_ok=True)
-    os.path.join(out_path, f"{subj_id}")
+    out_path = os.path.join(out_path, f"{subj_id}")
+    os.makedirs(out_path, exist_ok=True)
 
     # Generate connectivity matrices and the combined representations (remaining is the fMRI computation)
     ####################################################################################################
@@ -39,7 +40,7 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
     np.save(FC_filepath, FC)
 
     # Generate and save the joint matrices
-    JR =  jr.create_combined_matrices(dMRI_data_path, fMRI_data_path,subj_id, out_path)
+    JR =  jr.create_combined_matrices(SC_filepath, FC_filepath, subj_id, out_path)
     JR_filepath = os.path.join(JR_save_path, "JR_matrix.npy")
     np.save(JR_filepath, JR)
 
