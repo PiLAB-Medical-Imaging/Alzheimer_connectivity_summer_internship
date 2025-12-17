@@ -62,7 +62,8 @@ def dict2DF(dictionary_version):
                     new_label = f"{session_num}_{network}_{atlas}_{net_type}_{tertiary_key}"
                     reordered_dict[idx][new_label] = dictionary_version[top_level_key][secondary_key][tertiary_key]
 
-    return reordered_dict
+    df_version = pd.DataFrame.from_dict(reordered_dict, orient="index")
+    return df_version
 
 
 
@@ -74,11 +75,5 @@ if __name__=="__main__":
     data_frame_version = pd.DataFrame.from_dict(bulk_data, orient="index")
     print(data_frame_version)
     reordered_version = dict2DF(bulk_data)
-    file_path = os.path.join(root_directory, "data.json")
-    with open(file_path, "w") as f:
-        json.dump(bulk_data, f, indent = 4)
-    
-    file_path_reordered = os.path.join(root_directory, "reordered.json")
-    with open(file_path_reordered, "w") as f:
-        json.dump(reordered_version, f, indent = 4)
+    print(reordered_version) 
 
