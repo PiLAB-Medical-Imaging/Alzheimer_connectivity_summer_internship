@@ -43,6 +43,9 @@ def build_dataset(root_directory, patient_list_json_path):
     
     return all_data
 
+def dict2DF(dictionary_version):
+    pass
+
 if __name__=="__main__":
     root_directory = sys.argv[1]
     patient_list_path = sys.argv[2]
