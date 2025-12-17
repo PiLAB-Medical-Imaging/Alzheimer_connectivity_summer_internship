@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import os
 import json
+import sys
 
 
 def retrieve_participant_data(root_direc, subj_id):
@@ -31,5 +32,11 @@ def build_dataset(root_directory, patient_list_json_path):
     for patient in patient_list:
         print(patient)
         patient_data = retrieve_participant_data(root_directory, patient)
-        
+
+
+if __name__=="__main__":
+    root_directory = sys.argv[1]
+    patient_list_path = sys.argv[2]
+    build_dataset(root_directory, patient_list_path)
+    
 
