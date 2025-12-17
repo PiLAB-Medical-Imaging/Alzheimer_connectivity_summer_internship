@@ -77,8 +77,10 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
 
     for network_path in network_path_names:
         for network_file in os.listdir(network_path):
+
             if network_file.__contains__("json"):
                 continue
+
             adj_matrix = np.load(os.path.join(network_path, network_file), allow_pickle=True)
             graph_metrics = gm.analyse_graph(adj_matrix)
             identifier = network_file.split(".")[0]
@@ -91,6 +93,10 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
 ############ Utility ###############
 def process_dictionary2save(network_object, parent_folder):
     for key in network_object:
+        
+        key_split = key.split("_")
+        identifier = f"{key_split[0]}_{key_split[1]}"
+
         save_destination = os.path.join(parent_folder, f"network_{key}")
         np.save(save_destination, network_object[key])
 
