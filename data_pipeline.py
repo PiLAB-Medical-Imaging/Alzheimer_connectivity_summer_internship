@@ -77,7 +77,7 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
 
     for network_path in network_path_names:
         for network_file in os.listdir(network_path):
-            adj_matrix = np.load(os.path.join(network_path, network_file))
+            adj_matrix = np.load(os.path.join(network_path, network_file), allow_pickle=True)
             graph_metrics = gm.analyse_graph(adj_matrix)
             identifier = network_file.split(".")[0]
 
