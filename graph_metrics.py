@@ -6,20 +6,27 @@ import networkx as nx
 
 #### Graph level analysis ####
 def graph_level_metrics(graph):
+    graph.remove_nodes_from(list(nx.isolates(graph)))
+
     avg_node_connectivity = nx.average_node_connectivity(graph)
     density = nx.density(graph)
-    diam = nx.diameter(graph)
     global_clustering = nx.average_clustering(graph)
 
-    # Store as a dictionary and return
-
-    metric_dict = {"m_connectivity": avg_node_connectivity, 
-                   "density": density,
-                   "diameter":diam,
-                   "global_clustering": global_clustering}
+    if nx.is_connected(graph):
+        diam = nx.diameter(graph)
+    else:
+        largest_cc = max(nx.connected_components(graph), key=len)
+        diam = nx.diameter(graph.subgraph(largest_cc))
     
-    return metric_dict
+    n_isolates = len(list(nx.isolates(graph)))
 
+    return {
+        "m_connectivity": avg_node_connectivity,
+        "density": density,
+        "diameter": diam,
+        "global_clustering": global_clustering,
+        "isolates": n_isolates
+    }
 
 #### Node level analysis ####
 def node_level_analysis():
