@@ -102,6 +102,11 @@ def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
     behavioural_data = pd.read_excel(behavioural_data_fp)
     network_data = pd.read_csv(network_data_fp)
 
+    print("behavioural keys: ")
+    print(behavioural_data.keys())
+    print("Keys for network data")
+    print(network_data.keys())
+
     # Merge them into a long format. 
 
     long_combined = behavioural_data.merge(network_data, 
