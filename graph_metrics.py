@@ -6,6 +6,7 @@ import networkx as nx
 
 #### Graph level analysis ####
 def graph_level_metrics(graph):
+    print("Before Calculation")
     print(type(graph))
     print("Nodes:", graph.number_of_nodes())
     print("Edges:", graph.number_of_edges())
@@ -24,6 +25,13 @@ def graph_level_metrics(graph):
     else:
         largest_cc = max(nx.connected_components(graph), key=len)
         diam = nx.diameter(graph.subgraph(largest_cc))
+
+    density = nx.density(graph)
+
+    n = graph.number_of_nodes()
+    m = graph.number_of_edges()
+    print("after Calculation")
+    print("N:", n, "M:", m, "density:", density)
     
     
     return {
