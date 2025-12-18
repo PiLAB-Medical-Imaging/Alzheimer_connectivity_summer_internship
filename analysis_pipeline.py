@@ -98,6 +98,13 @@ def dict2DF(dictionary_version):
     return df_version
 
 
+def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
+    behavioural_data = pd.read_excel(behavioural_data_fp)
+    network_data = pd.read_csv(network_data)
+
+
+
+
 if __name__=="__main__":
     root_directory = sys.argv[1]
     patient_list_path = sys.argv[2]
@@ -109,5 +116,5 @@ if __name__=="__main__":
 
     excel_filename = os.path.join(root_directory, "network_data.csv")
 
-    reordered_version.to_csv(excel_filename)
+    reordered_version.to_csv(excel_filename, sep=";", decimal = ",")
 
