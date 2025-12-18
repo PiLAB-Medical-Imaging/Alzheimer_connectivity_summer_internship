@@ -117,6 +117,7 @@ def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
     return long_combined
 
 
+
 if __name__=="__main__":
     root_directory = sys.argv[1]
     patient_list_path = sys.argv[2]
@@ -134,5 +135,5 @@ if __name__=="__main__":
     long_version = compare_to_behavioural_data(patient_behavioural_data, excel_filename)
 
     long_save_name = os.path.join(root_directory, "long_form_combined.csv")
-
+    long_version.to_csv(long_save_name, sep=";", decimal = ",")
 
