@@ -162,7 +162,7 @@ def simple_plotting(long_data, network, network_metric):
             axes[0,idx].set_title(metric)
 
         y_pos = (len(NETWORK_TYPES) - i - 0.5) / len(NETWORK_TYPES)  # center on row
-        fig.text(0.04, y_pos, network_type, va='center', rotation='vertical', fontsize=14)
+        fig.text(0.01, y_pos, network_type, va='center', rotation='vertical', fontsize=20)
     
     for i in range(len(NETWORK_TYPES)):
         for j in range(len(CURRENT_METRICS)):
