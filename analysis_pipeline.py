@@ -9,7 +9,7 @@ import sys
 import matplotlib.pyplot as plt
 
 NETWORK_TYPES = ["structural", "functional", "combined"]
-CURRENT_METRICS = ["MMSE", "MEMORY_Composite", "LANGUAGE_composite", "EXECUTIVE_Composite", "VISUOSPATIAL_Composite", "GLOBAL_COGNITIVE_Composite"]
+CURRENT_METRICS = ["MMSE", "MEMORY_Composite", "LANGUAGE_Composite", "EXECUTIVE_Composite", "VISUOSPATIAL_Composite", "GLOBAL_COGNITIVE_Composite"]
 
 def retrieve_participant_data(root_direc, subj_id):
     """
@@ -162,4 +162,3 @@ if __name__=="__main__":
     fig.savefig(figure_savepath, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
-    
