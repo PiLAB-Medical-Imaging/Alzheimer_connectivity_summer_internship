@@ -37,7 +37,7 @@ def load_all_indices(definitions_filepath):
     # Auto-detect delimiter (handles tabs, semicolons, commas)
     df = pd.read_csv(definitions_filepath, sep="\\t", engine="python")
     print(df.columns)
-    df.columns = df.columns.str.strip()
+    df.columns = df.columns.str.strip('"')
 
     if "Network" not in df.columns:
         raise ValueError("Definitions file must contain a 'Network' column.")

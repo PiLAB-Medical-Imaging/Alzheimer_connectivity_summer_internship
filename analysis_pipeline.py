@@ -6,7 +6,10 @@ import pandas as pd
 import os
 import json
 import sys
+import matplotlib.pyplot as plt
 
+NETWORK_TYPES = ["structural", "functional", "combined"]
+CURRENT_METRICS = ["MMSE", "MEMORY_Composite", "LANGUAGE_composite", "EXECUTIVE_Composite", "VISUOSPATIAL_Composite", "GLOBAL_COGNITIVE_Composite"]
 
 def retrieve_participant_data(root_direc, subj_id):
     """
@@ -18,7 +21,7 @@ def retrieve_participant_data(root_direc, subj_id):
 
     :return participant_data: Dictionary containing network measures for the participant.
     """
-    network_types = ["structural", "functional", "combined"]
+    network_types = NETWORK_TYPES
 
     participant_data = {}
 
@@ -116,6 +119,22 @@ def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
 
     return long_combined
 
+def simple_plotting(long_data):
+    network_type = "structural"
+    network_metric ="m_connectivity"
+    network = "ecn"
+    data_subset = long_data.loc[ (long_data["type"]==network_type) & (long_data["network"]==network_metric)]
+    x_values = data_subset[network_metric]
+    fig, axes = plt.subplots(len(NETWORK_TYPES), len(CURRENT_METRICS), figsize=(16, 5))
+    for idx, metric in enumerate(CURRENT_METRICS):
+        axes[0,idx].plot(x_values, data_subset[metric])
+        axes[0, idx].set_title(f"{metric} against {network_metric}")
+    
+    plt.tight_layout()
+    plt.show()
+
+
+
 
 
 if __name__=="__main__":
@@ -137,3 +156,4 @@ if __name__=="__main__":
     long_save_name = os.path.join(root_directory, "long_form_combined.csv")
     long_version.to_csv(long_save_name, sep=";", decimal = ",")
 
+    simple_plotting(long_version)
