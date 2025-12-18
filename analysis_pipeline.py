@@ -167,10 +167,9 @@ def simple_plotting(long_data, network, network_metric):
     
     for i in range(len(NETWORK_TYPES)):
         for j in range(len(CURRENT_METRICS)):
-            if j > 0:  # remove y-axis from all but first column
-                axes[i, j].set_ylabel("")
-                axes[i, j].set_yticklabels([])
-                axes[i, j].tick_params(left=False)
+            axes[i, j].set_ylabel("")
+            axes[i, j].set_yticklabels([])
+            axes[i, j].tick_params(left=False)
 
     sns.despine()
     plt.tight_layout()
