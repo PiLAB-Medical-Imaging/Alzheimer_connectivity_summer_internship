@@ -155,7 +155,8 @@ def simple_plotting(long_data):
             y=metric,
             ax=axes[0, idx],
             s=60,
-            alpha=0.7
+            alpha=0.7,
+            hue = "Demented"
         )
 
         axes[0, idx].set_title(f"{metric} vs {network_metric}")
