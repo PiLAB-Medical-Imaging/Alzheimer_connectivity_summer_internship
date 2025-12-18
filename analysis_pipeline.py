@@ -153,13 +153,17 @@ def simple_plotting(long_data, network, network_metric):
                 s=60,
                 alpha=0.7,
                 hue = "Demented",
-                legend = False
+                legend = False, 
+                
             )
 
             axes[i, idx].set_title(f"{metric} vs {network_metric}")
             axes[i, idx].set_xlabel(network_metric)
-            axes[i, idx].set_ylabel(metric)
+            axes[i,idx].set_title(metric)
 
+        y_pos = (len(NETWORK_TYPES) - i - 0.5) / len(NETWORK_TYPES)  # center on row
+        fig.text(0.04, y_pos, network_type, va='center', rotation='vertical', fontsize=14)
+    
     sns.despine()
     plt.tight_layout()
 
