@@ -7,6 +7,7 @@ import os
 import json
 import sys
 import matplotlib.pyplot as plt
+import seaborn as sbs
 
 NETWORK_TYPES = ["structural", "functional", "combined"]
 CURRENT_METRICS = ["MMSE", "MEMORY_Composite", "LANGUAGE_Composite", "EXECUTIVE_Composite", "VISUOSPATIAL_Composite", "GLOBAL_COGNITIVE_Composite"]
@@ -119,24 +120,52 @@ def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
 
     return long_combined
 
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 def simple_plotting(long_data):
     network_type = "structural"
-    network_metric ="m_connectivity"
+    network_metric = "m_connectivity"
     network = "ecn"
-    data_subset = long_data.loc[ (long_data["type"]==network_type) & (long_data["network"]==network)]
-    x_values = data_subset[network_metric]
+
+    data_subset = long_data.loc[
+        (long_data["type"] == network_type) &
+        (long_data["network"] == network)
+    ]
 
     print("Debugging")
-    print(x_values)
+    print(data_subset[network_metric])
 
-    fig, axes = plt.subplots(len(NETWORK_TYPES), len(CURRENT_METRICS), figsize=(24, 7.5))
+    # Seaborn styling
+    sns.set_theme(style="whitegrid", context="talk")
+
+    fig, axes = plt.subplots(
+        len(NETWORK_TYPES),
+        len(CURRENT_METRICS),
+        figsize=(24, 7.5),
+        sharex=True
+    )
+
     for idx, metric in enumerate(CURRENT_METRICS):
-        y_values = data_subset[metric]
-        axes[0,idx].plot(x_values, y_values)
-        axes[0, idx].set_title(f"{metric} vs {network_metric}")
-    
-    return fig
+        print(data_subset[metric])
 
+        sns.scatterplot(
+            data=data_subset,
+            x=network_metric,
+            y=metric,
+            ax=axes[0, idx],
+            s=60,
+            alpha=0.7
+        )
+
+        axes[0, idx].set_title(f"{metric} vs {network_metric}")
+        axes[0, idx].set_xlabel(network_metric)
+        axes[0, idx].set_ylabel(metric)
+
+    sns.despine()
+    plt.tight_layout()
+
+    return fig
 
 
 
