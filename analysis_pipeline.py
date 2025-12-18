@@ -125,6 +125,13 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 def simple_plotting(long_data, network, network_metric):
+    """
+    This fucker sucks. Needs lots of work.
+    
+    :param long_data: Description
+    :param network: Description
+    :param network_metric: Description
+    """
     # Seaborn styling
     sns.set_theme(style="whitegrid", context="talk")
 
@@ -200,6 +207,7 @@ if __name__=="__main__":
     long_save_name = os.path.join(root_directory, "long_form_combined.csv")
     long_version.to_csv(long_save_name, sep=";", decimal = ",")
 
+    ########## Plotting Basic Relationships ################
     for network in DEFINED_NETWORKS:
         for metric in NETWORK_METRICS:
             fig, fig_name = simple_plotting(long_version, network, metric)
