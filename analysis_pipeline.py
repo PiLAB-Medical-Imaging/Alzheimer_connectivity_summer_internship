@@ -11,7 +11,7 @@ import seaborn as sbs
 
 NETWORK_TYPES = ["structural", "functional", "combined"]
 CURRENT_METRICS = ["MMSE", "MEMORY_Composite", "LANGUAGE_Composite", "EXECUTIVE_Composite", "VISUOSPATIAL_Composite", "GLOBAL_COGNITIVE_Composite"]
-
+NETWORK_METRICS = []
 def retrieve_participant_data(root_direc, subj_id):
     """
     Retrieves a single participants data from the file location specified as root_direc
@@ -131,7 +131,7 @@ def simple_plotting(long_data, network, network_metric):
         len(NETWORK_TYPES),
         len(CURRENT_METRICS),
         figsize=(30, 16),
-        sharex=True
+        sharex=False
     )
     for i, network_type in enumerate(NETWORK_TYPES):
 
@@ -159,7 +159,7 @@ def simple_plotting(long_data, network, network_metric):
 
             
             axes[i, idx].set_xlabel(network_metric)
-        axes[0,idx].set_title(metric)
+            axes[0,idx].set_title(metric)
 
         y_pos = (len(NETWORK_TYPES) - i - 0.5) / len(NETWORK_TYPES)  # center on row
         fig.text(0.04, y_pos, network_type, va='center', rotation='vertical', fontsize=14)
