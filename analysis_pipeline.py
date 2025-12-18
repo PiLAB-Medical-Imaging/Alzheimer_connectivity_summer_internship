@@ -130,8 +130,7 @@ def simple_plotting(long_data):
         axes[0,idx].plot(x_values, data_subset[metric])
         axes[0, idx].set_title(f"{metric} against {network_metric}")
     
-    plt.tight_layout()
-    plt.show()
+    return fig
 
 
 
@@ -156,4 +155,11 @@ if __name__=="__main__":
     long_save_name = os.path.join(root_directory, "long_form_combined.csv")
     long_version.to_csv(long_save_name, sep=";", decimal = ",")
 
-    simple_plotting(long_version)
+    fig = simple_plotting(long_version)
+    figure_savepath = os.path.join(root_directory, "figures")
+    os.makedirs(figure_savepath, exist_ok=True)
+    figure_savepath = os.path.join(figure_savepath, "simple_correlations.png")
+    fig.savefig(figure_savepath, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+    
