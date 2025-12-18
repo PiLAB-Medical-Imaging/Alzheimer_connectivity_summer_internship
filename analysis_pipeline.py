@@ -123,13 +123,7 @@ def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-def simple_plotting(long_data):
-    
-    network_type = "structural"
-    network_metric = "m_connectivity"
-    network = "ecn"
-
-
+def simple_plotting(long_data, network, network_metric):
     # Seaborn styling
     sns.set_theme(style="whitegrid", context="talk")
 
@@ -162,14 +156,16 @@ def simple_plotting(long_data):
                 legend = False
             )
 
-            axes[0, idx].set_title(f"{metric} vs {network_metric}")
-            axes[0, idx].set_xlabel(network_metric)
-            axes[0, idx].set_ylabel(metric)
+            axes[i, idx].set_title(f"{metric} vs {network_metric}")
+            axes[i, idx].set_xlabel(network_metric)
+            axes[i, idx].set_ylabel(metric)
 
     sns.despine()
     plt.tight_layout()
 
-    return fig
+    name = f"scatter_{network}_{network_metric}.png"
+
+    return fig, name
 
 
 
@@ -193,10 +189,10 @@ if __name__=="__main__":
     long_save_name = os.path.join(root_directory, "long_form_combined.csv")
     long_version.to_csv(long_save_name, sep=";", decimal = ",")
 
-    fig = simple_plotting(long_version)
+    fig, fig_name = simple_plotting(long_version, "ecn", "m_connectivity")
     figure_savepath = os.path.join(root_directory, "figures")
     os.makedirs(figure_savepath, exist_ok=True)
-    figure_savepath = os.path.join(figure_savepath, "simple_correlations.png")
+    figure_savepath = os.path.join(figure_savepath, fig_name)
     fig.savefig(figure_savepath, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
