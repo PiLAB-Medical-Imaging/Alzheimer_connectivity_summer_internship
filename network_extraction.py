@@ -35,7 +35,7 @@ def load_all_indices(definitions_filepath):
     """
 
     # Auto-detect delimiter (handles tabs, semicolons, commas)
-    df = pd.read_csv(definitions_filepath, sep=None, engine="python")
+    df = pd.read_csv(definitions_filepath, sep="\\t", engine="python")
     print(df.columns)
     df.columns = df.columns.str.strip()
 
