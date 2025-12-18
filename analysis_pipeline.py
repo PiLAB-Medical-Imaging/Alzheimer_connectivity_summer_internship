@@ -67,26 +67,32 @@ def dict2DF(dictionary_version):
     :param dictionary_version: Description
     """
 
-    # There is probably a way to refactor this nicely.
-    reordered_dict = {}
-    for idx, top_level_key in enumerate(dictionary_version.keys()):
+    data_list = []
+
+    for top_level_key in dictionary_version.keys():
         split_key = top_level_key.split("_")
         subj_num = split_key[1]
         session_num = split_key[2]
-        reordered_dict[idx] = {"subject_num":subj_num,
-                               "session":session_num}
 
+        
         for secondary_key in dictionary_version[top_level_key].keys():
             split_secondary_key = secondary_key.split("_")
             net_type = split_secondary_key[0]
             atlas = split_secondary_key[3]
             network = split_secondary_key[4]
 
-            for tertiary_key in dictionary_version[top_level_key][secondary_key].keys():
-                    new_label = f"{network}_{atlas}_{net_type}_{tertiary_key}"
-                    reordered_dict[idx][new_label] = dictionary_version[top_level_key][secondary_key][tertiary_key]
+            row = {"subj_id": subj_num,
+                   "session_num":session_num,
+                   "type": net_type,
+                   "atlas": atlas,
+                   "network":network}
+            
+            for tertiary_key in dictionary_version[top_level_key][secondary_key]:
+                row[tertiary_key] = dictionary_version[top_level_key][secondary_key][tertiary_key]
+        
+            data_list.append(row)
 
-    df_version = pd.DataFrame.from_dict(reordered_dict, orient="index")
+    df_version = pd.DataFrame.from_dict(data_list)
     print(df_version.filter(like="density").dtypes)
 
     return df_version
