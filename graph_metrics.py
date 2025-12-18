@@ -6,6 +6,13 @@ import networkx as nx
 
 #### Graph level analysis ####
 def graph_level_metrics(graph):
+    print(type(graph))
+    print("Nodes:", graph.number_of_nodes())
+    print("Edges:", graph.number_of_edges())
+    print("Density:", nx.density(graph))
+
+    n_isolates = len(list(nx.isolates(graph)))
+
     graph.remove_nodes_from(list(nx.isolates(graph)))
 
     avg_node_connectivity = nx.average_node_connectivity(graph)
@@ -18,8 +25,7 @@ def graph_level_metrics(graph):
         largest_cc = max(nx.connected_components(graph), key=len)
         diam = nx.diameter(graph.subgraph(largest_cc))
     
-    n_isolates = len(list(nx.isolates(graph)))
-
+    
     return {
         "m_connectivity": avg_node_connectivity,
         "density": density,
