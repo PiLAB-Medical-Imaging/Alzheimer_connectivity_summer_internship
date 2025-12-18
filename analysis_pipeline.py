@@ -72,7 +72,7 @@ def dict2DF(dictionary_version):
     for top_level_key in dictionary_version.keys():
         split_key = top_level_key.split("_")
         subj_num = split_key[1]
-        session_num = split_key[2]
+        session_num = split_key[2].split("-")[1]
 
         
         for secondary_key in dictionary_version[top_level_key].keys():
@@ -100,14 +100,22 @@ def dict2DF(dictionary_version):
 
 def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
     behavioural_data = pd.read_excel(behavioural_data_fp)
-    network_data = pd.read_csv(network_data)
+    network_data = pd.read_csv(network_data_fp)
 
+    # Merge them into a long format. 
 
+    long_combined = behavioural_data.merge(network_data, 
+                                           how="outer",
+                                           left_on=["ID", "Visit_number"], 
+                                           right_on=["subj_id", "session_num"])
+
+    return long_combined
 
 
 if __name__=="__main__":
     root_directory = sys.argv[1]
     patient_list_path = sys.argv[2]
+    patient_behavioural_data = sys.argv[3]
 
     bulk_data = build_dataset(root_directory, patient_list_path)
 
@@ -117,4 +125,9 @@ if __name__=="__main__":
     excel_filename = os.path.join(root_directory, "network_data.csv")
 
     reordered_version.to_csv(excel_filename, sep=";", decimal = ",")
+
+    long_version = compare_to_behavioural_data(patient_behavioural_data, excel_filename)
+
+    long_save_name = os.path.join(root_directory, "long_form_combined.csv")
+
 
