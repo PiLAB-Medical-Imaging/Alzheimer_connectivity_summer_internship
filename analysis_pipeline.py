@@ -100,7 +100,7 @@ def dict2DF(dictionary_version):
 
 def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
     behavioural_data = pd.read_excel(behavioural_data_fp)
-    network_data = pd.read_csv(network_data_fp)
+    network_data = pd.read_csv(network_data_fp, sep=";")
 
     print("behavioural keys: ")
     print(behavioural_data.keys())
