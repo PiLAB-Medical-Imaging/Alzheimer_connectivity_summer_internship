@@ -11,7 +11,8 @@ import seaborn as sbs
 
 NETWORK_TYPES = ["structural", "functional", "combined"]
 CURRENT_METRICS = ["MMSE", "MEMORY_Composite", "LANGUAGE_Composite", "EXECUTIVE_Composite", "VISUOSPATIAL_Composite", "GLOBAL_COGNITIVE_Composite"]
-NETWORK_METRICS = []
+NETWORK_METRICS = ["m_connectivity", "density", "diameter", "global_clustering", "isolates"]
+DEFINED_NETWORKS = ["ecn", "salience", "dmn-basic", "dmn-ext"]
 def retrieve_participant_data(root_direc, subj_id):
     """
     Retrieves a single participants data from the file location specified as root_direc
@@ -200,10 +201,12 @@ if __name__=="__main__":
     long_save_name = os.path.join(root_directory, "long_form_combined.csv")
     long_version.to_csv(long_save_name, sep=";", decimal = ",")
 
-    fig, fig_name = simple_plotting(long_version, "ecn", "m_connectivity")
-    figure_savepath = os.path.join(root_directory, "figures")
-    os.makedirs(figure_savepath, exist_ok=True)
-    figure_savepath = os.path.join(figure_savepath, fig_name)
-    fig.savefig(figure_savepath, dpi=300, bbox_inches="tight")
-    plt.close(fig)
+    for network in DEFINED_NETWORKS:
+        for metric in NETWORK_METRICS:
+            fig, fig_name = simple_plotting(long_version, network, metric)
+            figure_savepath = os.path.join(root_directory, "figures")
+            os.makedirs(figure_savepath, exist_ok=True)
+            figure_savepath = os.path.join(figure_savepath, fig_name)
+            fig.savefig(figure_savepath, dpi=300, bbox_inches="tight")
+            plt.close(fig)
 
