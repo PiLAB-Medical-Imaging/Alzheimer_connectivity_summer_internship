@@ -124,17 +124,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 def simple_plotting(long_data):
+    
     network_type = "structural"
     network_metric = "m_connectivity"
     network = "ecn"
 
-    data_subset = long_data.loc[
-        (long_data["type"] == network_type) &
-        (long_data["network"] == network)
-    ]
-
-    print("Debugging")
-    print(data_subset[network_metric])
 
     # Seaborn styling
     sns.set_theme(style="whitegrid", context="talk")
@@ -142,26 +136,35 @@ def simple_plotting(long_data):
     fig, axes = plt.subplots(
         len(NETWORK_TYPES),
         len(CURRENT_METRICS),
-        figsize=(24, 7.5),
+        figsize=(30, 16),
         sharex=True
     )
+    for i, network_type in enumerate(NETWORK_TYPES):
 
-    for idx, metric in enumerate(CURRENT_METRICS):
-        print(data_subset[metric])
+        data_subset = long_data.loc[
+        (long_data["type"] == network_type) &
+        (long_data["network"] == network)
+        ]
+        print("Debugging")
+        print(data_subset[network_metric])
 
-        sns.scatterplot(
-            data=data_subset,
-            x=network_metric,
-            y=metric,
-            ax=axes[0, idx],
-            s=60,
-            alpha=0.7,
-            hue = "Demented"
-        )
+        for idx, metric in enumerate(CURRENT_METRICS):
+            print(data_subset[metric])
 
-        axes[0, idx].set_title(f"{metric} vs {network_metric}")
-        axes[0, idx].set_xlabel(network_metric)
-        axes[0, idx].set_ylabel(metric)
+            sns.scatterplot(
+                data=data_subset,
+                x=network_metric,
+                y=metric,
+                ax=axes[i, idx],
+                s=60,
+                alpha=0.7,
+                hue = "Demented",
+                legend = False
+            )
+
+            axes[0, idx].set_title(f"{metric} vs {network_metric}")
+            axes[0, idx].set_xlabel(network_metric)
+            axes[0, idx].set_ylabel(metric)
 
     sns.despine()
     plt.tight_layout()
