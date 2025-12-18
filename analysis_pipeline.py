@@ -87,13 +87,15 @@ def dict2DF(dictionary_version):
                     reordered_dict[idx][new_label] = dictionary_version[top_level_key][secondary_key][tertiary_key]
 
     df_version = pd.DataFrame.from_dict(reordered_dict, orient="index")
-    return df_version
+    print(df_version.filter(like="density").dtypes)
 
+    return df_version
 
 
 if __name__=="__main__":
     root_directory = sys.argv[1]
     patient_list_path = sys.argv[2]
+
     bulk_data = build_dataset(root_directory, patient_list_path)
 
     # Convert to a nicely arranged data frame
