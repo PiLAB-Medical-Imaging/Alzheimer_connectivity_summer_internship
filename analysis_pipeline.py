@@ -125,10 +125,10 @@ def simple_plotting(long_data):
     network = "ecn"
     data_subset = long_data.loc[ (long_data["type"]==network_type) & (long_data["network"]==network_metric)]
     x_values = data_subset[network_metric]
-    fig, axes = plt.subplots(len(NETWORK_TYPES), len(CURRENT_METRICS), figsize=(16, 5))
+    fig, axes = plt.subplots(len(NETWORK_TYPES), len(CURRENT_METRICS), figsize=(24, 7.5))
     for idx, metric in enumerate(CURRENT_METRICS):
         axes[0,idx].plot(x_values, data_subset[metric])
-        axes[0, idx].set_title(f"{metric} against {network_metric}")
+        axes[0, idx].set_title(f"{metric} vs {network_metric}")
     
     return fig
 
