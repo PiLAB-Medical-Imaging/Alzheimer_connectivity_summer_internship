@@ -164,6 +164,13 @@ def simple_plotting(long_data, network, network_metric):
         y_pos = (len(NETWORK_TYPES) - i - 0.5) / len(NETWORK_TYPES)  # center on row
         fig.text(0.04, y_pos, network_type, va='center', rotation='vertical', fontsize=14)
     
+    for i in range(len(NETWORK_TYPES)):
+        for j in range(len(CURRENT_METRICS)):
+            if j > 0:  # remove y-axis from all but first column
+                axes[i, j].set_ylabel("")
+                axes[i, j].set_yticklabels([])
+                axes[i, j].tick_params(left=False)
+
     sns.despine()
     plt.tight_layout()
 
