@@ -157,9 +157,9 @@ def simple_plotting(long_data, network, network_metric):
                 
             )
 
-            axes[i, idx].set_title(f"{metric} vs {network_metric}")
+            
             axes[i, idx].set_xlabel(network_metric)
-            axes[i,idx].set_title(metric)
+        axes[0,idx].set_title(metric)
 
         y_pos = (len(NETWORK_TYPES) - i - 0.5) / len(NETWORK_TYPES)  # center on row
         fig.text(0.04, y_pos, network_type, va='center', rotation='vertical', fontsize=14)
