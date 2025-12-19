@@ -14,6 +14,7 @@ def load_dataset(filepath):
 
 def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_path, label_path, definitions_filepath):
     # Create the out_path if it doesnt already exist
+    out_path = os.path.join(out_path, "analyses")
     os.makedirs(out_path, exist_ok=True)
     out_path = os.path.join(out_path, f"{subj_id}")
     os.makedirs(out_path, exist_ok=True)
