@@ -33,7 +33,7 @@ def load_all_indices(definitions_filepath):
             }
         }
     """
-
+    print("Sanity check: Printing the columns here::::\n\n\n")
     # Auto-detect delimiter (handles tabs, semicolons, commas)
     df = pd.read_csv(definitions_filepath, sep="\\t", engine="python")
     print(df.columns)
