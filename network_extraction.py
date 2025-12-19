@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import os
 
 
-NETWORKS = ["dmn_basic", "dmn_ext", "salience", "ecn"]
+NETWORKS = ["dmn-basic", "dmn-ext", "salience", "ecn"]
 
 
 def load_all_indices(definitions_filepath):
