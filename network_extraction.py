@@ -45,7 +45,7 @@ def load_all_indices(definitions_filepath):
     atlas_columns = [col for col in df.columns if col.lower() != "network"]
 
     # Clean network names (strip whitespace)
-    df["Network"] = df["Network"].str.strip(['"', ' '])
+    df["Network"] = df["Network"].str.strip('"')
 
     # Build output structure
     all_networks = {}
@@ -83,7 +83,11 @@ def define_network(connectivity_matrix_filepath, subject_atlas_path, definitions
     network_mappings = load_all_indices(definitions_filepath)
 
     # Define network indices
-    target_indices = network_mappings[network_name][atlas_name]
+    try:
+        target_indices = network_mappings[network_name][atlas_name]
+    except KeyError:
+        print(f"Failure on {network_name}: The dictionary has {network_mappings.keys()} available.")
+        raise KeyError
 
     # Mask for required indices
     target_mask = np.zeros_like(atlas)
