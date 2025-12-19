@@ -53,6 +53,7 @@ def load_all_indices(definitions_filepath):
 
     for _, row in df.iterrows():
         network_name = row["Network"]
+        print(network_name)
         all_networks[network_name] = {}
 
         for atlas in atlas_columns:
