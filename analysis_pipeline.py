@@ -185,35 +185,55 @@ def simple_plotting(long_data, network, network_metric):
 
     return fig, name
 
+def plot_diagnosis_network_characteristics(data_long):
+    # Transform the data so it is even longer. 
+
+    print(data_long.duplicated(subset=["subj_id", "session_num", "type", "network"]))
+    data_minus_empty = data_long.dropna(subset=["subj_id", "session_num", "type", "network"])
+    print(data_minus_empty.duplicated(subset=["subj_id", "session_num", "type", "network"]))
+    longer_data = pd.wide_to_long(data_minus_empty, ["MEM_DISORD", "LANG_DISORD", "EXE_DISORD", "VS_DISORD"], ["subj_id", "session_num", "type", "network"], "diagnosis")
+
+    # Start by comparing the network properties of mem_disorder vs no mem_disorder
+    sbs.violinplot(data_long, x = "VS_DISORDER", y="m_connectivity")
+    plt.show()
 
 
+def run_tests():
+    patient_data = "/Users/sam/Desktop/long_form_combined.csv"
+    data_long = pd.read_csv(patient_data, sep=";", decimal=",")
+
+    plot_diagnosis_network_characteristics(data_long)
+
+TESTING = True
 
 if __name__=="__main__":
-    root_directory = sys.argv[1]
-    patient_list_path = sys.argv[2]
-    patient_behavioural_data = sys.argv[3]
+    if not TESTING:
+        root_directory = sys.argv[1]
+        patient_list_path = sys.argv[2]
+        patient_behavioural_data = sys.argv[3]
 
-    bulk_data = build_dataset(root_directory, patient_list_path)
+        bulk_data = build_dataset(root_directory, patient_list_path)
 
-    # Convert to a nicely arranged data frame
-    reordered_version = dict2DF(bulk_data)
+        # Convert to a nicely arranged data frame
+        reordered_version = dict2DF(bulk_data)
 
-    excel_filename = os.path.join(root_directory, "network_data.csv")
+        excel_filename = os.path.join(root_directory, "network_data.csv")
 
-    reordered_version.to_csv(excel_filename, sep=";", decimal = ",")
+        reordered_version.to_csv(excel_filename, sep=";", decimal = ",")
 
-    long_version = compare_to_behavioural_data(patient_behavioural_data, excel_filename)
+        long_version = compare_to_behavioural_data(patient_behavioural_data, excel_filename)
 
-    long_save_name = os.path.join(root_directory, "long_form_combined.csv")
-    long_version.to_csv(long_save_name, sep=";", decimal = ",")
+        long_save_name = os.path.join(root_directory, "long_form_combined.csv")
+        long_version.to_csv(long_save_name, sep=";", decimal = ",")
 
-    ########## Plotting Basic Relationships ################
-    for network in DEFINED_NETWORKS:
-        for metric in NETWORK_METRICS:
-            fig, fig_name = simple_plotting(long_version, network, metric)
-            figure_savepath = os.path.join(root_directory, "figures")
-            os.makedirs(figure_savepath, exist_ok=True)
-            figure_savepath = os.path.join(figure_savepath, fig_name)
-            fig.savefig(figure_savepath, dpi=300, bbox_inches="tight")
-            plt.close(fig)
-
+        ########## Plotting Basic Relationships ################
+        for network in DEFINED_NETWORKS:
+            for metric in NETWORK_METRICS:
+                fig, fig_name = simple_plotting(long_version, network, metric)
+                figure_savepath = os.path.join(root_directory, "figures")
+                os.makedirs(figure_savepath, exist_ok=True)
+                figure_savepath = os.path.join(figure_savepath, fig_name)
+                fig.savefig(figure_savepath, dpi=300, bbox_inches="tight")
+                plt.close(fig)
+    else:
+        run_tests()
