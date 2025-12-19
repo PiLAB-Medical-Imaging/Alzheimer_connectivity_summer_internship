@@ -33,7 +33,6 @@ def load_all_indices(definitions_filepath):
             }
         }
     """
-    print("Sanity check: Printing the columns here::::\n\n\n")
     # Auto-detect delimiter (handles tabs, semicolons, commas)
     df = pd.read_csv(definitions_filepath, sep="\\t", engine="python")
     print(df.columns)
@@ -46,7 +45,7 @@ def load_all_indices(definitions_filepath):
     atlas_columns = [col for col in df.columns if col.lower() != "network"]
 
     # Clean network names (strip whitespace)
-    df["Network"] = df["Network"].str.strip()
+    df["Network"] = df["Network"].str.strip(['"', ' '])
 
     # Build output structure
     all_networks = {}
