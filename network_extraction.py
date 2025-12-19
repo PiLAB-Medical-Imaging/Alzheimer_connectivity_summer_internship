@@ -80,6 +80,7 @@ def define_network(connectivity_matrix_filepath, subject_atlas_path, definitions
     atlas = atlas_img.get_fdata().astype(float)
 
     # Load all network to brain network mappings
+    print(f"Loading all indices for {network_name}")
     network_mappings = load_all_indices(definitions_filepath)
 
     # Define network indices
@@ -105,6 +106,7 @@ def network_extraction(subj_connectivity_folder, matrix_filepath, subj_id, defin
     return_networks = {}
 
     for network in NETWORKS:
+        print(network)
         selected_network = define_network(matrix_filepath,atlas_filepath,definitions_filepath, atlas, network)
         return_networks[f"{atlas}_{network}_{subj_id}"] = selected_network
 
