@@ -8,6 +8,7 @@ import json
 import sys
 import matplotlib.pyplot as plt
 import seaborn as sbs
+import chardet
 
 NETWORK_TYPES = ["structural", "functional", "combined"]
 CURRENT_METRICS = ["MMSE", "MEMORY_Composite", "LANGUAGE_Composite", "EXECUTIVE_Composite", "VISUOSPATIAL_Composite", "GLOBAL_COGNITIVE_Composite"]
@@ -104,7 +105,15 @@ def dict2DF(dictionary_version):
 
 
 def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
+<<<<<<< HEAD
     behavioural_data = pd.read_csv(behavioural_data_fp, decimal=",")
+=======
+
+    with open(behavioural_data_fp, "rb") as f:
+        result = chardet.detect(f.read())
+
+    behavioural_data = pd.read_csv(behavioural_data_fp, decimal=",", encoding=result["encoding"])
+>>>>>>> d42e560 (tweaking csv loading to make compatible with full dataset)
     network_data = pd.read_csv(network_data_fp, sep=";", decimal=",")
 
     print("behavioural keys: ")
@@ -192,6 +201,9 @@ def plot_diagnosis_network_characteristics(data_long):
     data_minus_empty = data_long.dropna(subset=["subj_id", "session_num", "type", "network"])
     print(data_minus_empty.duplicated(subset=["subj_id", "session_num", "type", "network"]))
     longer_data = pd.wide_to_long(data_minus_empty, ["MEM_DISORD", "LANG_DISORD", "EXE_DISORD", "VS_DISORD"], ["subj_id", "session_num", "type", "network"], "diagnosis")
+    g = sbs.FacetGrid(longer_data, col = "network", hue="diagnosis")
+    g.map(sns.histplot, NETWORK_METRICS)
+    g.add_legend()
 
     # Start by comparing the network properties of mem_disorder vs no mem_disorder
     sbs.violinplot(data_long, x = "VS_DISORDER", y="m_connectivity")
@@ -204,7 +216,7 @@ def run_tests():
 
     plot_diagnosis_network_characteristics(data_long)
 
-TESTING = True
+TESTING = False
 
 if __name__=="__main__":
     if not TESTING:
