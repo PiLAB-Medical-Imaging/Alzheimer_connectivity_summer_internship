@@ -105,15 +105,10 @@ def dict2DF(dictionary_version):
 
 
 def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
-<<<<<<< HEAD
-    behavioural_data = pd.read_csv(behavioural_data_fp, decimal=",")
-=======
-
     with open(behavioural_data_fp, "rb") as f:
         result = chardet.detect(f.read())
 
     behavioural_data = pd.read_csv(behavioural_data_fp, decimal=",", encoding=result["encoding"])
->>>>>>> d42e560 (tweaking csv loading to make compatible with full dataset)
     network_data = pd.read_csv(network_data_fp, sep=";", decimal=",")
 
     print("behavioural keys: ")
