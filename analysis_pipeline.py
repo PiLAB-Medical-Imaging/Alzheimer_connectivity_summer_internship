@@ -9,6 +9,7 @@ import sys
 import matplotlib.pyplot as plt
 import seaborn as sbs
 import chardet
+import itertools
 
 NETWORK_TYPES = ["structural", "functional", "combined"]
 CURRENT_METRICS = ["MMSE", "MEMORY_Composite", "LANGUAGE_Composite", "EXECUTIVE_Composite", "VISUOSPATIAL_Composite", "GLOBAL_COGNITIVE_Composite"]
@@ -207,7 +208,7 @@ def plot_diagnosis_network_characteristics(data_long, metric_of_interest, networ
     data_minus_empty = data_long.dropna(subset=["subj_id", "session_num", "type", "network"])
     print(data_minus_empty.duplicated(subset=["subj_id", "session_num", "type", "network"]))
     data_minus_duplicates = data_long.drop_duplicates(subset=["subj_id", "session_num", "type", "network"])
-
+    name = metric_of_interest+network_type
     df_long = data_minus_duplicates.melt(
         id_vars=["subj_id", "network", "type", metric_of_interest],
         value_vars=["MEM_DISORDER","LANG_DISORDER","EXE_DISORDER","VS_DISORDER"],
@@ -231,7 +232,8 @@ def plot_diagnosis_network_characteristics(data_long, metric_of_interest, networ
     )
 
     g.add_legend(title="Diagnosis present")
-    plt.show()
+    #plt.show()
+    return g, name
 
     
 
@@ -273,5 +275,11 @@ if __name__=="__main__":
                 figure_savepath = os.path.join(figure_savepath, fig_name)
                 fig.savefig(figure_savepath, dpi=300, bbox_inches="tight")
                 plt.close(fig)
+
+        for metric in CURRENT_METRICS:
+            for network_type in NETWORK_TYPES:
+                g, g_name = plot_diagnosis_network_characteristics(long_version, metric, )
+                figure_savepath = os.path.join(root_directory, "figures", f"netw-properties_{g_name}")
+                g.savefig(figure_savepath, dpi = 300, bbox_inces = "tight")
     else:
         run_tests()
