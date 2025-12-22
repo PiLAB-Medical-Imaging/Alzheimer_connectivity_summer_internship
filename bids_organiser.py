@@ -89,7 +89,7 @@ def meta_data_creator(destination_folder, meta_data_path):
 
 
 
-def bids_organise(data_folder, destination_folder, data_type, study_name, task="rest", stop_on_failure = True):
+def bids_organise(data_folder, destination_folder, data_type, study_name, task="rest", stop_on_failure = False):
 
     """
     Converts a single folder of scan data into a BIDs organised directory. Currently only works in 
