@@ -178,6 +178,7 @@ if __name__ == "__main__":
         study_name = sys.argv[4]
         metadata_location = sys.argv[5]
         bids_organise(data_file_path, destination_file_path, data_type, study_name)
+        destination_file_path = os.path.join(destination_file_path, study_name)
         meta_data_creator(destination_file_path, metadata_location)
     except IndexError:
         print(IndexError)
