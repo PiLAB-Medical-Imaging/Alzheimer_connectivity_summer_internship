@@ -48,10 +48,10 @@ def extract_session_number(filename):
 def extract_participant_number(filename):
     m = re.search(r"(?:sub-)?TAU[_-]?(\d+)", filename, re.IGNORECASE)
     if m:
-        if len(m) == 1:
-            m = "00" + m
-        if len(m) == 2:
-            m = "0" + m
+        if len(m.group(1)) == 1:
+             return "00" + m
+        if len(m.group(1)) == 2:
+            return "0" + m
         return m.group(1)
     return None
 
