@@ -105,7 +105,7 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
     os.makedirs(destination_folder, exist_ok=True)
     os.makedirs(destination_folder + "/derivatives", exist_ok=True)
    
-    os.makedirs(destination_folder)
+    os.makedirs(destination_folder, exist_ok=True)
 
     for filename in os.listdir(data_folder):
 
