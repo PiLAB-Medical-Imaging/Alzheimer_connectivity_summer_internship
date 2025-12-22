@@ -14,6 +14,8 @@ NETWORK_TYPES = ["structural", "functional", "combined"]
 CURRENT_METRICS = ["MMSE", "MEMORY_Composite", "LANGUAGE_Composite", "EXECUTIVE_Composite", "VISUOSPATIAL_Composite", "GLOBAL_COGNITIVE_Composite"]
 NETWORK_METRICS = ["m_connectivity", "density", "diameter", "global_clustering", "isolates"]
 DEFINED_NETWORKS = ["ecn", "salience", "dmn-basic", "dmn-ext"]
+
+
 def retrieve_participant_data(root_direc, subj_id):
     """
     Retrieves a single participants data from the file location specified as root_direc
@@ -105,10 +107,11 @@ def dict2DF(dictionary_version):
 
 
 def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
+
     with open(behavioural_data_fp, "rb") as f:
         result = chardet.detect(f.read())
 
-    behavioural_data = pd.read_csv(behavioural_data_fp, decimal=",", encoding=result["encoding"])
+    behavioural_data = pd.read_csv(behavioural_data_fp,sep=";", decimal=",", encoding="latin-1")
     network_data = pd.read_csv(network_data_fp, sep=";", decimal=",")
 
     print("behavioural keys: ")
@@ -189,29 +192,57 @@ def simple_plotting(long_data, network, network_metric):
 
     return fig, name
 
-def plot_diagnosis_network_characteristics(data_long):
-    # Transform the data so it is even longer. 
 
+
+
+def plot_diagnosis_network_characteristics(data_long, metric_of_interest, network_type):
+    """
+    Generates Distribution plots for each diagnosis a disorder. Does not compare demented vs non-demented. This works. Could be refined visually. 
+    
+    :param data_long: Long data. 
+    """
+
+    # Note these lines are just for testing on my data - the real thing will need to handle the exceptions. 
     print(data_long.duplicated(subset=["subj_id", "session_num", "type", "network"]))
     data_minus_empty = data_long.dropna(subset=["subj_id", "session_num", "type", "network"])
     print(data_minus_empty.duplicated(subset=["subj_id", "session_num", "type", "network"]))
-    longer_data = pd.wide_to_long(data_minus_empty, ["MEM_DISORD", "LANG_DISORD", "EXE_DISORD", "VS_DISORD"], ["subj_id", "session_num", "type", "network"], "diagnosis")
-    g = sbs.FacetGrid(longer_data, col = "network", hue="diagnosis")
-    g.map(sns.histplot, NETWORK_METRICS)
-    g.add_legend()
+    data_minus_duplicates = data_long.drop_duplicates(subset=["subj_id", "session_num", "type", "network"])
 
-    # Start by comparing the network properties of mem_disorder vs no mem_disorder
-    sbs.violinplot(data_long, x = "VS_DISORDER", y="m_connectivity")
+    df_long = data_minus_duplicates.melt(
+        id_vars=["subj_id", "network", "type", metric_of_interest],
+        value_vars=["MEM_DISORDER","LANG_DISORDER","EXE_DISORDER","VS_DISORDER"],
+        var_name="diagnosis",
+        value_name="has_diagnosis"
+        )
+
+    g = sns.FacetGrid(
+        df_long[df_long["type"] == network_type],
+        col="diagnosis",
+        row="network",
+        hue="has_diagnosis",
+        height=3,
+        aspect=1.2
+        )
+
+    g.map_dataframe(
+        sns.kdeplot,
+        x=metric_of_interest,
+        common_norm=False
+    )
+
+    g.add_legend(title="Diagnosis present")
     plt.show()
+
+    
 
 
 def run_tests():
     patient_data = "/Users/sam/Desktop/long_form_combined.csv"
     data_long = pd.read_csv(patient_data, sep=";", decimal=",")
 
-    plot_diagnosis_network_characteristics(data_long)
+    plot_diagnosis_network_characteristics(data_long, "density", "structural")
 
-TESTING = False
+TESTING = True
 
 if __name__=="__main__":
     if not TESTING:
