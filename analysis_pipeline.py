@@ -242,7 +242,7 @@ def run_tests():
 
     plot_diagnosis_network_characteristics(data_long, "density", "structural")
 
-TESTING = True
+TESTING = False
 
 if __name__=="__main__":
     if not TESTING:
