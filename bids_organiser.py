@@ -49,9 +49,9 @@ def extract_participant_number(filename):
     m = re.search(r"(?:sub-)?TAU[_-]?(\d+)", filename, re.IGNORECASE)
     if m:
         if len(m.group(1)) == 1:
-             return "00" + m
+             return "00" + m.group(1)
         if len(m.group(1)) == 2:
-            return "0" + m
+            return "0" + m.group(1)
         return m.group(1)
     return None
 
