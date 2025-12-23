@@ -211,7 +211,7 @@ def report_mismatches(target_directory):
     missing_dict = {}
     for directory in os.listdir(target_directory):
         print(f"Exploring {directory}")
-        if not os.path.isdir(target_directory + f"/{directory}"):
+        if os.path.isdir(target_directory + f"/{directory}"):
             for sub_directory in os.listdir(os.path.join(target_directory, directory)):
                 print(f"Exploring {directory}/{sub_directory}")
                 types =  os.listdir(os.path.join(target_directory, directory, sub_directory))
