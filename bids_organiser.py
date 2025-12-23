@@ -108,14 +108,18 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
     os.makedirs(destination_folder, exist_ok=True)
 
     print(f"Processing: {destination_folder}\n")
+    session_set = set()
 
+    count = 0
     for filename in os.listdir(data_folder):
-
+        count = count + 1
         subject_num = extract_participant_number(filename)
         session_num = extract_session_number(filename)
 
+        session_set.add(session_num)
+
         # Verbose Logging
-        print(f"Filename: {filename}")
+        print(f"({count})Filename: {filename}")
         print(f"Subject: {subject_num}")
         print(f"Session: {session_num}")
 
@@ -169,6 +173,7 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
         print(f"Attempting to save to: {destination}")
 
         if os.path.exists(destination):
+            print("Already exists at location\n")
             continue
 
         try:
@@ -184,6 +189,11 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
         
         print("Successfully saved!\n")
     
+    print("The values of session number are: ")
+    for value in session_set:
+        print(value)
+
+    print()
 
 
 if __name__ == "__main__":
