@@ -210,10 +210,11 @@ if __name__ == "__main__":
     try:
         data_file_path = sys.argv[1]
         destination_file_path = sys.argv[2]
-        data_type = sys.argv[3]
+        anat_filepath = sys.argv[3]
         study_name = sys.argv[4]
         metadata_location = sys.argv[5]
-        bids_organise(data_file_path, destination_file_path, data_type, study_name)
+        bids_organise(data_file_path, destination_file_path, "fMRI", study_name)
+        bids_organise(anat_filepath, destination_file_path, "anat", study_name)
         destination_file_path = os.path.join(destination_file_path, study_name)
         meta_data_creator(destination_file_path, metadata_location)
     except IndexError:
