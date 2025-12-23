@@ -107,10 +107,18 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
    
     os.makedirs(destination_folder, exist_ok=True)
 
+    print(f"Processing: {destination_folder}\n")
+
     for filename in os.listdir(data_folder):
 
         subject_num = extract_participant_number(filename)
         session_num = extract_session_number(filename)
+
+        # Verbose Logging
+        print(f"Filename: {filename}")
+        print(f"Subject: {subject_num}")
+        print(f"Session: {session_num}")
+
 
 
         extension = get_file_extension(filename)
@@ -128,7 +136,9 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
                 raise Exception
             else:
                 continue
-        
+                
+        print(f"Scan type: {func_or_anat}")
+
         # Build the filepath
         try:
             subject_identifier = "TAU" + subject_num
@@ -143,15 +153,20 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
         
         session_path = subject_path + "/" +"ses-" + session_num 
         os.makedirs(session_path, exist_ok=True)
+
         
         type_path = session_path + "/" + func_or_anat
         os.makedirs(type_path, exist_ok=True)
+
+
 
         if func_or_anat == "func":        
             new_name = "sub-" + subject_identifier + "_ses-" + session_num + "_task-" + task + "_" + scan_type + extension
         elif func_or_anat == "anat":
             new_name = "sub-" + subject_identifier + "_ses-" + session_num + "_" + scan_type + extension
         destination = type_path + "/" + new_name 
+        
+        print(f"Attempting to save to: {destination}")
 
         if os.path.exists(destination):
             continue
@@ -166,7 +181,8 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
                 raise Exception
             else:
                 continue
-
+        
+        print("Successfully saved!\n")
     
 
 
