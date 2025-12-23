@@ -118,13 +118,6 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
         count = count + 1
         subject_num = extract_participant_number(filename)
 
-        if subject_num is None:
-            raise Exception(f"Subject number is None:\n Filename: {filename}\n participant number: {subject_num}")
-        if len(subject_num)!=3:
-            raise Exception(f"The participant number is not correctly formatted: \n Filename: {filename}\n participant number: {subject_num}")
-
-
-
         session_num = extract_session_number(filename)
         session_num = process_session_num(session_num)
 
@@ -153,7 +146,9 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
                 raise Exception
             else:
                 continue
-                
+        
+        if len(subject_num)!=3:
+            raise Exception(f"The participant number is not correctly formatted: \n Filename: {filename}\n participant number: {subject_num}")
         print(f"Scan type: {func_or_anat}")
 
         # Build the filepath
@@ -201,6 +196,8 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
                 continue
         
         print("Successfully saved!\n")
+
+
     
     print("The values of session number are: ")
     for value in session_set:
