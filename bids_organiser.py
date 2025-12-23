@@ -18,7 +18,7 @@ def get_file_extension(filename):
         else:
             return 
     except Exception as e:
-        print(f"Errpr occured in the get file extension function: {e}")
+        print(f"Error occured in the get file extension function: {e}")
         
 
 def extract_session_number(filename):
@@ -61,8 +61,10 @@ def process_session_num(session_number):
     
     :param session_number: The session number as a string
     """
-    if int(session_number) == 5:
+    if session_number == "05":
         return "0-5"
+    elif session_number == "15":
+        return "1-5"
     else:
         return session_number
     
@@ -115,6 +117,8 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
         count = count + 1
         subject_num = extract_participant_number(filename)
         session_num = extract_session_number(filename)
+        session_num = process_session_num(session_num)
+        
 
         session_set.add(session_num)
 
