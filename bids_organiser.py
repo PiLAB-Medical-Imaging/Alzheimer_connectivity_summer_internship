@@ -2,10 +2,12 @@ import os
 import shutil
 import re
 import sys
+import json
 
 
 ANATOMICAL_SCAN_TYPE = "T1w"
 METADATA_FILES  = ["dataset_description.json", "participants.json", "participants.tsv", "README.md"]
+TYPES = ["anat", "func"]
 
 def get_file_extension(filename):
     filename_parts = filename.split(".")
@@ -110,7 +112,7 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
    
     os.makedirs(destination_folder, exist_ok=True)
 
-    print(f"Processing: {destination_folder}\n")
+    print(f"Processing: {data_folder}\n")
     session_set = set()
 
     count = 0
@@ -205,6 +207,24 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
 
     print()
 
+def report_mismatches(target_directory):
+    missing_dict = {}
+    for directory in os.listdir(target_directory):
+        print(f"Exploring {directory}")
+        for sub_directory in os.listdir(os.path.join(target_directory, directory)):
+            print(f"Exploring {directory}/{sub_directory}")
+            types =  os.listdir(os.path.join(target_directory, directory, sub_directory))
+            print(f"Types included are: {types}")
+            if len(types) < 2:
+                list_missing = []
+                for data_type in TYPES:
+                    if data_type not in types:
+                        list_missing.append(data_type)
+                missing_dict[directory] = {sub_directory: list_missing}
+    
+    return missing_dict
+
+
 
 if __name__ == "__main__":
     try:
@@ -214,9 +234,13 @@ if __name__ == "__main__":
         study_name = sys.argv[4]
         metadata_location = sys.argv[5]
         bids_organise(data_file_path, destination_file_path, "fMRI", study_name)
-        bids_organise(anat_filepath, destination_file_path, "anat", study_name)
+        bids_organise(anat_filepath, destination_file_path, "T1", study_name)
         destination_file_path = os.path.join(destination_file_path, study_name)
         meta_data_creator(destination_file_path, metadata_location)
+        missing_values = report_mismatches(destination_file_path+f"/{study_name}")
+        with open(os.path.join(destination_file_path, "missing_values.json")) as f:
+            json.dumps(missing_values, f, indent=4)
+
     except IndexError:
         print(IndexError)
         print(f"Invalid arguments. Please enter data filepath (str), destination_filepath (str), data type (str), study name (str), metadata_location (str) \n Received inputs:\ndata: {data_file_path}\ndestination: {destination_file_path}\ntype: {data_type}")
