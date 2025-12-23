@@ -55,7 +55,7 @@ def extract_participant_number(filename):
         p_num = m.group(1)
 
         if len(p_num)!=3:
-            raise Exception(f"The participant number is not correctly formatted: {p_num}")
+            raise Exception(f"The participant number is not correctly formatted: \n Filename: {filename}\n participant number: {p_num}")
         
     else:
         return None
