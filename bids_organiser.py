@@ -49,14 +49,10 @@ def extract_participant_number(filename):
     m = re.search(r"(?:sub-)?TAU[_-]?(\d+)", filename, re.IGNORECASE)
     if m:
         if len(m.group(1)) == 1:
-             p_num = "00" + m.group(1)
+            return "00" + m.group(1)
         if len(m.group(1)) == 2:
-            p_num =  "0" + m.group(1)
-        p_num = m.group(1)
-
-        if len(p_num)!=3:
-            raise Exception(f"The participant number is not correctly formatted: \n Filename: {filename}\n participant number: {p_num}\n {m.group(1)} \n {len(m.group(1))}")
-        
+            return "0" + m.group(1)
+        return m.group(1)        
     else:
         return None
 
@@ -121,6 +117,11 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
     for filename in os.listdir(data_folder):
         count = count + 1
         subject_num = extract_participant_number(filename)
+
+        if len(subject_num)!=3:
+            raise Exception(f"The participant number is not correctly formatted: \n Filename: {filename}\n participant number: {subject_num}")
+
+
         session_num = extract_session_number(filename)
         session_num = process_session_num(session_num)
 
