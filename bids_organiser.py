@@ -240,7 +240,7 @@ if __name__ == "__main__":
         meta_data_creator(destination_file_path, metadata_location)
         missing_values = report_mismatches(destination_file_path)
         with open(os.path.join(destination_file_path, "missing_values.json"), "w") as f:
-            json.dumps(missing_values, f, indent=4)
+            json.dump(missing_values, f, indent=4)
 
     except IndexError:
         print(IndexError)
