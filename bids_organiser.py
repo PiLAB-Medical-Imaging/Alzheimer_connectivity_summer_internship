@@ -237,7 +237,7 @@ if __name__ == "__main__":
         bids_organise(anat_filepath, destination_file_path, "T1", study_name)
         destination_file_path = os.path.join(destination_file_path, study_name)
         meta_data_creator(destination_file_path, metadata_location)
-        missing_values = report_mismatches(destination_file_path+f"/{study_name}")
+        missing_values = report_mismatches(destination_file_path)
         with open(os.path.join(destination_file_path, "missing_values.json")) as f:
             json.dumps(missing_values, f, indent=4)
 
