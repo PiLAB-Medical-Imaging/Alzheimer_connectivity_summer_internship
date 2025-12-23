@@ -32,16 +32,16 @@ def extract_session_number(filename):
     Returns:
         session number as a string (e.g., "1", "01"), or None if not found.
     """
-
+    # Pattern 2: ses-#
+    m = re.search(r"ses-(\d+)", filename, re.IGNORECASE)
+    if m:
+        return m.group(1)
     # Pattern 1: T#
     m = re.search(r"T(\d+)", filename, re.IGNORECASE)
     if m:
         return m.group(1)
     
-    # Pattern 2: ses-#
-    m = re.search(r"ses-(\d+)", filename, re.IGNORECASE)
-    if m:
-        return m.group(1)
+ 
 
     return None
 
