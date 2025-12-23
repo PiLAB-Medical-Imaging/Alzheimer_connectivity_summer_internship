@@ -149,8 +149,8 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
             else:
                 continue
         
-        if len(subject_num)!=3:
-            raise Exception(f"The participant number is not correctly formatted: \n Filename: {filename}\n participant number: {subject_num}")
+        #if len(subject_num)!=3:
+         #   raise Exception(f"The participant number is not correctly formatted: \n Filename: {filename}\n participant number: {subject_num}")
         print(f"Scan type: {func_or_anat}")
 
         # Build the filepath
