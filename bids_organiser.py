@@ -118,10 +118,11 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
         count = count + 1
         subject_num = extract_participant_number(filename)
 
-        if len(subject_num)!=3:
-            raise Exception(f"The participant number is not correctly formatted: \n Filename: {filename}\n participant number: {subject_num}")
         if subject_num is None:
             raise Exception(f"Subject number is None:\n Filename: {filename}\n participant number: {subject_num}")
+        if len(subject_num)!=3:
+            raise Exception(f"The participant number is not correctly formatted: \n Filename: {filename}\n participant number: {subject_num}")
+
 
 
         session_num = extract_session_number(filename)
