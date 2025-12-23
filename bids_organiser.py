@@ -211,16 +211,17 @@ def report_mismatches(target_directory):
     missing_dict = {}
     for directory in os.listdir(target_directory):
         print(f"Exploring {directory}")
-        for sub_directory in os.listdir(os.path.join(target_directory, directory)):
-            print(f"Exploring {directory}/{sub_directory}")
-            types =  os.listdir(os.path.join(target_directory, directory, sub_directory))
-            print(f"Types included are: {types}")
-            if len(types) < 2:
-                list_missing = []
-                for data_type in TYPES:
-                    if data_type not in types:
-                        list_missing.append(data_type)
-                missing_dict[directory] = {sub_directory: list_missing}
+        if not os.path.isdir(target_directory + f"/{directory}"):
+            for sub_directory in os.listdir(os.path.join(target_directory, directory)):
+                print(f"Exploring {directory}/{sub_directory}")
+                types =  os.listdir(os.path.join(target_directory, directory, sub_directory))
+                print(f"Types included are: {types}")
+                if len(types) < 2:
+                    list_missing = []
+                    for data_type in TYPES:
+                        if data_type not in types:
+                            list_missing.append(data_type)
+                    missing_dict[directory] = {sub_directory: list_missing}
     
     return missing_dict
 
