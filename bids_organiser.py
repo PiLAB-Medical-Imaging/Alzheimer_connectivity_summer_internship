@@ -141,6 +141,9 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
         elif data_type == "T1" and filename.__contains__("T1"):
             scan_type = "T1w"
             func_or_anat = "anat"
+        elif data_type == "T2" and (filename.__contains__("Sag_T2") or filename.__contains__("Coro_T2")):
+            scan_type = "T2w"
+            func_or_anat = "anat"
         else:
             print(f"There is no logic for handling a file of this type. The offending file {filename}\n Continuing to the next file.")
             
@@ -231,11 +234,13 @@ if __name__ == "__main__":
     try:
         data_file_path = sys.argv[1]
         destination_file_path = sys.argv[2]
-        anat_filepath = sys.argv[3]
-        study_name = sys.argv[4]
-        metadata_location = sys.argv[5]
+        anat_filepath_1 = sys.argv[3]
+        anat_filepath_2 = sys.argv[4]
+        study_name = sys.argv[5]
+        metadata_location = sys.argv[6]
         bids_organise(data_file_path, destination_file_path, "fMRI", study_name)
-        bids_organise(anat_filepath, destination_file_path, "T1", study_name)
+        bids_organise(anat_filepath_1, destination_file_path, "T1", study_name)
+        bids_organise(anat_filepath_2, destination_file_path, "T2", study_name)
         destination_file_path = os.path.join(destination_file_path, study_name)
         meta_data_creator(destination_file_path, metadata_location)
         missing_values = report_mismatches(destination_file_path)
