@@ -16,7 +16,7 @@ def get_file_extension(filename):
         if len(filename_parts)  <= 2:
             return "." + filename_parts[1]
         elif len(filename_parts) > 2 :
-            return "." + filename_parts[1] + "." + filename_parts[2]
+            return "." + filename_parts[-1]
         else:
             return 
     except Exception as e:
@@ -141,9 +141,13 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
         elif data_type == "T1" and filename.__contains__("T1"):
             scan_type = "T1w"
             func_or_anat = "anat"
-        elif data_type == "T2" and (filename.__contains__("Sag_T2") or filename.__contains__("Coro_T2")):
+        elif data_type == "T2" and filename.__contains__("Sag_T2") :
             scan_type = "T2w"
+            func_or_anat = "sag_anat"
+        elif data_type == "T2" and filename.__contains__("Coro_T2"):
+            scan_type = "coro_T2w"
             func_or_anat = "anat"
+
         else:
             print(f"There is no logic for handling a file of this type. The offending file {filename}\n Continuing to the next file.")
             
