@@ -206,11 +206,21 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
                 continue
         
         print("Successfully saved!\n")
-        if extension == ".nii.gz":
+
+        if extension == ".nii.gz" and func_or_anat == "anat":
             img = nib.load(destination)
             print("Shape:", img.shape)  
-
-
+            if (len(img.shape)>3):
+                print("Error in file dimensions")
+                raise Exception(f"{filename} has incorrect dimensions. Shape: {img.shape}. The file was identified as {func_or_anat, scan_type}")
+                
+        elif extension == ".nii.gz" and func_or_anat == "func":
+            img = nib.load(destination)
+            print("Shape:", img.shape)  
+            if (len(img.shape)!=4):
+                print("Error in file dimensions")
+                raise Exception(f"{filename} has incorrect dimensions. Shape: {img.shape}. The file was identified as {func_or_anat, scan_type}")
+                
     
     print("The values of session number are: ")
     for value in session_set:
