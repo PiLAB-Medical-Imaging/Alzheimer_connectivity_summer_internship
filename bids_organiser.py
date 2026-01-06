@@ -65,7 +65,7 @@ def process_session_num(session_number):
     :param session_number: The session number as a string
     """
     if session_number == "05":
-        return "0-5"
+        return "05"
     elif session_number == "15":
         return "15"
     else:
@@ -94,7 +94,7 @@ def meta_data_creator(destination_folder, meta_data_path):
 
 
 
-def bids_organise(data_folder, destination_folder, data_type, study_name, task="rest", stop_on_failure = False):
+def bids_organise(data_folder, destination_folder, data_type, study_name, task="rest", stop_on_failure = False, replace = True):
 
     """
     Converts a single folder of scan data into a BIDs organised directory. Currently only works in 
@@ -187,9 +187,10 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
             new_name = "sub-" + subject_identifier + "_ses-" + session_num + "_" + scan_type + extension
         destination = type_path + "/" + new_name 
         
+        print(f"{filename} is being converted to {new_name}. Scan type: {func_or_anat}. Data location: {data_folder}")
         print(f"Attempting to save to: {destination}")
 
-        if os.path.exists(destination):
+        if os.path.exists(destination) and replace == False:
             print("Already exists at location\n")
             continue
 
