@@ -67,7 +67,7 @@ def process_session_num(session_number):
     if session_number == "05":
         return "0-5"
     elif session_number == "15":
-        return "1-5"
+        return "15"
     else:
         return session_number
     
@@ -143,9 +143,9 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
             func_or_anat = "anat"
         elif data_type == "T2" and filename.__contains__("Sag_T2") :
             scan_type = "T2w"
-            func_or_anat = "sag_anat"
+            func_or_anat = "anat"
         elif data_type == "T2" and filename.__contains__("Coro_T2"):
-            scan_type = "coro_T2w"
+            scan_type = "T2w"
             func_or_anat = "anat"
 
         else:
