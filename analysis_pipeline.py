@@ -108,6 +108,15 @@ def dict2DF(dictionary_version):
 
 
 def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
+    """
+    Builds a dataset that combines the behavioural metrics with the network metrics.
+    
+    :param behavioural_data_fp: str
+        filepath containing the behavioural data. 
+
+    :param network_data_fp: str
+        filepath containing the network data.
+    """
 
     with open(behavioural_data_fp, "rb") as f:
         result = chardet.detect(f.read())
@@ -235,16 +244,92 @@ def plot_diagnosis_network_characteristics(data_long, metric_of_interest, networ
     #plt.show()
     return g, name
 
-    
 
+def group_comparisons(network_name, data):
+    #relevant_data = data[data["network"]==network_name]
+    relevant_data = data[data["type"]=="structural"]
+    print(relevant_data.columns)
+    longer_data = relevant_data.melt(id_vars = ["subj_id", "session_num", "Diagnostic cognitif détaillé_CLASSIF_1", "network", "Demented"],
+                                    value_vars = ["m_connectivity", "diameter", "density", "global_clustering", "isolates"],
+                                    var_name = "metric",
+                                    value_name = "score")
+    
+    # First plot all patients across different time points
+    sns.relplot(data    = longer_data,
+                x           = "session_num",
+                y           =  "score",
+                hue         = "Diagnostic cognitif détaillé_CLASSIF_1",
+                col         = "metric",
+                row         = "network",
+                facet_kws   ={"sharey": False})
+
+    plt.show()
+
+    # Next plot the average for each group over time points.
+    sns.relplot(data = longer_data,
+            x           = "session_num",
+            y           = "score",
+            hue         = "Diagnostic cognitif détaillé_CLASSIF_1",
+            col         = "metric", 
+            kind        = "line",
+            estimator   = "mean",
+            row         = "network", 
+            facet_kws   ={"sharey": False})
+
+    plt.show()
+
+    sns.catplot(data    = longer_data,
+            x           = "Diagnostic cognitif détaillé_CLASSIF_1",
+            y           =  "score",
+            hue         = "Diagnostic cognitif détaillé_CLASSIF_1",
+            col         = "metric",
+            row         = "network",
+            kind        = "violin",
+            sharey      = False)
+
+    plt.show()
+
+    sns.catplot(data    = longer_data,
+        x           = "Demented",
+        y           =  "score",
+        hue         = "Demented",
+        col         = "metric",
+        row         = "network",
+        kind        = "violin",
+        sharey      = False)
+
+    plt.show()
+
+
+def rel_composite_to_network(data, composite, metric):
+    data = data[data["type"]=="structural"]
+    sns.relplot(data=data,
+                x = metric,
+                y = composite,
+                col = "network",
+                facet_kws   ={"sharey": False},
+                )
+    plt.show()
+
+    sns.lmplot(data=data,
+                x   = metric,
+                y   = composite,
+                hue = "Demented",
+                col = "network",
+                facet_kws   ={"sharey": False})
+    plt.show()
 
 def run_tests():
     patient_data = "/Users/sam/Desktop/long_form_combined.csv"
     data_long = pd.read_csv(patient_data, sep=";", decimal=",")
+    group_comparisons("ecn",data=data_long)
+    #rel_composite_to_network(data_long, "MEMORY_Composite", "density")
+    #plot_diagnosis_network_characteristics(data_long, "density", "structural")
+    
 
-    plot_diagnosis_network_characteristics(data_long, "density", "structural")
 
-TESTING = False
+
+TESTING = True
 
 if __name__=="__main__":
     if not TESTING:
