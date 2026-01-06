@@ -16,7 +16,7 @@ def get_file_extension(filename):
         if len(filename_parts)  <= 2:
             return "." + filename_parts[1]
         elif len(filename_parts) > 2 :
-            return "." + filename_parts[-1]
+            return "." + filename_parts[-2] + "." + filename_parts[-1] 
         else:
             return 
     except Exception as e:
