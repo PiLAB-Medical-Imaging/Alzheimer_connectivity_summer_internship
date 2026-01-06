@@ -3,7 +3,7 @@ import shutil
 import re
 import sys
 import json
-
+import nibabel as nib
 
 ANATOMICAL_SCAN_TYPE = "T1w"
 METADATA_FILES  = ["dataset_description.json", "participants.json", "participants.tsv", "README.md"]
@@ -206,6 +206,8 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
                 continue
         
         print("Successfully saved!\n")
+        img = nib.load(destination)
+        print("Shape:", img.shape)  
 
 
     
@@ -248,9 +250,9 @@ if __name__ == "__main__":
         bids_organise(anat_filepath_2, destination_file_path, "T2", study_name)
         destination_file_path = os.path.join(destination_file_path, study_name)
         meta_data_creator(destination_file_path, metadata_location)
-        missing_values = report_mismatches(destination_file_path)
-        with open(os.path.join(destination_file_path, "missing_values.json"), "w") as f:
-            json.dump(missing_values, f, indent=4)
+        #missing_values = report_mismatches(destination_file_path)
+        #with open(os.path.join(destination_file_path, "missing_values.json"), "w") as f:
+         #   json.dump(missing_values, f, indent=4)
 
     except IndexError:
         print(IndexError)
