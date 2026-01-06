@@ -206,8 +206,9 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
                 continue
         
         print("Successfully saved!\n")
-        img = nib.load(destination)
-        print("Shape:", img.shape)  
+        if extension == ".nii.gz":
+            img = nib.load(destination)
+            print("Shape:", img.shape)  
 
 
     
