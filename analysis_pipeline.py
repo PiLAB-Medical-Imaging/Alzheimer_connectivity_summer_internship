@@ -363,7 +363,7 @@ if __name__=="__main__":
 
         for metric in CURRENT_METRICS:
             for network_type in NETWORK_TYPES:
-                g, g_name = plot_diagnosis_network_characteristics(long_version, metric, )
+                g, g_name = plot_diagnosis_network_characteristics(long_version, metric,network_type )
                 figure_savepath = os.path.join(root_directory, "figures", f"netw-properties_{g_name}")
                 g.savefig(figure_savepath, dpi = 300, bbox_inches = "tight")
     else:
