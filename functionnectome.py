@@ -14,11 +14,7 @@ trk = load_tractogram(trk_file, 'same')
 
 def target_1(trk, mask, affine):  
     streamlines = trk.streamlines
-
-
-
     rel_streamlines = target(streamlines, trk.affine, mask)
-
     return rel_streamlines
 
 
