@@ -329,7 +329,7 @@ def run_tests():
 
 
 
-TESTING = True
+TESTING = False
 
 if __name__=="__main__":
     if not TESTING:
