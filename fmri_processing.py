@@ -50,7 +50,6 @@ def connectivity_matrix_generation(bold_filepath, atlas_filepath):
     conn_measure = ConnectivityMeasure(kind="correlation")
     conn_matrix = conn_measure.fit_transform([time_series])[0]
 
-
     return conn_matrix
 
 
