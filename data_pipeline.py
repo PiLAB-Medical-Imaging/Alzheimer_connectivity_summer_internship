@@ -7,6 +7,7 @@ import network_extraction as ne
 import graph_metrics as gm
 import json
 import sys
+from fmri_processing import process_fMRI
 
 def load_dataset(filepath):
     dataset = pd.read_excel(filepath)
@@ -37,7 +38,8 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
 
     
     # Generate and save the functional matrix
-    FC = np.random.rand(len(SC),len(SC)) # This is just until I have the data for fMRI processed
+    #FC = np.random.rand(len(SC),len(SC)) # This is just until I have the data for fMRI processed
+    FC = process_fMRI(fMRI_data_path, subj_id, session_number)
     FC_filepath = os.path.join(FC_save_path, "FC_matrix.npy")
     np.save(FC_filepath, FC)
 

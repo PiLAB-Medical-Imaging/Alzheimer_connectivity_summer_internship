@@ -7,6 +7,8 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import numpy as np
 import nibabel as nib
+import os
+import re
 
 
 bold_filepath = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz"
@@ -52,11 +54,44 @@ def connectivity_matrix_generation(bold_filepath, atlas_filepath):
 
     return conn_matrix
 
+def process_fMRI_dataset(root_path, atlas_path):
+    # First, crawl through the derivates folder and find successful fMRI data
+    for directory in os.listdir(root_path):
+        if os.path.isdir(directory):
+            for subfolder in os.listdir(os.path.join(root_path, directory)):
+                if subfolder.__contains__("ses"):
+                    filename = directory + "_" + subfolder + "_" + "task-rest_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz"
+                    target_file = os.path.join(root_path, directory, subfolder, "func", filename)
+                    if os.path.exists(filename):
+                        fconn_matrix = connectivity_matrix_generation(filename, atlas_path)
+                        np.save()
+
+
+def process_fMRI(rootpath, subj_id, session_number, atlas_path):
+    # First make sure the subj_id is in the right format:
+    number = (re.findall(r'-?\d*\.?\d+', subj_id))
+    number = int(number[0]) 
+    converted_num = "TAU-{:03d}".format(number)
+
+    filepath = os.path.join(rootpath, subj_id, session_number, "task-rest_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz")
+
+    if os.path.exists(filepath):
+        fconn_matrix = connectivity_matrix_generation(filepath, atlas_path)
+    else:
+        raise Exception(f"There is no fMRI data for this patient and session combination:\nSubj ID: {subj_id} \n Session Number: {subj_id}")
+    return fconn_matrix
+
+    
+            
+
+
 
     
 if __name__ == "__main__":
     #atlas_location = sys.argv[1]
     #label_location =sys.argv[2]
     #fmri_process(atlas_location, label_location)
-    matrix = connectivity_matrix_generation(bold_filepath, atlas_filepath)
-    print(matrix)
+    #matrix = connectivity_matrix_generation(bold_filepath, atlas_filepath)
+    #print(matrix)
+
+    process_fMRI("/Users/sam/Desktop", "TAU_1")
