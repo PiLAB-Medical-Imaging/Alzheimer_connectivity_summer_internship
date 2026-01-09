@@ -15,12 +15,6 @@ import matplotlib.pyplot as plt
 # Specify which network
 network_name = "dmn_basic"
 
-# Define file paths (note this is using the registered atlas that was already created for the subject)
-atlas_path = "C:/Users/williamss/Desktop/subject_atlas.nii.gz"
-network_path ="C:/Users/williamss/Documents/Atlas_Maps/network_specific/subject_network_atlas.nii.gz"
-definitions_filepath = "C:/Users/williamss/Documents/network_definitions/definitions.csv"
-matrix_path  = r"C:\Users\williamss\Desktop\connectivity_mat.npy"
-labels_path = r"C:\Users\williamss\Documents\Tidbits\aal_labels.txt"
 
 
 
@@ -218,8 +212,3 @@ def graph_level_metrics(graph, save_location):
     clustering_coefficient_avg = nx.cluster.average_clustering(graph)
     transitivity = nx.transitivity(graph)
 
-
-
-# Main execution
-if __name__ == "__main__":
-    intra_network_analysis(matrix_path, atlas_path, definitions_filepath, "AAL116")
