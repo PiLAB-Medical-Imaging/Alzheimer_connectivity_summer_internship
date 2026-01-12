@@ -5,6 +5,11 @@ from nilearn.image import resample_to_img
 from nibabel.processing import resample_from_to
 import os
 import os.path as path
+from unravel.stream import smooth_streamlines
+from dipy.io.stateful_tractogram import Space, StatefulTractogram
+from dipy.io.streamline import save_tractogram, load_tractogram
+from dipy.tracking.streamline import transform_streamlines
+from unravel.utils import get_streamline_density
 
 gm_path = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_space-MNI152NLin2009cAsym_label-GM_probseg.nii.gz"
 wm_path = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_space-MNI152NLin2009cAsym_label-WM_probseg.nii.gz"
@@ -56,12 +61,17 @@ wm_counts = np.bincount(label_wm.ravel())
 # remove clusters smaller than 200 voxels
 gm_mask[counts[labels]<200] = False
 wm_mask[wm_counts[label_wm] < 200] = False
+wm_mask=wm_mask*1.0
 
 print(f"The affines before saving the masks:\ngrey matter\n{gm_img.affine}\nwhite matter\n{wm_img.affine}")
 # Save the T1w mask.
 nib.save(nib.Nifti1Image(gm_mask, gm_img.affine, gm_img.header), save_name)
 nib.save(nib.Nifti1Image(wm_mask, wm_img.affine, wm_img.header), wm_save_name)
+out=nib.Nifti1Image(wm_mask,wm_img.affine)
+out.to_filename(wm_save_name)
 
+print("white matter image")
+print(wm_img.affine, wm_img.header)
 
 # Resample the mask to the space of the bold scan.
 bold_ref = nib.load(bold_path)
@@ -100,7 +110,7 @@ def complete_data_compiler(dfmri_fp, bold_fp, data_filepath=None):
     :param data_filepath: Description
     """
 
-    # First crawl through the dMRI folder and get every subject and session pair for whoch there is data
+    # First crawl through the dMRI folder and get every subject and session pair for which there is data
     dict_for_results = {}
     for folder in os.listdir(dfmri_fp):
         split_name = folder.split(sep = "_")
@@ -122,3 +132,54 @@ def complete_data_compiler(dfmri_fp, bold_fp, data_filepath=None):
 
 
     
+
+from regis.core import find_transform
+import nibabel as nib
+
+def diffusion_to_t1space(moving_file, static_file, mni= False, smooth = False):
+
+    # Diffusion space file
+    moving_file = '/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_FA.nii.gz'
+
+    if mni:
+    # Ignore
+        static_file = 'C:/Users/nicol/Documents/Doctorat/Data/Atlas_Maps/FSL_HCP1065_FA_1mm.nii.gz'
+        mapping = find_transform(static_file, moving_file, diffeomorph=False)
+    else:
+    # T1 file
+        static_file = '/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w.nii.gz'
+        mapping = find_transform(static_file, moving_file, only_affine=True)
+
+
+    # For every tract you want to register
+    for r in ["1"]:
+    # Or hardcode the filename
+        trk_file = '/Users/sam/Desktop/TAU_1_ses-2_tractogram.trk'
+        #trk_file = 'C:/Users/nicol/Desktop/temp_anais/10_'+r+'.trk'
+
+        trk = load_tractogram(trk_file, 'same')
+
+        stream_reg = transform_streamlines(trk.streamlines,
+                                       # np.linalg.inv(mapping.affine))
+                                       mapping.affine)
+
+        sft_reg = StatefulTractogram(
+        stream_reg, nib.load(static_file), Space.RASMM)
+
+    # trk_new = StatefulTractogram(streams, trk, Space.VOX,
+    #                                  origin=Origin.TRACKVIS)
+
+        if mni:
+            out_file = trk_file[:-4]+'_mni.trk'
+        else:
+            out_file = trk_file[:-4]+'_T1.trk'
+
+        save_tractogram(sft_reg, out_file, bbox_valid_check=False)
+
+        if smooth:
+        # For visualization, not computing
+            smooth_streamlines(out_file, out_file=out_file[:-4]+'_smoothed.trk',
+                           iterations=50)
+
+
+        
