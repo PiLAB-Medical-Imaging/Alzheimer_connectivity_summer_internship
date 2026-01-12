@@ -13,7 +13,7 @@ def load_dataset(filepath):
     dataset = pd.read_excel(filepath)
     return dataset
 
-def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_path, label_path, definitions_filepath):
+def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_path, label_path, definitions_filepath, session_number):
     # Create the out_path if it doesnt already exist
     out_path = os.path.join(out_path, "analyses")
     os.makedirs(out_path, exist_ok=True)
@@ -40,6 +40,9 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
     # Generate and save the functional matrix
     #FC = np.random.rand(len(SC),len(SC)) # This is just until I have the data for fMRI processed
     FC = process_fMRI(fMRI_data_path, subj_id, session_number)
+
+
+
     FC_filepath = os.path.join(FC_save_path, "FC_matrix.npy")
     np.save(FC_filepath, FC)
 
