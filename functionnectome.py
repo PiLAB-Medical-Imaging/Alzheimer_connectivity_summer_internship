@@ -150,22 +150,30 @@ def generate_masks(wm_mask, test_masks = True):
 def probability_maps(trk, mask_array, mask_debug=False):
     """
     Compute the probability that a given voxel is connected to any other voxel. This method iterates through masks.
+
+    This method will take an absurd amount of time to run. In the order of roughly 300 hours. May need to do groups of 2x2x2 voxels? This would bring down by a factor of 8, 
     
     :param wm_mask: Description
     :param trk: Description
     """
     # Initial attempt: Iterate through all and attempt the procedure. If they all come back empty, something is wrong.
     successes = 0
-    for idx, mask in enumerate(mask_array):
+    failures = 0
+    streamline_count = []
+    for idx, mask in tqdm(enumerate(mask_array[0:999])):
         try:
             voxel_results = target_1(trk, mask, np.eye(4))
             trk_new = trk.from_sft(voxel_results, trk)
+            streamline_count.append(len(trk_new.streamlines))
             density = get_streamline_density(trk_new, resolution_increase=1)
             successes += 1
         except (ValueError, IndexError) as e:
-            print(f"Failure: {e}\nMask {idx} failed")
+            failures += 1
 
     print(f"The number of successes: {successes}")
+    print(f"Streamline Characteristics\n Mean: {np.mean(streamline_count)}\nMax: {np.max(streamline_count)}")
+    print(f"Streamline counts:")
+    print(streamline_count)
 
 
 def vectorised_probability_maps(atlas_path, reference_file, trk, remap = False):
@@ -214,9 +222,7 @@ def vectorised_probability_maps(atlas_path, reference_file, trk, remap = False):
 
     # Iterate through the AAL regions and extract only the streamlines that go through each region. (116 iterations, will give a NxN matrix for each ROI, where N is the number of white matter voxels) 
     atlas_matrix = registered_atlas.get_fdata()
-    roi_ids = np.unique(atlas_matrix)
-
-    print(roi_ids)
+    roi_ids = np.unique(atlas_matrix) # Bug currently: Only getting 37 indices, rather than 116. 
 
     # Stack the density maps up into a single array.
     all_density_maps = np.zeros(shape=(len(roi_ids),156, 256, 256))
@@ -257,14 +263,38 @@ def vectorised_probability_maps(atlas_path, reference_file, trk, remap = False):
 
         
 def functionnectome(probability_maps, fMRI_file, registered_atlas):
+    """
+    Computes the functionnectome based on a probability of connection map and the fmri data.
+    
+    :param probability_maps: array like
+        Contains the probability of connection between a voxel and regions of interest.
+    :param fMRI_file: str
+        Contains the fMRI BOLD data - at this point this needs to be in the MNI space (which fMRI prep produces as well)
+    :param registered_atlas: str
+        Contains the atlas that has been adapted to the patient T1 space.
+    """
+
+
     bold_img = image.load_img(fMRI_file)
-    masked = masking.apply_mask(bold_img, "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_desc-brain_mask.nii.gz")
+    mask = nib.load("/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_desc-brain_mask.nii.gz")
+    # Resample the mask to make sure they are compatible
+    mask_resampled = image.resample_to_img(mask,
+                                           bold_img,
+                                           interpolation="nearest", 
+                                            force_resample=True, 
+                                            copy_header=True )
+
+    masked = masking.apply_mask(bold_img, mask_resampled)
+
+
     bold_data = bold_img.get_fdata()
     print("Data shape", bold_data.shape)
 
-    print("Probability Map shape", probability_maps_computed.shape)
+    print("Probability Map shape", probability_maps.shape)
 
-    masker = NiftiLabelsMasker(registered_atlas, standardize=True)
+    # Try giving it the atlas in MNI space
+
+    masker = NiftiLabelsMasker("/Users/sam/Desktop/aal116-master/aal116MNI.nii.gz", standardize=True)
     roi_time_series = masker.fit_transform(bold_img)
     print(roi_time_series.shape)
 
@@ -272,29 +302,42 @@ def functionnectome(probability_maps, fMRI_file, registered_atlas):
 
 
 
-
-
-
-
+test_functionnectome = True
+test_white_matter_iteration = False
 
 if __name__ == "__main__":
     atlas_path = "/Users/sam/Desktop/aal116-master/aal116MNI.nii.gz"
     fMRI_path = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz"
 
     print("Running main\n")
-    wm_mask_img = nib.load("/Users/sam/Desktop/sub-TAU001/sub-TAU001_space-MNI152NLin2009cAsym_label-WM_mask.nii.gz")
+    wm_mask_img = nib.load("/Users/sam/Desktop/sub-TAU001/sub-TAU001_space-T1w_label-WM_mask.nii.gz")
     trk = load_tractogram("/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk", "same")
     trk.to_vox()
     trk.to_corner()
     save_tractogram(trk, "/Users/sam/Desktop/sub-TAU001/test_tract.trk")
-    masks_array = generate_masks(wm_mask_img, True)
-    #probability_maps(trk, masks_array) 
 
-    mask_1 = "/Users/sam/Desktop/sub-TAU001/one_white_matter_mask.nii.gz"
+    if test_white_matter_iteration:
+        # Generate the white matter voxel masks.
+
+        masks_array = generate_masks(wm_mask=wm_mask_img, 
+                                    test_masks=False)
+        
+        print("The generated mask shapes: ", masks_array.shape)
+        
+        probability_maps(trk, masks_array) 
+
+
+    # More efficient version? 
     reference_file = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w.nii.gz"
     probability_maps_computed  = vectorised_probability_maps(atlas_path,reference_file, trk)
-    functionnectome(probability_maps = probability_maps_computed, 
-                    fMRI_file= fMRI_path,
-                    registered_atlas=7)
+
+    print(probability_maps_computed.shape)
+
+
+    # Functionnectome Test
+    if test_functionnectome:
+        functionnectome(probability_maps = probability_maps_computed, 
+                        fMRI_file= "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz",
+                        registered_atlas="/Users/sam/Desktop/sub-TAU001/check_atlas_TAU001.nii.gz")
 
     
