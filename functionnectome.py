@@ -17,6 +17,8 @@ from nilearn import image, masking
 from numpy import tensordot
 import matplotlib.pyplot as plt
 
+NOISE_OFFSET = 5
+
 def target_1(trk, mask, affine):  
     """
     Generates the subset of all streamlines that pass through a given voxel/masked value.
@@ -51,14 +53,11 @@ def generate_masks(wm_mask, test_masks = True):
         return output
 
 
-
-    
-
 def probability_maps(trk, mask_array, mask_debug=False):
     """
     Compute the probability that a given voxel is connected to any other voxel. This method iterates through masks.
 
-    This method will take an absurd amount of time to run. In the order of roughly 300 hours. May need to do groups of 2x2x2 voxels? This would bring down by a factor of 8, 
+    This method will take an absurd amount of time to run. In the order of roughly 300 hours. May need to do groups of 2x2x2 voxels? This would bring down by a factor of 8.
     
     :param wm_mask: Description
     :param trk: Description
@@ -83,7 +82,7 @@ def probability_maps(trk, mask_array, mask_debug=False):
     print(streamline_count)
 
 
-def vectorised_probability_maps(atlas_path, reference_file, trk, save_path, remap = False):
+def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, save_path, remap = False):
     """
     Docstring for vectorised_probability_maps
     
@@ -111,7 +110,7 @@ def vectorised_probability_maps(atlas_path, reference_file, trk, save_path, rema
     if  remap == False and path.exists(sbj_atlas_path):
         registered_atlas = nib.load(sbj_atlas_path)
     else:
-        mapping = find_transform(moving_file= "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz",
+        mapping = find_transform(moving_file= template_file,
                                 static_file= reference_file,
                                 level_iters=[1000, 100, 10],
                                 diffeomorph=False)#, "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_space-MNI152NLin2009cAsym_desc-preproc_T1w.nii.gz", reference_file, level_iters=[1000, 100, 10], diffeomorph=False)
@@ -124,53 +123,71 @@ def vectorised_probability_maps(atlas_path, reference_file, trk, save_path, rema
         out.to_filename(sbj_atlas_path)
    
     # Extract the overall density map
-    """     overall_density_map = density_map(trk.streamlines, 
-                                       trk.affine,
-                                       img.shape) """
-    overall_density_map = np.ones(shape=(156, 256, 256))
+    overall_density_map = density_map(trk.streamlines, 
+                                       np.eye(4),
+                                       trk.dimensions)
+    
+    #overall_density_map = np.ones(shape=(156, 256, 256))
 
     # Iterate through the AAL regions and extract only the streamlines that go through each region. (116 iterations, will give a NxN matrix for each ROI, where N is the number of white matter voxels) 
-    atlas_matrix = registered_atlas
-    roi_ids = np.unique(atlas_matrix) # Bug currently: Only getting 37 indices, rather than 116. This comes from the resampling
+    atlas_matrix = registered_atlas.get_fdata()
+    roi_ids = np.unique(atlas_matrix) 
 
     # Stack the density maps up into a single array.
-    all_density_maps = np.zeros(shape=(len(roi_ids),156, 256, 256))
-    atlas = nib.load(atlas_path)
-    
+    all_density_maps = np.zeros(shape=(len(roi_ids)-1,156, 256, 256)) # todo: Make this reactive to the file dimensions that are input, rather than those that are hardcoded.
+
+    # Double check the affine information:
+
+    root_filepath = "/Users/sam/Desktop/sub-TAU001/DensityMaps"
     for idx, roi in tqdm(enumerate(roi_ids),"Computing ROI streamlines"):
+        idx -= 1
         if roi == 0:
             continue
-
-        # Get all the streamlines that reach the grey matter ROI
-        relevant_streamlines = target_1(trk = trk, 
-                                        mask = (atlas_matrix == roi).astype(np.uint8),
-                                        affine = np.eye(4))
-        
-        trk_new = trk.from_sft(relevant_streamlines, trk)
-        #print("Tractogram Properties: ", trk_new._get_streamline_count())
-        
-        # Get a density map of the relevant streamlines
-        roi_density_map = density_map(relevant_streamlines, trk.affine, trk.dimensions)
-
-        # Output the density maps so that they can be visualised
-        root_filepath = "/Users/sam/Desktop/sub-TAU001/DensityMaps"
         filepath = path.join(root_filepath, f"TAU001_{roi}_density_map.nii.gz")
 
-        #out = nib.Nifti1Image(roi_density_map.astype(float), trk.affine)
+        if os.path.exists(filepath):
+            roi_density_map = nib.load(filepath)
+            all_density_maps[idx] = roi_density_map.get_fdata()
+            continue
+        
+        # Get all the streamlines that reach the grey matter ROI
+        mask =  (atlas_matrix == roi).astype(np.uint8)
+        if mask.shape != atlas_matrix.shape:
+            raise ValueError("The mask does not match the shape of the atlas")
+        
+        relevant_streamlines = target_1(trk = trk, 
+                                        mask = mask,
+                                        affine = np.eye(4))
+        
+
+        trk_new = trk.from_sft(relevant_streamlines, trk)
+
+
+        print("Tractogram Properties: ", trk_new._get_streamline_count())
+        
+        # Get a density map of the relevant streamlines
+        roi_density_map = density_map(trk_new.streamlines, np.eye(4), trk_new.dimensions)
+
+        # Output the density maps so that they can be visualised
+
+
         out = nib.Nifti1Image(roi_density_map.astype(float), trk.affine)
         out.to_filename(filename=filepath)
+
+        #visual_inspection(out, roi)
 
         all_density_maps[idx] = roi_density_map
     
 
     connection_probability = all_density_maps / overall_density_map
+    connection_probability = np.nan_to_num(connection_probability, True, nan=0)
 
     return connection_probability
 
 
 
         
-def functionnectome(probability_maps, fMRI_file, registered_atlas):
+def functionnectome(probability_maps, fMRI_file, brain_mask_path, registered_atlas):
     """
     Computes the functionnectome based on a probability of connection map and the fmri data.
     
@@ -184,7 +201,7 @@ def functionnectome(probability_maps, fMRI_file, registered_atlas):
 
 
     bold_img = image.load_img(fMRI_file)
-    mask = nib.load("/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_desc-brain_mask.nii.gz")
+    mask = nib.load(brain_mask_path)
     # Resample the mask to make sure they are compatible
     mask_resampled = image.resample_to_img(mask,
                                            bold_img,
@@ -207,14 +224,23 @@ def functionnectome(probability_maps, fMRI_file, registered_atlas):
     # This is now a timepoints x ROI matrix.
     roi_time_series = masker.fit_transform(bold_img)
 
-    plot_timeseries(roi_time_series=roi_time_series)
-    # This will have compatible dimensions once I have sorted out the atlas issues:
+    plot_timeseries(roi_time_series=roi_time_series[NOISE_OFFSET:, :])
+    funct_result = tensordot(roi_time_series[NOISE_OFFSET:, :], probability_maps,1) # need to double check the shapes of the roi_timeseries.
+    funct_result = np.transpose(funct_result, (1,2,3,0))
+    print(funct_result.max(), funct_result.min())
+    out = nib.Nifti1Image(funct_result,bold_img.affine)
+    out.to_filename("/Users/sam/Desktop/sub-TAU001/functionnectome.nii.gz")
 
-    #funct_result = tensordot(roi_time_series, probability_maps, axes = 1) # need to double check the shapes of the roi_timeseries. 
 
 def plot_timeseries(roi_time_series):
     plt.plot(roi_time_series)
     plt.show()
+
+
+def visual_inspection(density_map_img, region):
+    data = density_map_img.get_fdata()
+    print(f"Report for {region}")
+    print(f"Minimum Value: {np.min(data)}\nMaximum Value: {np.max(data)}\nNon-zeros    : {np.count_nonzero(data)}")
 
 
 def create_masked_T1(t1_file, mask_file):
@@ -237,13 +263,18 @@ if __name__ == "__main__":
     fMRI_path = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz"
     reference_file = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w.nii.gz"
     save_registered_atlas = "/Users/sam/Desktop/sub-TAU001/sub-TAU001_desc-registered_atlas_space-T1w.nii.gz"
+    tractogram_filepath = "/Users/sam/Desktop/sub-TAU001/test_tract.trk"
+    wm_mask_filepath = "/Users/sam/Desktop/sub-TAU001/sub-TAU001_space-T1w_label-WM_mask.nii.gz"
+    load_tractogram_path = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk"
+    brain_mask_path = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-brain_mask.nii.gz"
+    moving_file = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
 
     print("Running main\n")
-    wm_mask_img = nib.load("/Users/sam/Desktop/sub-TAU001/sub-TAU001_space-T1w_label-WM_mask.nii.gz")
-    trk = load_tractogram("/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk", "same")
+    wm_mask_img = nib.load(wm_mask_filepath)
+    trk = load_tractogram(load_tractogram_path, "same")
     trk.to_vox()
     trk.to_corner()
-    save_tractogram(trk, "/Users/sam/Desktop/sub-TAU001/test_tract.trk")
+    save_tractogram(trk, tractogram_filepath)
 
     if test_white_matter_iteration:
         # Generate the white matter voxel masks.
@@ -258,15 +289,25 @@ if __name__ == "__main__":
 
 
     # More efficient version? 
-    create_masked_T1(reference_file, "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-brain_mask.nii.gz")
+    create_masked_T1(reference_file, brain_mask_path)
     reference_file = reference_file[:-7] + "_masked.nii.gz"
-    probability_maps_computed  = vectorised_probability_maps(atlas_path,reference_file, trk, remap=True)
+    probability_maps_computed  = vectorised_probability_maps(template_file= moving_file,
+                                                             atlas_path=atlas_path,
+                                                             reference_file=reference_file, 
+                                                             trk=trk,
+                                                             save_path=save_registered_atlas, 
+                                                             remap=False)
+    
 
+    print(probability_maps_computed.min(), probability_maps_computed.max(), probability_maps_computed.mean())
 
     # Functionnectome Test
     if test_functionnectome:
         functionnectome(probability_maps = probability_maps_computed, 
                         fMRI_file= fMRI_path,
-                        registered_atlas="/Users/sam/Desktop/sub-TAU001/check_atlas_TAU001.nii.gz")
+                        registered_atlas=save_registered_atlas, 
+                        brain_mask_path=brain_mask_path)
+        
+
 
     
