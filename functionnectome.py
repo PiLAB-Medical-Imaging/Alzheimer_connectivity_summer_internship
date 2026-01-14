@@ -16,6 +16,8 @@ from nilearn.input_data import NiftiLabelsMasker
 from nilearn import image, masking
 from numpy import tensordot
 import matplotlib.pyplot as plt
+from scipy.ndimage import gaussian_filter
+from nilearn.regions import signals_to_img_labels
 
 NOISE_OFFSET = 5
 
@@ -34,7 +36,7 @@ def target_1(trk, mask, affine):
     return rel_streamlines
 
 
-def generate_masks(wm_mask, test_masks = True):
+def generate_masks(wm_mask, test_masks = False):
     if test_masks:
         mask_1 = nib.load("/Users/sam/Desktop/sub-TAU001/one_white_matter_mask.nii.gz")
         mask_2 = nib.load("/Users/sam/Desktop/sub-TAU001/two_white_matter_mask.nii.gz")
@@ -82,7 +84,7 @@ def probability_maps(trk, mask_array, mask_debug=False):
     print(streamline_count)
 
 
-def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, save_path, remap = False, save_output = None):
+def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, save_path, remap = False, save_output = None, smoothing = False):
     """
     Docstring for vectorised_probability_maps
     
@@ -127,6 +129,9 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
                                        np.eye(4),
                                        trk.dimensions)
     
+    if smoothing:
+        overall_density_map = gaussian_filter(overall_density_map, 1.0)
+    
     #overall_density_map = np.ones(shape=(156, 256, 256))
 
     # Iterate through the AAL regions and extract only the streamlines that go through each region. (116 iterations, will give a NxN matrix for each ROI, where N is the number of white matter voxels) 
@@ -163,12 +168,18 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
 
         trk_new = trk.from_sft(relevant_streamlines, trk)
 
+        # I can reduce this to only the number of streamlines that go through white matter?
+
 
         #print("Tractogram Properties: ", trk_new._get_streamline_count())
         
         # Get a density map of the relevant streamlines
+        # Use the white matter mask here? 
         roi_density_map = density_map(trk_new.streamlines, np.eye(4), trk_new.dimensions)
 
+
+        if smoothing:
+            roi_density_map = gaussian_filter(roi_density_map, 1.0)
         # Output the density maps so that they can be visualised
 
 
@@ -209,6 +220,9 @@ def normalizer(funct_results, probability_maps, method = "basic", bold_min = Non
     :param bold_max: OPTIONAL Numeric
         The maximum value in the bold data. Only required for the hack method.
     """
+    if np.sum(np.isnan(funct_results))>0:
+        raise ValueError("Unscaled Functionnectome contains NAN values.")
+
     if method == "basic":
         summed_probs = np.sum(probability_maps) # Dud - makes values minute
     elif method == "self-sum": # Dud - makes values too large
@@ -230,7 +244,7 @@ def normalizer(funct_results, probability_maps, method = "basic", bold_min = Non
     return normalised
 
         
-def functionnectome(probability_maps, fMRI_file, brain_mask_path, registered_atlas):
+def functionnectome(probability_maps, fMRI_file, brain_mask_path, registered_atlas, extensive_visualisation=None):
     """
     Computes the functionnectome based on a probability of connection map and the fmri data.
     
@@ -247,16 +261,30 @@ def functionnectome(probability_maps, fMRI_file, brain_mask_path, registered_atl
 
     masker = NiftiLabelsMasker(registered_atlas, standardize=True)
 
+
     # This is now a timepoints x ROI matrix.
     roi_time_series = masker.fit_transform(bold_data)
+    roi_time_series = roi_time_series[NOISE_OFFSET:, :]
 
-    plot_timeseries(roi_time_series=roi_time_series[NOISE_OFFSET:, :])
+    #for idx, roi in tqdm(enumerate(roi_time_series), "Generating ROI Activity Images"):
 
-    bold_max = np.max(roi_time_series[NOISE_OFFSET:,:])
-    bold_min = np.min(roi_time_series[NOISE_OFFSET:,:])
+    """ plot_ROI_activity(registered_atlas=registered_atlas,
+                      roi_timeseries=roi_time_series)
+    """
+
+    reg_atlas_img = nib.load(registered_atlas)
+    img_by_ROI = signals_to_img_labels(signals=roi_time_series,
+                                       labels_img=reg_atlas_img)
+    img_by_ROI.to_filename("/Users/sam/Desktop/sub-TAU001/region_bold.nii.gz")
+    
+
+    #plot_timeseries(roi_time_series=roi_time_series[NOISE_OFFSET:, :])
+
+    bold_max = np.max(roi_time_series)
+    bold_min = np.min(roi_time_series)
     print(f"Minimum BOLD value: {bold_min}\nMaximum BOLD value: {bold_max}") 
     
-    funct_result = tensordot(roi_time_series[NOISE_OFFSET:, :], probability_maps,1) # need to double check the shapes of the roi_timeseries.
+    funct_result = tensordot(roi_time_series, probability_maps,1) # need to double check the shapes of the roi_timeseries.
 
     funct_result = normalizer(funct_results=funct_result,
                                          probability_maps=probability_maps,
@@ -268,7 +296,7 @@ def functionnectome(probability_maps, fMRI_file, brain_mask_path, registered_atl
     funct_result = np.transpose(funct_result, (1,2,3,0))
 
     print(f"Max F value: {funct_result.max()}\Min F value: {funct_result.min()}")
-    out = nib.Nifti1Image(funct_result,bold_data.affine)
+    out = nib.Nifti1Image(funct_result, reg_atlas_img.affine)
     out.to_filename("/Users/sam/Desktop/sub-TAU001/functionnectome.nii.gz")
 
 
@@ -294,6 +322,25 @@ def create_masked_T1(t1_file, mask_file):
     out = nib.Nifti1Image(t1_data, t1_img.affine)
     file_path = t1_file[:-7] + "_masked.nii.gz"
     out.to_filename(file_path)
+
+def plot_ROI_activity(registered_atlas, roi_timeseries):
+    """
+    Goal is to prepare a visualisation that contains the bold signal in each ROI 
+    
+    :param registered_atlas: Description
+    :param roi_timeseries: Description
+    """
+    atlas_img = nib.load(registered_atlas)
+    atlas_data = atlas_img.get_fdata()
+    image_data = np.zeros(shape=(roi_timeseries.shape[0], roi_timeseries.shape[1], atlas_data.shape[0], atlas_data.shape[1], atlas_data.shape[2]))
+    print("Shape is", image_data.shape)
+
+    for idx in tqdm(range(roi_timeseries.shape[1]), "Preparing ROI Images"):
+        for j in range(roi_timeseries.shape[0]):
+            roi = idx + 1
+            image_data[j, idx] = np.where(registered_atlas==roi, 
+                                          roi_timeseries[j, idx], 
+                                          np.nan)
 
 test_functionnectome = True
 test_white_matter_iteration = False
@@ -337,7 +384,8 @@ if __name__ == "__main__":
                                                              trk=trk,
                                                              save_path=save_registered_atlas, 
                                                              remap=False,
-                                                             save_output="/Users/sam/Desktop/sub-TAU001")
+                                                             save_output="/Users/sam/Desktop/sub-TAU001", 
+                                                             smoothing=False)
     
 
     # Functionnectome Test
