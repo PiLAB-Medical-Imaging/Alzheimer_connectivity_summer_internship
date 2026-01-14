@@ -82,7 +82,7 @@ def probability_maps(trk, mask_array, mask_debug=False):
     print(streamline_count)
 
 
-def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, save_path, remap = False):
+def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, save_path, remap = False, save_output = None):
     """
     Docstring for vectorised_probability_maps
     
@@ -134,11 +134,12 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
     roi_ids = np.unique(atlas_matrix) 
 
     # Stack the density maps up into a single array.
-    all_density_maps = np.zeros(shape=(len(roi_ids)-1,156, 256, 256)) # todo: Make this reactive to the file dimensions that are input, rather than those that are hardcoded.
+    N = len(roi_ids)-1
+    all_density_maps = np.zeros(shape=(N,156, 256, 256)) # todo: Make this reactive to the file dimensions that are input, rather than those that are hardcoded.
 
-    # Double check the affine information:
+    root_filepath = "/Users/sam/Desktop/sub-TAU001/DensityMaps" # Replace this to make it more general @todo
 
-    root_filepath = "/Users/sam/Desktop/sub-TAU001/DensityMaps"
+
     for idx, roi in tqdm(enumerate(roi_ids),"Computing ROI streamlines"):
         idx -= 1
         if roi == 0:
@@ -163,7 +164,7 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
         trk_new = trk.from_sft(relevant_streamlines, trk)
 
 
-        print("Tractogram Properties: ", trk_new._get_streamline_count())
+        #print("Tractogram Properties: ", trk_new._get_streamline_count())
         
         # Get a density map of the relevant streamlines
         roi_density_map = density_map(trk_new.streamlines, np.eye(4), trk_new.dimensions)
@@ -182,9 +183,51 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
     connection_probability = all_density_maps / overall_density_map
     connection_probability = np.nan_to_num(connection_probability, True, nan=0)
 
+    if save_output != None:
+        if type(save_output) is not str:
+           raise ValueError("Please ensure save_output is a string pointing to a location to save the probability maps")
+        
+        save_name = path.join(save_output, f"probability_maps.nii.gz")
+        save_values = np.transpose(connection_probability, (1,2,3,0))
+        out = nib.Nifti1Image(save_values.astype(float), trk.affine)
+        out.to_filename(save_name)
+
     return connection_probability
 
-
+def normalizer(funct_results, probability_maps, method = "basic", bold_min = None, bold_max = None):
+    """
+    Converts the raw functionnectome values to constrain them to within the range of the original BOLD signal. Some of these methods are experimental/require validation. 
+    
+    :param funct_results: Array-like
+        Object containing the raw values of the functionnectome.
+    :param probability_maps: Array
+        Contains the probability maps for each voxel/ROI
+    :param method: str
+        String defining which method to use. Valid options are ('basic', 'self-sum', 'voxel_sum', 'hack')
+    :param bold_min: OPTIONAL Numeric
+        The minimum value in the bold data. Only required for the hack method
+    :param bold_max: OPTIONAL Numeric
+        The maximum value in the bold data. Only required for the hack method.
+    """
+    if method == "basic":
+        summed_probs = np.sum(probability_maps) # Dud - makes values minute
+    elif method == "self-sum": # Dud - makes values too large
+        summed_probs = 0
+        for probability_map in probability_maps:
+            summed_probs += np.mean(probability_map)
+    elif method == "voxel_sum": # Currently a dud - returns entirely NaNs.
+        summed_probs = np.nansum(probability_maps, axis=0)
+        print(f"Sum properties:\nNonzeros: {np.count_nonzero(summed_probs)}\nNansum: {np.nansum(summed_probs, axis = 0)}\nOriginal properties:\nNon-zeros: {np.count_nonzero(probability_maps)}")
+    elif method == "hack": # I think this may sacrifice the physiological meaning of what we are doing.
+        if bold_min == None or bold_max == None:
+            raise ValueError("Please enter the parameters bold_min and bold_max (numeric) to use the hack method.")
+        normalised = ((funct_results-funct_results.min())/(funct_results.max()-funct_results.min())) * (bold_max-bold_min)+bold_min
+        return normalised
+    else:
+        raise ValueError("Please enter a valid method ('basic', 'self-sum', 'voxel_sum', 'hack')")
+    
+    normalised = funct_results/summed_probs   
+    return normalised
 
         
 def functionnectome(probability_maps, fMRI_file, brain_mask_path, registered_atlas):
@@ -200,35 +243,32 @@ def functionnectome(probability_maps, fMRI_file, brain_mask_path, registered_atl
     """
 
 
-    bold_img = image.load_img(fMRI_file)
-    mask = nib.load(brain_mask_path)
-    # Resample the mask to make sure they are compatible
-    mask_resampled = image.resample_to_img(mask,
-                                           bold_img,
-                                           interpolation="nearest", 
-                                            force_resample=True, 
-                                            copy_header=True )
-
-    masked = masking.apply_mask(bold_img, mask_resampled)
-
-
-    bold_data = bold_img
-    print("Data shape", bold_data.shape)
-
-    print("Probability Map shape", probability_maps.shape)
-
-    # Try giving it the atlas in MNI space
+    bold_data = image.load_img(fMRI_file)
 
     masker = NiftiLabelsMasker(registered_atlas, standardize=True)
 
     # This is now a timepoints x ROI matrix.
-    roi_time_series = masker.fit_transform(bold_img)
+    roi_time_series = masker.fit_transform(bold_data)
 
     plot_timeseries(roi_time_series=roi_time_series[NOISE_OFFSET:, :])
+
+    bold_max = np.max(roi_time_series[NOISE_OFFSET:,:])
+    bold_min = np.min(roi_time_series[NOISE_OFFSET:,:])
+    print(f"Minimum BOLD value: {bold_min}\nMaximum BOLD value: {bold_max}") 
+    
     funct_result = tensordot(roi_time_series[NOISE_OFFSET:, :], probability_maps,1) # need to double check the shapes of the roi_timeseries.
+
+    funct_result = normalizer(funct_results=funct_result,
+                                         probability_maps=probability_maps,
+                                         method="hack",
+                                         bold_min=bold_min,
+                                         bold_max=bold_max)
+
+
     funct_result = np.transpose(funct_result, (1,2,3,0))
-    print(funct_result.max(), funct_result.min())
-    out = nib.Nifti1Image(funct_result,bold_img.affine)
+
+    print(f"Max F value: {funct_result.max()}\Min F value: {funct_result.min()}")
+    out = nib.Nifti1Image(funct_result,bold_data.affine)
     out.to_filename("/Users/sam/Desktop/sub-TAU001/functionnectome.nii.gz")
 
 
@@ -296,10 +336,9 @@ if __name__ == "__main__":
                                                              reference_file=reference_file, 
                                                              trk=trk,
                                                              save_path=save_registered_atlas, 
-                                                             remap=False)
+                                                             remap=False,
+                                                             save_output="/Users/sam/Desktop/sub-TAU001")
     
-
-    print(probability_maps_computed.min(), probability_maps_computed.max(), probability_maps_computed.mean())
 
     # Functionnectome Test
     if test_functionnectome:
