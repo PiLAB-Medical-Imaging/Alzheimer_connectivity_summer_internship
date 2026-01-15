@@ -22,6 +22,8 @@ from utilities import mask_generator
 from dipy.tracking.life import voxel2streamline
 from collections import defaultdict
 import json
+from nibabel.nifti1 import Nifti1Image
+import sparse
 NOISE_OFFSET = 5
 
 def target_1(trk, mask, affine):  
@@ -45,7 +47,11 @@ def generate_masks(wm_mask, test_masks = False):
         mask_2 = nib.load("/Users/sam/Desktop/sub-TAU001/two_white_matter_mask.nii.gz")
         return np.stack([mask_1.get_fdata(), mask_2.get_fdata()], axis=0)
     else:
-        wm_data = wm_mask.get_fdata()
+        if type(wm_mask) == Nifti1Image:
+            wm_data = wm_mask.get_fdata()
+        else: 
+            wm_data = wm_mask
+       
         wm_positions = np.array(np.nonzero(wm_data)).T
         #n = len(wm_positions)
 
@@ -202,6 +208,8 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
                                  csf_probability= csf_probability,
                                  mask_type="grey", 
                                  gm_threshold=0.9)
+        gm_mask.to_filename("/Users/sam/Desktop/sub-TAU001/gm_mask.nii.gz")
+        gm_mask = gm_mask.get_fdata()
         
         # Get the voxels to streamline mapping
         v2f_mapping = voxel_to_streamline_map(trk.streamlines, gm_mask.shape)
@@ -215,34 +223,34 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
         
         # Now, obtain the grey matter positions:
         mask_positions = generate_masks(gm_mask)
-        mask_positions = mask_positions[0:10000]
+        #test for a limited subset
+        mask_positions = mask_positions[0:1000]
         n = len(mask_positions)
-        all_density_maps = np.zeros(shape = (n, gm_mask.shape[0], gm_mask.shape[1], gm_mask.shape[2]))
+        #all_density_maps = np.zeros(shape = (n, gm_mask.shape[0], gm_mask.shape[1], gm_mask.shape[2]))
+        all_density_maps = []
+
 
         # Need to loop through grey matter voxels:
         failure_count = 0
 
-        for grey_vox in tqdm(range(n), "\tVoxel wise computation of fibre connectivity"):
+        for grey_vox, _ in tqdm(enumerate(mask_positions), desc="\tVoxel wise fibre connectivity", leave=True):
             # Compute the relevant streamlines for that voxel:
-            try:
+            if tuple(mask_positions[grey_vox]) in v2f_mapping.keys():
                 streamlines = v2f_mapping[tuple(mask_positions[grey_vox])]
                 vox_density_map = density_map(streamlines=trk.streamlines[streamlines], 
                                               affine = np.eye(4),
                                               vol_dims=trk.dimensions
-                                              )
-                   
-            except KeyError as e:
-                vox_density_map = np.zeros_like(gm_mask)
+                                              )    
+                
+            else:
+                vox_density_map = np.zeros_like(gm_mask)  
                 failure_count+=1
-                #print(f"Key failure: {mask_positions[grey_vox]}")
+               
+            sarr = sparse.COO.from_numpy(vox_density_map)
+            all_density_maps.append(sarr)
 
-            all_density_maps[grey_vox] = vox_density_map
-        print(len(v2f_mapping.keys()))
-        print(f"Failure proportion: {failure_count/n}")                                   
-
-
-
-        raise Exception("Placeholder - we are up to here")
+        failure_proportion = failure_count/n        
+        all_density_maps = sparse.stack(all_density_maps, axis=0)                         
         
     else:
         raise ValueError("Please enter a valid mode. Valid modes are: 'roi', 'vox'")
@@ -251,15 +259,17 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
 
 def compute_connection_probability(overall_density_map, all_density_maps, save_output, trk):
     try:
-        connection_probability = all_density_maps / overall_density_map
-        connection_probability = np.nan_to_num(connection_probability, True, nan=0)
+        safe_overall_density = np.where(overall_density_map==0, 1, overall_density_map)
+        connection_probability = all_density_maps / safe_overall_density
+
     except ValueError:
         all_density_maps = np.transpose(all_density_maps, (3,0,1,2))
         connection_probability = all_density_maps / overall_density_map
+
+    if is_sparse(connection_probability) == False:
         connection_probability = np.nan_to_num(connection_probability, True, nan=0)
 
-
-    if save_output != None:
+    if save_output != None and is_sparse(connection_probability)== False:
         if type(save_output) is not str:
            raise ValueError("Please ensure save_output is a string filepath to save the probability maps")
         
@@ -309,7 +319,7 @@ def normalizer(funct_results, probability_maps, method = "basic", bold_min = Non
     return normalised
 
         
-def functionnectome(probability_maps, fMRI_file, registered_atlas, extensive_visualisation=None, debug_prints= False):
+def functionnectome(probability_maps, fMRI_file, registered_atlas, extensive_visualisation=None, debug_prints= False, grey_matter_mask = None):
     """
     Computes the functionnectome based on a probability of connection map and the fmri data.
     
@@ -320,11 +330,13 @@ def functionnectome(probability_maps, fMRI_file, registered_atlas, extensive_vis
     :param registered_atlas: str
         Contains the atlas that has been adapted to the patient T1 space.
     """
-
-
     bold_data = image.load_img(fMRI_file)
 
-    masker = NiftiLabelsMasker(registered_atlas, standardize=True)
+    if grey_matter_mask != None:
+        masker = NiftiMasker(mask_img=grey_matter_mask,
+                             standardize=True)
+    else:
+        masker = NiftiLabelsMasker(registered_atlas, standardize=True)
 
 
     # This is now a timepoints x ROI matrix.
@@ -342,7 +354,10 @@ def functionnectome(probability_maps, fMRI_file, registered_atlas, extensive_vis
     if debug_prints:
         print(f"Minimum BOLD value: {bold_min}\nMaximum BOLD value: {bold_max}") 
     
-    funct_result = tensordot(roi_time_series, probability_maps,1) # need to double check the shapes of the roi_timeseries.
+    if is_sparse(probability_maps):
+        funct_result = sparse.tensordot(roi_time_series, probability_maps)
+    else:
+        funct_result = tensordot(roi_time_series, probability_maps,1) # need to double check the shapes of the roi_timeseries.
 
     funct_result = normalizer(funct_results=funct_result,
                                          probability_maps=probability_maps,
@@ -386,7 +401,7 @@ def create_masked_T1(t1_file, mask_file):
 def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, wm_mask_filepath, tractogram, anatomical_scan_atlas_space, 
                              save_registered_atlas, savepath_density_map, brain_mask_path = None, save_probability_maps = None, 
                              remap = False, functionnectome_savepath = None, grey_matter_path = None, white_matter_prob = None,
-                             csf_prob = None):
+                             csf_prob = None, gm_mask = None):
     task = 1
 
     # Load the tractogram and shift to voxel corner
@@ -436,9 +451,11 @@ def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, wm_mask_filepath, 
     task += 1
     # Calculate the functionnectome
     print(f"{task}. Compute Functionnectome")
+    grey_matter_mask_img = nib.load("/Users/sam/Desktop/sub-TAU001/gm_mask.nii.gz")
     funct_result = functionnectome(probability_maps = probability_maps_computed, 
                             fMRI_file= fMRI_path,
-                            registered_atlas=save_registered_atlas)
+                            registered_atlas=save_registered_atlas,
+                            grey_matter_mask=grey_matter_mask_img)
     task += 1
 
     
@@ -473,6 +490,9 @@ def voxel_to_streamline_map(streamlines, vol_shape):
     # Convert sets → lists for downstream use
     return {k: list(v) for k, v in mapping.items()}
 
+
+def is_sparse(arr):
+    return isinstance(arr, sparse.COO)
 
 
 def plot_ROI_activity(registered_atlas, roi_timeseries):
