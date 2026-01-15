@@ -3,7 +3,6 @@ from dipy.tracking.streamline import select_by_rois
 from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
 import nibabel as nib
-import timeit
 import Functionnectome.functionnectome as funct
 import numpy as np
 from dipy.tracking.streamline import transform_streamlines
@@ -13,13 +12,15 @@ from dipy.tracking.utils import density_map
 from os import path
 from tqdm import tqdm
 import os
-from nilearn.input_data import NiftiLabelsMasker, NiftiMasker
+from nilearn.maskers import NiftiLabelsMasker, NiftiMasker
 from nilearn import image, masking
 from numpy import tensordot
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 from nilearn.regions import signals_to_img_labels
-
+from utilities import mask_generator
+from dipy.tracking.utils import s
+from dipy.tracking.life import voxel2streamline
 NOISE_OFFSET = 5
 
 def target_1(trk, mask, affine):  
@@ -45,15 +46,16 @@ def generate_masks(wm_mask, test_masks = False):
     else:
         wm_data = wm_mask.get_fdata()
         wm_positions = np.array(np.nonzero(wm_data)).T
-        n = len(wm_positions)
+        #n = len(wm_positions)
 
-        # Make an array to store the masks. It should be n long, and then the same shape as the original white matter mask
+        """ # Make an array to store the masks. It should be n long, and then the same shape as the original white matter mask
         output = np.zeros((n,) + wm_data.shape, dtype=wm_data.dtype)
 
         # For each index in the wm_positions array, create a single 1.0 value in the mask.
-        for i, idx in enumerate(wm_positions):
-            output[i][tuple(idx)] = 1.0
-        return output
+        for i, idx in tqdm(enumerate(wm_positions), "\tGenerating the white matter masks"):
+            output[i][tuple(idx)] = 1.0 """
+        
+        return wm_positions
 
 
 def probability_maps(trk, mask_array, mask_debug=False):
@@ -84,8 +86,10 @@ def probability_maps(trk, mask_array, mask_debug=False):
     print(f"Streamline counts:")
     print(streamline_count)
 
-
-def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, save_path, remap = False, save_output = None, smoothing = False, mode = "roi", save_density_map_path = None):
+# Could be nice to simplify this by giving the path to the fMRI database??
+def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, save_path, remap = False, save_output = None,
+                                 smoothing = False, mode = "roi", save_density_map_path = None, grey_matter_probs = None, 
+                                 load_from_file = True, white_matter_probabilities = None, csf_probability = None):
     """
     Docstring for vectorised_probability_maps
     
@@ -99,7 +103,7 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
         Determines if a new mapping is calculated, rather than using a saved one.
 
     :returns connection_probability
-        An array - shape is r x 156 X 256 x 256, where r is the number of regions of interest defined.
+        An array - 
     """
     labels = np.unique(nib.load(atlas_path).get_fdata())
     # Move the tractogram to the corner of the voxel
@@ -137,7 +141,7 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
     # Iterate through the AAL regions and extract only the streamlines that go through each region. (116 iterations, will give a NxN matrix for each ROI, where N is the number of white matter voxels) 
 
     if save_density_map_path != None:
-        filepath = path.join(save_density_map_path, f"density_map.nii.gz")
+        filepath = path.join(save_density_map_path, f"{mode}_density_map.nii.gz")
         if os.path.exists(filepath):
                 print("\tLoading Pre-existing density maps")
                 all_density_maps = nib.load(filepath)
@@ -188,7 +192,52 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
             out.to_filename(filename=filepath)
 
     elif mode == "vox":
-        print("Voxel mode is not implemented... yet")
+        if grey_matter_probs is None:
+            raise ValueError("Grey matter mask must be provided if the mode is set to voxel. Provide as a filepath to the grey matter mask")
+        gm_mask = mask_generator(white_matter_probability=white_matter_probabilities, 
+                                 grey_matter_probability=grey_matter_probs,
+                                 csf_probability= csf_probability,
+                                 mask_type="grey", 
+                                 gm_threshold=0.9)
+        mask_positions = generate_masks(gm_mask)
+        n=len(mask_positions)
+        all_density_maps = np.zeros(shape=(n, gm_mask.shape[0], gm_mask.shape[1], gm_mask.shape[2]))
+
+        for idx, pos in tqdm(enumerate(mask_positions[0:999]), "\tGenerating density per voxel"):
+            mask = np.zeros(shape=(gm_mask.shape[0], gm_mask.shape[1], gm_mask.shape[2]))
+            mask[tuple(pos)] = 1.0
+            relevant_streamlines = target_1(trk = trk, 
+                                            mask = mask,
+                                            affine = np.eye(4))
+            streamline_list = list(relevant_streamlines)
+            if len(streamline_list) == 0:
+                vox_density_map = np.zeros_like(mask)
+                all_density_maps[idx] = vox_density_map
+                continue
+
+            trk_new = trk.from_sft(streamline_list, trk)
+            
+            vox_density_map = density_map(trk_new.streamlines, np.eye(4), trk_new.dimensions)
+            all_density_maps[idx] = vox_density_map
+            """
+            
+
+            trk_new = trk.from_sft(relevant_streamlines, trk)
+
+            # Get a density map of the relevant streamlines
+            # Use the white matter mask here? 
+            vox_density_map = density_map(trk_new.streamlines, np.eye(4), trk_new.dimensions)
+
+
+            if smoothing:
+                vox_density_map = gaussian_filter(roi_density_map, 1.0)
+            # Output the density maps so that they can be visualised
+
+
+            all_density_maps[idx] = vox_density_map """
+
+        raise Exception("Placeholder - we are up to here")
+        
     else:
         raise ValueError("Please enter a valid mode. Valid modes are: 'roi', 'vox'")
         
@@ -328,7 +377,10 @@ def create_masked_T1(t1_file, mask_file):
     return out
 
 
-def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, wm_mask_filepath, tractogram, anatomical_scan_atlas_space, save_registered_atlas, savepath_density_map, brain_mask_path = None, save_probability_maps = None, remap = False, functionnectome_savepath = None):
+def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, wm_mask_filepath, tractogram, anatomical_scan_atlas_space, 
+                             save_registered_atlas, savepath_density_map, brain_mask_path = None, save_probability_maps = None, 
+                             remap = False, functionnectome_savepath = None, grey_matter_path = None, white_matter_prob = None,
+                             csf_prob = None):
     task = 1
 
     # Load the tractogram and shift to voxel corner
@@ -361,7 +413,12 @@ def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, wm_mask_filepath, 
                                                             remap=remap,
                                                             save_output=save_probability_maps, 
                                                             smoothing=False,
-                                                            save_density_map_path=savepath_density_map)
+                                                            save_density_map_path=savepath_density_map,
+                                                            mode="vox",
+                                                            grey_matter_probs=grey_matter_path,
+                                                            white_matter_probabilities=white_matter_prob,
+                                                            csf_probability=csf_prob
+                                                            )
     task += 1
 
     
@@ -421,6 +478,7 @@ if __name__ == "__main__":
     moving_file = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
     density_map_path = "/Users/sam/Desktop/sub-TAU001"
     functionnectome_savepath = "/Users/sam/Desktop/sub-TAU001/functionnectome.nii.gz"
+    gm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-GM_probseg.nii.gz"
 
     print("Testing the pipeline")
     functionnectome_pipeline(atlas_path=atlas_path,
@@ -432,5 +490,8 @@ if __name__ == "__main__":
                              brain_mask_path=brain_mask_path,
                              save_registered_atlas=save_registered_atlas,
                              savepath_density_map =    density_map_path,
-                             functionnectome_savepath=functionnectome_savepath                         
+                             functionnectome_savepath=functionnectome_savepath,
+                             grey_matter_path= gm_prob,
+                             white_matter_prob="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-WM_probseg.nii.gz",
+                             csf_prob="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-CSF_probseg.nii.gz"
                              )
