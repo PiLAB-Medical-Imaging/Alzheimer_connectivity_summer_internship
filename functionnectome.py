@@ -19,8 +19,9 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 from nilearn.regions import signals_to_img_labels
 from utilities import mask_generator
-from dipy.tracking.utils import s
 from dipy.tracking.life import voxel2streamline
+from collections import defaultdict
+import json
 NOISE_OFFSET = 5
 
 def target_1(trk, mask, affine):  
@@ -89,7 +90,7 @@ def probability_maps(trk, mask_array, mask_debug=False):
 # Could be nice to simplify this by giving the path to the fMRI database??
 def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, save_path, remap = False, save_output = None,
                                  smoothing = False, mode = "roi", save_density_map_path = None, grey_matter_probs = None, 
-                                 load_from_file = True, white_matter_probabilities = None, csf_probability = None):
+                                 load_from_file = True, white_matter_probabilities = None, csf_probability = None, verbose_debug = False):
     """
     Docstring for vectorised_probability_maps
     
@@ -194,47 +195,52 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
     elif mode == "vox":
         if grey_matter_probs is None:
             raise ValueError("Grey matter mask must be provided if the mode is set to voxel. Provide as a filepath to the grey matter mask")
+        
+        # Generate a grey matter mask to work with.
         gm_mask = mask_generator(white_matter_probability=white_matter_probabilities, 
                                  grey_matter_probability=grey_matter_probs,
                                  csf_probability= csf_probability,
                                  mask_type="grey", 
                                  gm_threshold=0.9)
+        
+        # Get the voxels to streamline mapping
+        v2f_mapping = voxel_to_streamline_map(trk.streamlines, gm_mask.shape)
+
+        if verbose_debug:
+            filename = "/Users/sam/Desktop/sub-TAU001/v2f.json"
+            mapping_str = {f"{k[0]},{k[1]},{k[2]}": v for k, v in v2f_mapping.items()}
+            with open(filename, "w") as f:
+                    json.dump(mapping_str, f,indent=4)
+
+        
+        # Now, obtain the grey matter positions:
         mask_positions = generate_masks(gm_mask)
-        n=len(mask_positions)
-        all_density_maps = np.zeros(shape=(n, gm_mask.shape[0], gm_mask.shape[1], gm_mask.shape[2]))
+        mask_positions = mask_positions[0:10000]
+        n = len(mask_positions)
+        all_density_maps = np.zeros(shape = (n, gm_mask.shape[0], gm_mask.shape[1], gm_mask.shape[2]))
 
-        for idx, pos in tqdm(enumerate(mask_positions[0:999]), "\tGenerating density per voxel"):
-            mask = np.zeros(shape=(gm_mask.shape[0], gm_mask.shape[1], gm_mask.shape[2]))
-            mask[tuple(pos)] = 1.0
-            relevant_streamlines = target_1(trk = trk, 
-                                            mask = mask,
-                                            affine = np.eye(4))
-            streamline_list = list(relevant_streamlines)
-            if len(streamline_list) == 0:
-                vox_density_map = np.zeros_like(mask)
-                all_density_maps[idx] = vox_density_map
-                continue
+        # Need to loop through grey matter voxels:
+        failure_count = 0
 
-            trk_new = trk.from_sft(streamline_list, trk)
-            
-            vox_density_map = density_map(trk_new.streamlines, np.eye(4), trk_new.dimensions)
-            all_density_maps[idx] = vox_density_map
-            """
-            
+        for grey_vox in tqdm(range(n), "\tVoxel wise computation of fibre connectivity"):
+            # Compute the relevant streamlines for that voxel:
+            try:
+                streamlines = v2f_mapping[tuple(mask_positions[grey_vox])]
+                vox_density_map = density_map(streamlines=trk.streamlines[streamlines], 
+                                              affine = np.eye(4),
+                                              vol_dims=trk.dimensions
+                                              )
+                   
+            except KeyError as e:
+                vox_density_map = np.zeros_like(gm_mask)
+                failure_count+=1
+                #print(f"Key failure: {mask_positions[grey_vox]}")
 
-            trk_new = trk.from_sft(relevant_streamlines, trk)
-
-            # Get a density map of the relevant streamlines
-            # Use the white matter mask here? 
-            vox_density_map = density_map(trk_new.streamlines, np.eye(4), trk_new.dimensions)
+            all_density_maps[grey_vox] = vox_density_map
+        print(len(v2f_mapping.keys()))
+        print(f"Failure proportion: {failure_count/n}")                                   
 
 
-            if smoothing:
-                vox_density_map = gaussian_filter(roi_density_map, 1.0)
-            # Output the density maps so that they can be visualised
-
-
-            all_density_maps[idx] = vox_density_map """
 
         raise Exception("Placeholder - we are up to here")
         
@@ -444,6 +450,28 @@ def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, wm_mask_filepath, 
     print("Complete!")
 
 
+def voxel_to_streamline_map(streamlines, vol_shape):
+    mapping = defaultdict(set)
+
+    for idx, streamline in tqdm(enumerate(streamlines), "\tMapping voxels to streamlines"):
+        # Force an integer value for the streamline index
+        vox = streamline.astype(np.int32, copy=False)
+
+        # Remove points outside the shape
+        valid_vox = (
+                        (vox[:,0] >= 0) & (vox[:, 0]<=vol_shape[0]) &
+                        (vox[:,1] >= 1) & (vox[:, 1]<=vol_shape[1]) &
+                        (vox[:,2] >= 2) & (vox[:, 2]<=vol_shape[2])
+        )
+
+        vox = vox[valid_vox]
+
+        # One streamline should only be counted once per voxel
+        for v in map(tuple, np.unique(vox, axis=0)):
+            mapping[v].add(idx)
+
+    # Convert sets → lists for downstream use
+    return {k: list(v) for k, v in mapping.items()}
 
 
 
