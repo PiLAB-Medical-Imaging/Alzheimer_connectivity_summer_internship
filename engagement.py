@@ -80,10 +80,7 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
    
 
 def engagement_calculation(EBC_matrix, SC_matrices):
-    print(SC_matrices.shape)
-    print(EBC_matrix.shape)
     result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
-    print(result.shape)
 
 
 
@@ -106,7 +103,11 @@ def generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk):
             conn_mat = np.zeros(shape=(ROIs, ROIs))
         else:
             streamline_indices = v2f_mapping[tuple(voxel)]
-            conn_mat = connectivity_matrix(trk.streamlines[streamline_indices], atlas_data,inclusive=False,)
+            conn_mat = connectivity_matrix(trk.streamlines[streamline_indices], atlas_data,inclusive=False)
+        
+        conn_mat = np.delete(conn_mat, 0, 0)
+        conn_mat = np.delete(conn_mat, 0, 1)
+
 
         conn_mat = sparse.COO.from_numpy(conn_mat)
         all_connectivity_matrices.append(conn_mat)
