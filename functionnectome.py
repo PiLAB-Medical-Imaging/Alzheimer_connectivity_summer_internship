@@ -19,11 +19,11 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 from nilearn.regions import signals_to_img_labels
 from utilities import mask_generator
-from dipy.tracking.life import voxel2streamline
 from collections import defaultdict
 import json
 from nibabel.nifti1 import Nifti1Image
 import sparse
+from utilities import voxel_to_streamline_map
 NOISE_OFFSET = 5
 
 def target_1(trk, mask, affine):  

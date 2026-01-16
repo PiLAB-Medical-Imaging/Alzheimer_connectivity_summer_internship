@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 import nibabel as nib
 import os
+from nibabel.nifti1 import Nifti1Image
 import re
 
 
@@ -43,10 +44,17 @@ def fmri_process(atlas_location, label_location):
 
     print(lut)
 
-def connectivity_matrix_generation(bold_filepath, atlas_filepath):
-    aal_img = nib.load(atlas_filepath)
-    masker = NiftiLabelsMasker(labels_img=aal_img, standardize=True)
-    time_series = masker.fit_transform(bold_filepath)
+def connectivity_matrix_generation(bold, atlas, normalise):
+    if type(atlas) is str:
+        aal_img = nib.load(atlas)
+    elif type(atlas) is Nifti1Image:
+        aal_img = atlas
+    else:
+        raise TypeError("The Atlas should be provided as either a path to an image, or the Nifti image object.")
+    
+    masker = NiftiLabelsMasker(labels_img=aal_img, standardize=normalise)
+
+    time_series = masker.fit_transform(bold)
 
     # Correlation Matrix
     conn_measure = ConnectivityMeasure(kind="correlation")
@@ -72,6 +80,8 @@ def process_fMRI(rootpath, subj_id, session_number, atlas_path):
     number = (re.findall(r'-?\d*\.?\d+', subj_id))
     number = int(number[0]) 
     converted_num = "TAU-{:03d}".format(number)
+
+    
 
     filepath = os.path.join(rootpath, subj_id, session_number, "task-rest_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz")
 
