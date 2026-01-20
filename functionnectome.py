@@ -351,20 +351,12 @@ def functionnectome(probability_maps, fMRI_file, registered_atlas, extensive_vis
                              target_affine=np.eye(4))
         print("\tGrey matter mask provided")
     else:
-        print("the atlas")
-
-        # Check the loaded data.
-        loaded_atlas = nib.load(registered_atlas)
-        print(loaded_atlas.affine)
-        masker = NiftiLabelsMasker(registered_atlas, standardize= False ,verbose=1)
+        masker = NiftiLabelsMasker(registered_atlas, standardize= True ,verbose=1)
 
 
     # This is now a timepoints x ROI matrix.
     roi_time_series = masker.fit_transform(bold_data)
     roi_time_series = roi_time_series[NOISE_OFFSET:, :]
-
-    print("The time series is: ")
-    print(roi_time_series)
 
     if extensive_visualisation != None:
         reg_atlas_img = nib.load(registered_atlas)
@@ -383,11 +375,8 @@ def functionnectome(probability_maps, fMRI_file, registered_atlas, extensive_vis
     if is_sparse(probability_maps):
         funct_result = sparse.tensordot(roi_time_series, probability_maps)
     else:
-        print(f"Shapes are: \n ROI: {roi_time_series.shape}\nProb maps {probability_maps.shape}")
         funct_result = tensordot(roi_time_series, probability_maps,1) # need to double check the shapes of the roi_timeseries.
 
-    print("Pre normalisation")
-    print(funct_result)
     funct_result = normalizer(funct_results=funct_result,
                                          probability_maps=probability_maps,
                                          method="hack",
@@ -475,9 +464,6 @@ def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, tractogram, anatom
                                                             aligned=is_aligned
                                                             )
     task += 1
-
-    print("The overall density map:")
-    print(overall_density_map)
 
     print(f"{task}. Generate connection probability")
     probability_maps_computed = compute_connection_probability(overall_density_map=overall_density_map, 
