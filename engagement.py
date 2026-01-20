@@ -13,7 +13,7 @@ from tqdm import tqdm
 from unravel.analysis import connectivity_matrix
 import sparse
 
-def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, white_matter_prob, csf_prob,  plotting = False, save_engagement = None):
+def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, white_matter_prob, csf_prob,  plotting = False, save_engagement = None, verbose = False):
     """
     Pipeline that performs the entire engagement calculation - functions within this will correspond to submodules 
     that can be run with just the required objects. This function works with the filepaths.
@@ -33,14 +33,16 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
     bold_img_data = bold_img_data[:, :, :, 3:]
     atlas_img = nib.load(atlas)
     atlas_data = atlas_img.get_fdata()
-    print("The atlas looks like: ", atlas_data)
-    atlas_values = np.unique(atlas_data)
 
-    print("Atlas values are", atlas_values)
+    atlas_values = np.unique(atlas_data)
+    
     ROIs = len(atlas_values)
     fc_mat = connectivity_matrix_generation(bold_img, atlas, False)
-
-    print("The FC matrix looks like: ", fc_mat)
+    
+    if verbose:
+        print("The atlas looks like: ", atlas_data)
+        print("Atlas values are", atlas_values)
+        print("The FC matrix looks like: ", fc_mat)
 
     # Plotting to see if the matrix makes sense (as of right now it does not!!!)
     if plotting:
@@ -60,16 +62,18 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
     # this with a metric that more accurately characterises the degree of "proximity" a node has to other nodes")
     fc_mat = correlation_thresholding(fc_mat, 1.0)
 
-    print("After thresholding: ", fc_mat)
+    if verbose:
+        print("After thresholding: ", fc_mat)
 
     task+=1
 
     ################################ Step 2 ################################
     print(f"{task}. Computing Edge Between Connectedness Matrix") 
     ebc_mat = ebc_computation(fc_mat)
-    print("The ebc matrix")
-    print(ebc_mat)
-    print(ebc_mat.shape)
+    if verbose:
+        print("The ebc matrix")
+        print(ebc_mat)
+        print(ebc_mat.shape)
     task += 1
 
     ################################ Step 3 ################################
@@ -86,6 +90,7 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
 
     print("The connectivity matrices:")
     print(all_connectivity_matrices)
+
     all_connectivity_matrices = sparse.asnumpy(all_connectivity_matrices)
     print(all_connectivity_matrices)
 
@@ -97,6 +102,7 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
     
     print("The final result")
     print(engagement)
+    print(engagement.min(), engagement.max())
     task += 1
 
     ################################ Step 5 ################################
@@ -110,17 +116,11 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
     print("Finito!")
     
 
-
-
-
-   
-
 def engagement_calculation(EBC_matrix, SC_matrices):
     result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
-    for i in range(len(SC_matrices)):
-        if result[i] == 0:
-            continue
-        result[i] = result[i]/(SC_matrices[i].sum())
+    denom = SC_matrices.sum(axis=(1, 2)) # This line converts each slice of the SC_matrices array into a single number (the sum of all the values in that slice)
+    result = np.where(result != 0, result / denom, result) # This line performs the division where the denom is non-zero. Otherwise leave as is.
+
     return result
 
 
@@ -137,12 +137,18 @@ def generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk):
     # Naive method:
     all_connectivity_matrices = []
 
+
+    path_1_count = 0 
+    non_zero_count = 0
     for idx, voxel in enumerate(tqdm(wm_positions, "VW SC matrices")):
         if tuple(voxel) not in v2f_mapping.keys():
             conn_mat = np.zeros(shape=(ROIs, ROIs))
+            path_1_count +=1
         else:
             streamline_indices = v2f_mapping[tuple(voxel)]
             conn_mat = connectivity_matrix(trk.streamlines[streamline_indices], atlas_data,inclusive=False)
+            if np.count_nonzero(conn_mat) > 0:
+                non_zero_count += 1
         
         conn_mat = np.delete(conn_mat, 0, 0)
         conn_mat = np.delete(conn_mat, 0, 1)
@@ -150,6 +156,11 @@ def generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk):
 
         conn_mat = sparse.COO.from_numpy(conn_mat)
         all_connectivity_matrices.append(conn_mat)
+    
+    print(f"The number of voxels with no streamlines: {path_1_count} out of {len(wm_positions)}")
+    print(f"The number of voxels  connectivity matrices with at least one connection: {non_zero_count} out of {len(wm_positions)}")
+
+
     
     all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
     return all_connectivity_matrices
