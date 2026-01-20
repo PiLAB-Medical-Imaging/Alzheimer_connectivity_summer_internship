@@ -117,15 +117,16 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
 
 def engagement_calculation(EBC_matrix, SC_matrices):
     result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
+    for i in range(len(SC_matrices)):
+        if result[i] == 0:
+            continue
+        result[i] = result[i]/(SC_matrices[i].sum())
     return result
 
 
 
 def generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk):
     v2f_mapping = voxel_to_streamline_map(trk.streamlines, vol_shape=trk.dimensions)
-
-    print("The mapping is:")
-    print(v2f_mapping)
 
     # Generate a white matter mask:
     wm_mask = mask_generator(white_matter_probability=white_matter_prob, smoothing=False)
