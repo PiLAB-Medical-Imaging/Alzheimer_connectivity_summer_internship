@@ -47,7 +47,7 @@ np.save(save_path, matrix)
 plt.savefig(save_fig_path)
  
 # Turn this into a function
-def generate_connectivity_matrix(atlas_file, label_file, subj_file, trk_file, save_path):
+def generate_connectivity_matrix(atlas_file, label_file, subj_file, trk_file, save_path=None):
 
     """
     Creates and stores a connectivity matrix for the subject. 
@@ -82,4 +82,5 @@ def generate_connectivity_matrix(atlas_file, label_file, subj_file, trk_file, sa
     matrix = np.delete(matrix, 0, 1)
 
     # Save output
-    np.save(save_path + subject_specific_location + "connectivity_matrix", matrix)
+    if save_path !=None:
+        np.save(save_path + subject_specific_location + "connectivity_matrix", matrix)

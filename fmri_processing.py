@@ -10,6 +10,7 @@ import nibabel as nib
 import os
 from nibabel.nifti1 import Nifti1Image
 import re
+from nilearn.plotting import plot_matrix, show
 
 
 bold_filepath = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz"

@@ -96,7 +96,7 @@ def probability_maps(trk, mask_array, mask_debug=False):
 # Could be nice to simplify this by giving the path to the fMRI database??
 def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, save_path, remap = False, save_output = None,
                                  smoothing = False, mode = "roi", save_density_map_path = None, grey_matter_probs = None, 
-                                 load_from_file = True, white_matter_probabilities = None, csf_probability = None, verbose_debug = False):
+                                 load_from_file = True, white_matter_probabilities = None, csf_probability = None, verbose_debug = False, aligned = False):
     """
     Docstring for vectorised_probability_maps
     
@@ -113,33 +113,41 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
         An array - 
     """
     labels = np.unique(nib.load(atlas_path).get_fdata())
+
     # Move the tractogram to the corner of the voxel
     trk.to_vox()
     trk.to_corner()
-    img = reference_file
+
 
     # First, match the atlas to the patient (this will be a slow step so try and cache it). Save it somewhere and then just check that filepath.
     sbj_atlas_path = save_path
+    img = nib.load(template_file)
 
     if  remap == False and path.exists(sbj_atlas_path):
         registered_atlas = nib.load(sbj_atlas_path)
+
     else:
-        mapping = find_transform(moving_file= template_file,
-                                static_file= reference_file,
-                                level_iters=[1000, 100, 10],
-                                diffeomorph=False)#, "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_space-MNI152NLin2009cAsym_desc-preproc_T1w.nii.gz", reference_file, level_iters=[1000, 100, 10], diffeomorph=False)
-        
-        registered_atlas = apply_transform(atlas_path, mapping, labels=True)
+        if aligned == False:
+            mapping = find_transform(moving_file= template_file,
+                                    static_file= reference_file,
+                                    level_iters=[1000, 100, 10],
+                                    diffeomorph=False)#, "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_space-MNI152NLin2009cAsym_desc-preproc_T1w.nii.gz", reference_file, level_iters=[1000, 100, 10], diffeomorph=False)
+            
+            registered_atlas = apply_transform(atlas_path, mapping, labels=True)
 
-        # Save the label volume for validation
+            # Save the label volume for validation
 
-        out = nib.Nifti1Image(registered_atlas.astype(float), img.affine) 
-        out.to_filename(sbj_atlas_path)
-   
+            out = nib.Nifti1Image(registered_atlas.astype(float), img.affine) 
+            out.to_filename(sbj_atlas_path)
+        else:
+            registered_atlas = nib.load(atlas_path)
+            out = nib.Nifti1Image(registered_atlas.get_fdata().astype(float), img.affine) 
+            out.to_filename(sbj_atlas_path)
+    
     # Extract the overall density map
-    overall_density_map = density_map(trk.streamlines, 
-                                       np.eye(4),
-                                       trk.dimensions)
+    overall_density_map = density_map(streamlines=trk.streamlines, 
+                                       affine=np.eye(4),
+                                       vol_dims=trk.dimensions)
     
     if smoothing:
         overall_density_map = gaussian_filter(overall_density_map, 1.0)
@@ -149,6 +157,7 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
 
     if save_density_map_path != None:
         filepath = path.join(save_density_map_path, f"{mode}_density_map.nii.gz")
+
         if os.path.exists(filepath):
                 print("\tLoading Pre-existing density maps")
                 all_density_maps = nib.load(filepath)
@@ -156,8 +165,10 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
                 return all_density_maps, overall_density_map
 
     if mode == "roi":
+        print("\tUsing the ROI mode")
         atlas_matrix = registered_atlas.get_fdata()
         roi_ids = np.unique(atlas_matrix) 
+
 
         # Stack the density maps up into a single array.
         N = len(roi_ids)-1
@@ -199,8 +210,9 @@ def vectorised_probability_maps(template_file, atlas_path, reference_file, trk, 
             out.to_filename(filename=filepath)
 
     elif mode == "vox":
-        if grey_matter_probs is None:
-            raise ValueError("Grey matter mask must be provided if the mode is set to voxel. Provide as a filepath to the grey matter mask")
+        print("\tUsing the Voxel mode")
+        if grey_matter_probs is None or csf_probability is None or white_matter_probabilities is None:
+            raise ValueError("Grey matter probability, csf_probability and white matter probability must be provided if the mode is set to voxel. Provide as a filepath to the grey matter mask")
         
         # Generate a grey matter mask to work with.
         gm_mask = mask_generator(white_matter_probability=white_matter_probabilities, 
@@ -332,16 +344,27 @@ def functionnectome(probability_maps, fMRI_file, registered_atlas, extensive_vis
     """
     bold_data = image.load_img(fMRI_file)
 
+
     if grey_matter_mask != None:
         masker = NiftiMasker(mask_img=grey_matter_mask,
-                             standardize=True)
+                             standardize=True,
+                             target_affine=np.eye(4))
+        print("\tGrey matter mask provided")
     else:
-        masker = NiftiLabelsMasker(registered_atlas, standardize=True)
+        print("the atlas")
+
+        # Check the loaded data.
+        loaded_atlas = nib.load(registered_atlas)
+        print(loaded_atlas.affine)
+        masker = NiftiLabelsMasker(registered_atlas, standardize= False ,verbose=1)
 
 
     # This is now a timepoints x ROI matrix.
     roi_time_series = masker.fit_transform(bold_data)
     roi_time_series = roi_time_series[NOISE_OFFSET:, :]
+
+    print("The time series is: ")
+    print(roi_time_series)
 
     if extensive_visualisation != None:
         reg_atlas_img = nib.load(registered_atlas)
@@ -353,12 +376,18 @@ def functionnectome(probability_maps, fMRI_file, registered_atlas, extensive_vis
     bold_min = np.min(roi_time_series)
     if debug_prints:
         print(f"Minimum BOLD value: {bold_min}\nMaximum BOLD value: {bold_max}") 
-    
+        print("Shape of prob_maps: ", probability_maps.shape)
+        print("ROI_time series shape", roi_time_series.shape)
+        
+
     if is_sparse(probability_maps):
         funct_result = sparse.tensordot(roi_time_series, probability_maps)
     else:
+        print(f"Shapes are: \n ROI: {roi_time_series.shape}\nProb maps {probability_maps.shape}")
         funct_result = tensordot(roi_time_series, probability_maps,1) # need to double check the shapes of the roi_timeseries.
 
+    print("Pre normalisation")
+    print(funct_result)
     funct_result = normalizer(funct_results=funct_result,
                                          probability_maps=probability_maps,
                                          method="hack",
@@ -398,10 +427,10 @@ def create_masked_T1(t1_file, mask_file):
     return out
 
 
-def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, wm_mask_filepath, tractogram, anatomical_scan_atlas_space, 
+def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, tractogram, anatomical_scan_atlas_space, 
                              save_registered_atlas, savepath_density_map, brain_mask_path = None, save_probability_maps = None, 
                              remap = False, functionnectome_savepath = None, grey_matter_path = None, white_matter_prob = None,
-                             csf_prob = None, gm_mask = None):
+                             csf_prob = None, gm_mask = None, mode = "roi", is_aligned = False, brain_only_t1w_path = None):
     task = 1
 
     # Load the tractogram and shift to voxel corner
@@ -414,35 +443,42 @@ def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, wm_mask_filepath, 
     trk.to_corner()
     task += 1
 
-
     # Create a masked T1w file. 
-    if brain_mask_path != None:
+
+    if brain_only_t1w_path != None:
+        print(f"{task}. Loading brain-only T1w scan")
+        brain_only_t1w_path = brain_only_t1w_path
+        brain_only_t1w = nib.load(brain_only_t1w_path)
+    elif brain_mask_path != None:
         print(f"{task}. Generate brain-only T1w scan")
-        brain_only_t1w = create_masked_T1(t1w_file, brain_mask_path) # Brain only t1w as a nifti image.
-    else:
-        print(f"{task}. Load brain-only T1w scan")
-        brain_only_t1w = nib.load(t1w_file)
+        brain_only_t1w = create_masked_T1(t1w_file, brain_mask_path) 
+        brain_only_t1w_path = t1w_file[:-7] + "_masked.nii.gz"
+    elif brain_mask_path == None and brain_only_t1w_path == None:
+        raise ValueError("Please provide either a brain_only_t1w path, or a brain_mask_t1w path and t1w_file path")
     task += 1
 
     # Generate the probability maps
     print(f"{task}. Generate density maps")
     all_density_maps, overall_density_map  = vectorised_probability_maps(template_file= anatomical_scan_atlas_space,
                                                             atlas_path=atlas_path,
-                                                            reference_file=brain_only_t1w, 
+                                                            reference_file= brain_only_t1w_path, 
                                                             trk=trk,
                                                             save_path=save_registered_atlas, 
                                                             remap=remap,
                                                             save_output=save_probability_maps, 
                                                             smoothing=False,
                                                             save_density_map_path=savepath_density_map,
-                                                            mode="vox",
+                                                            mode=mode,
                                                             grey_matter_probs=grey_matter_path,
                                                             white_matter_probabilities=white_matter_prob,
-                                                            csf_probability=csf_prob
+                                                            csf_probability=csf_prob,
+                                                            aligned=is_aligned
                                                             )
     task += 1
 
-    
+    print("The overall density map:")
+    print(overall_density_map)
+
     print(f"{task}. Generate connection probability")
     probability_maps_computed = compute_connection_probability(overall_density_map=overall_density_map, 
                                                                all_density_maps=all_density_maps,
@@ -451,11 +487,15 @@ def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, wm_mask_filepath, 
     task += 1
     # Calculate the functionnectome
     print(f"{task}. Compute Functionnectome")
-    grey_matter_mask_img = nib.load("/Users/sam/Desktop/sub-TAU001/gm_mask.nii.gz")
+
+    if mode == "roi" and grey_matter_path != None:
+        print("\tWarning, ignoring grey matter mask due to ROI mode selection!")
+        grey_matter_path = None
+
     funct_result = functionnectome(probability_maps = probability_maps_computed, 
                             fMRI_file= fMRI_path,
                             registered_atlas=save_registered_atlas,
-                            grey_matter_mask=grey_matter_mask_img)
+                            grey_matter_mask=grey_matter_path)
     task += 1
 
     
@@ -514,14 +554,15 @@ def plot_ROI_activity(registered_atlas, roi_timeseries):
                                           roi_timeseries[j, idx], 
                                           np.nan)
 
+
 if __name__ == "__main__":
+
     atlas_path = "/Users/sam/Desktop/sub-TAU001/aal.nii.gz"
     fMRI_path = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz"
     reference_file = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w.nii.gz"
     save_registered_atlas = "/Users/sam/Desktop/sub-TAU001/sub-TAU001_desc-registered_atlas_space-T1w.nii.gz"
     tractogram_filepath = "/Users/sam/Desktop/sub-TAU001/test_tract.trk"
     wm_mask_filepath = "/Users/sam/Desktop/sub-TAU001/sub-TAU001_space-T1w_label-WM_mask.nii.gz"
-    load_tractogram_path = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk"
     brain_mask_path = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-brain_mask.nii.gz"
     moving_file = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
     density_map_path = "/Users/sam/Desktop/sub-TAU001"
@@ -532,14 +573,15 @@ if __name__ == "__main__":
     functionnectome_pipeline(atlas_path=atlas_path,
                              fMRI_path=fMRI_path,
                              t1w_file=reference_file,
-                             wm_mask_filepath=wm_mask_filepath,
                              tractogram=tractogram_filepath,
                              anatomical_scan_atlas_space=moving_file, 
                              brain_mask_path=brain_mask_path,
                              save_registered_atlas=save_registered_atlas,
                              savepath_density_map =    density_map_path,
                              functionnectome_savepath=functionnectome_savepath,
-                             grey_matter_path= gm_prob,
                              white_matter_prob="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-WM_probseg.nii.gz",
-                             csf_prob="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-CSF_probseg.nii.gz"
+                             csf_prob="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-CSF_probseg.nii.gz",
+                             grey_matter_path=gm_prob,
+                             mode="roi",
+                             remap = True
                              )
