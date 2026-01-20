@@ -51,9 +51,16 @@ streamline_1 = np.array([[0,0,0],[0,1,1], [0,2,2]]).astype(np.float64)
 streamline_2 = np.array([[0,1,0],[0,1,1], [0,1,2]]).astype(np.float64)
 #streamline_3 = np.array([[0,5,3],[0,5,4], [0,5,5], [0,5,6]]).astype(np.float64)
 new_trk = StatefulTractogram([streamline_1, streamline_2],basic_img, space=Space.VOX, origin=Origin.TRACKVIS)
-new_trk.to_corner()
 
+print("before save",new_trk.origin)
+print(new_trk.streamlines)
 save_tractogram(new_trk,filename="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/test_tracts.trk")
+
+check_trk = load_tractogram("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/test_tracts.trk", "same")
+#check_trk.to_corner()
+print("Post save",check_trk.origin)
+print(check_trk.streamlines)                          
+
 
 # Make a mask:
 atlas_mask = np.zeros(shape=shape)

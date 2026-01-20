@@ -13,7 +13,7 @@ from tqdm import tqdm
 from unravel.analysis import connectivity_matrix
 import sparse
 
-def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, white_matter_prob, csf_prob,  plotting = False):
+def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, white_matter_prob, csf_prob,  plotting = False, save_engagement = None):
     """
     Pipeline that performs the entire engagement calculation - functions within this will correspond to submodules 
     that can be run with just the required objects. This function works with the filepaths.
@@ -31,12 +31,16 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
     bold_img = image.load_img(bold_data)
     bold_img_data = bold_img.get_fdata()
     bold_img_data = bold_img_data[:, :, :, 3:]
-   
     atlas_img = nib.load(atlas)
     atlas_data = atlas_img.get_fdata()
+    print("The atlas looks like: ", atlas_data)
     atlas_values = np.unique(atlas_data)
+
+    print("Atlas values are", atlas_values)
     ROIs = len(atlas_values)
     fc_mat = connectivity_matrix_generation(bold_img, atlas, False)
+
+    print("The FC matrix looks like: ", fc_mat)
 
     # Plotting to see if the matrix makes sense (as of right now it does not!!!)
     if plotting:
@@ -54,13 +58,17 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
 
     # Threshold the correlations to make it amenable to the EBC metric (may make sense to replace 
     # this with a metric that more accurately characterises the degree of "proximity" a node has to other nodes")
-    fc_mat = correlation_thresholding(fc_mat, 0.2)
+    fc_mat = correlation_thresholding(fc_mat, 1.0)
+
+    print("After thresholding: ", fc_mat)
 
     task+=1
 
     ################################ Step 2 ################################
     print(f"{task}. Computing Edge Between Connectedness Matrix") 
     ebc_mat = ebc_computation(fc_mat)
+    print("The ebc matrix")
+    print(ebc_mat)
     print(ebc_mat.shape)
     task += 1
 
@@ -68,35 +76,65 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
     print(f"{task}. Computing all fibres that penetrate each voxel")   
 
     trk = load_tractogram(tractogram_file, "same")
+    trk.to_corner()
+
+    """ print("Streamlines before passing to the mapping function")
+    print(trk)
+    print(trk.streamlines) """
 
     all_connectivity_matrices = generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk)
+
+    print("The connectivity matrices:")
+    print(all_connectivity_matrices)
+    all_connectivity_matrices = sparse.asnumpy(all_connectivity_matrices)
+    print(all_connectivity_matrices)
 
     task += 1
     ################################ Step 4 ################################
     print(f"{task}. Calculating Engagement")   
-    engagement_calculation(EBC_matrix=ebc_mat,
+    engagement = engagement_calculation(EBC_matrix=ebc_mat,
                            SC_matrices=all_connectivity_matrices)
+    
+    print("The final result")
+    print(engagement)
+    task += 1
+
+    ################################ Step 5 ################################
+    if save_engagement!= None:
+        print(f"{task}. Saving Result")
+        print(engagement.shape)
+        engagement = sparse.asnumpy(engagement)
+        out = nib.Nifti1Image(engagement, affine = bold_img.affine)
+        out.to_filename(save_engagement)
+    
+    print("Finito!")
+    
+
+
+
 
    
 
 def engagement_calculation(EBC_matrix, SC_matrices):
     result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
+    return result
 
 
 
 def generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk):
     v2f_mapping = voxel_to_streamline_map(trk.streamlines, vol_shape=trk.dimensions)
 
+    print("The mapping is:")
+    print(v2f_mapping)
+
     # Generate a white matter mask:
-    wm_mask = mask_generator(white_matter_probability=white_matter_prob)
+    wm_mask = mask_generator(white_matter_probability=white_matter_prob, smoothing=False)
     
     # Generate all white matter positions
     wm_positions = generate_masks(wm_mask)
 
     # Naive method:
     all_connectivity_matrices = []
-
-    proportion_non_zero = len(v2f_mapping.keys())/len(wm_positions)
 
     for idx, voxel in enumerate(tqdm(wm_positions, "VW SC matrices")):
         if tuple(voxel) not in v2f_mapping.keys():
@@ -134,20 +172,49 @@ def ebc_computation(numpy_matrix):
 
     return ebc_mat
 
-def correlation_thresholding(matrix, proportion=0.2):
+
+def correlation_thresholding(matrix, proportion=0.9, keep_diagonal=False):
     """
-   Threshold a functional connectivity array, only retaining values that are in the top 0.x of the data.
+    Threshold a functional connectivity array, only retaining values that are in the top 0.x of the data.
     
     :param matrix: Array
         Numpy array
     :param proportion: numeric
         Decimal proportion of data to keep. Range between 0 and 1
     """
-    if proportion < 0 or proportion > 1.0:
+    if not 0 <= proportion <= 1:
         raise ValueError("Ensure proportion is between 0 and 1")
-    cutoff = np.quantile(matrix, 1-proportion)
-    filtered_mat = np.where(matrix >= cutoff, matrix, 0)
-    return filtered_mat
+
+    n = matrix.shape[0]
+
+    # Upper triangle indices (unique edges)
+    iu = np.triu_indices(n, k=1)
+    values = matrix[iu]
+
+    # Number of edges to keep
+    k = int(np.ceil(proportion * values.size))
+    if k == 0:
+        return np.zeros_like(matrix)
+
+    # Find cutoff by rank (not value quantile)
+    cutoff = np.partition(values, -k)[-k]
+
+    # Create boolean mask on upper triangle
+    mask_ut = values >= cutoff
+
+    # Initialize output
+    filtered = np.zeros_like(matrix)
+
+    # Assign kept edges symmetrically
+    filtered[iu[0][mask_ut], iu[1][mask_ut]] = values[mask_ut]
+    filtered[iu[1][mask_ut], iu[0][mask_ut]] = values[mask_ut]
+
+    if keep_diagonal:
+        np.fill_diagonal(filtered, np.diag(matrix))
+
+    return filtered
+
+
 
 if __name__ == "__main__":
     bold_filepath = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz"

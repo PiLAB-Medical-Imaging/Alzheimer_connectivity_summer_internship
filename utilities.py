@@ -23,7 +23,7 @@ wm_save_name = "/Users/sam/Desktop/sub-TAU001/sub-TAU001_space-T1w_label-WM_mask
 bold_path = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz"
 
 
-def mask_generator(white_matter_probability, grey_matter_probability=None, csf_probability = None, mask_type = "white", gm_threshold = 0.3):
+def mask_generator(white_matter_probability, grey_matter_probability=None, csf_probability = None, mask_type = "white", gm_threshold = 0.3, smoothing=True):
     """
     Generates a white or grey matter mask in the T1 space of the patient. Functionality starts with just a white matter mask generator
 
@@ -35,7 +35,13 @@ def mask_generator(white_matter_probability, grey_matter_probability=None, csf_p
     wm_data = white_matter_img.get_fdata()
 
     if mask_type == "white":
-        wm_smooth = gaussian_filter(wm_data, sigma = 1.0)
+
+        # Optional Smoothing.
+        if smoothing == True:
+            wm_smooth = gaussian_filter(wm_data, sigma = 1.0)
+        else:   
+            wm_smooth = wm_data
+
         wm_mask = (wm_smooth > 0.1) # This is commonly used apparently.
         out = nib.Nifti1Image(wm_mask, white_matter_img.affine, white_matter_img.header) 
         return out
@@ -141,15 +147,16 @@ def diffusion_to_t1space(moving_file, static_file, mni= False, smooth = False):
 def voxel_to_streamline_map(streamlines, vol_shape):
     mapping = defaultdict(set)
 
+
     for idx, streamline in enumerate(tqdm(streamlines, "Vox-SL")):
         # Force an integer value for the streamline index
-        vox = streamline.astype(np.int32, copy=False)
+        vox = np.round(streamline).astype(np.int32)
 
         # Remove points outside the shape
         valid_vox = (
-                        (vox[:,0] >= 0) & (vox[:, 0]<=vol_shape[0]) &
-                        (vox[:,1] >= 1) & (vox[:, 1]<=vol_shape[1]) &
-                        (vox[:,2] >= 2) & (vox[:, 2]<=vol_shape[2])
+                        (vox[:,0] >= 0) & (vox[:, 0] < vol_shape[0]) &
+                        (vox[:,1] >= 0) & (vox[:, 1] < vol_shape[1]) &
+                        (vox[:,2] >= 0) & (vox[:, 2] < vol_shape[2])
         )
 
         vox = vox[valid_vox]
