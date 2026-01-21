@@ -147,10 +147,19 @@ def diffusion_to_t1space(moving_file, static_file, mni= False, smooth = False):
 def voxel_to_streamline_map(streamlines, vol_shape):
     mapping = defaultdict(set)
 
+    failure_count = 0
 
+    min_coord = 100000000
+    max_coord = -1000000
     for idx, streamline in enumerate(tqdm(streamlines, "Vox-SL")):
         # Force an integer value for the streamline index
         vox = np.round(streamline).astype(np.int32)
+
+        if vox.min() < min_coord:
+            min_coord = vox.min()
+        if vox.max() > max_coord:
+            max_coord = vox.max()
+               
 
         # Remove points outside the shape
         valid_vox = (
@@ -158,14 +167,19 @@ def voxel_to_streamline_map(streamlines, vol_shape):
                         (vox[:,1] >= 0) & (vox[:, 1] < vol_shape[1]) &
                         (vox[:,2] >= 0) & (vox[:, 2] < vol_shape[2])
         )
-
+        if np.sum(valid_vox) < 3:
+            failure_count += 1
         vox = vox[valid_vox]
 
         # One streamline should only be counted once per voxel
         for v in map(tuple, np.unique(vox, axis=0)):
             mapping[v].add(idx)
-
+            
     # Convert sets → lists for downstream use
+    print(f"The number of failuires: {failure_count}")
+    print(f"The max: {max_coord}\nThe min {min_coord}")
+    print(f"The allowable values: {vol_shape}")
+
     return {k: list(v) for k, v in mapping.items()}
 
 def generate_masks(wm_mask, test_masks = False):

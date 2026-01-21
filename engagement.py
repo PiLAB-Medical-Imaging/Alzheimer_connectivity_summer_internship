@@ -80,13 +80,8 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
     print(f"{task}. Computing all fibres that penetrate each voxel")   
 
     trk = load_tractogram(tractogram_file, "same")
-    trk.to_corner()
 
-    """ print("Streamlines before passing to the mapping function")
-    print(trk)
-    print(trk.streamlines) """
-
-    all_connectivity_matrices = generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk)
+    all_connectivity_matrices, wm_positions = generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk)
 
     print("The connectivity matrices:")
     print(all_connectivity_matrices)
@@ -110,11 +105,39 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
         print(f"{task}. Saving Result")
         print(engagement.shape)
         engagement = sparse.asnumpy(engagement)
-        out = nib.Nifti1Image(engagement, affine = bold_img.affine)
-        out.to_filename(save_engagement)
+        save_engagement(engagement, 
+                        wm_positions, 
+                        atlas_img.dimensions, 
+                        save_engagement, 
+                        atlas_img.affine)
     
     print("Finito!")
     
+
+def save_engagement(engagement_values, wm_positions, dimensions, save_path, affine):
+    """
+    Save the results of the engagement calculation.
+    
+    :param engagement_values: array
+        A numpy array containing engagement values. Must be single indexed. Indexing should align with the white matter masks used to generate the engagement scores.
+    :param wm_positions: list
+        A list containing triple values that are indices to a white matter voxel in the original brain scan. 
+    :param dimensions: 3 tuple
+        The dimensions of the original brain scan. This is used to cast the engagement scores back to the correct shape.
+    :param save_path: Str
+        Filepath to save the engagement values.
+    :param affine: np.array 4x4
+        The affine information used to create a new nifti image. Must align with the affine information from the original brain scans used to create the engagement metrics.
+    """
+    # Create a blank brain to hold the values
+    brain_template = np.zeros(shape = dimensions)
+    for idx, position in enumerate(tqdm(wm_positions, "Reshaping Engagement")):
+        brain_template[position] = engagement_values[idx]
+    
+    out = nib.Nifti1Image(brain_template, affine)
+    out.to_filename(save_path)
+
+
 
 def engagement_calculation(EBC_matrix, SC_matrices):
     result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
@@ -124,9 +147,57 @@ def engagement_calculation(EBC_matrix, SC_matrices):
     return result
 
 
+def trk_report(trk, value):
+    print(f"TRK Status Check {value}")
+    print(f"Affine {trk.affine}\nDimensions:{trk.dimensions}\nOrigin: {trk.origin}\nSpace: {trk.space}")
+    streamline_obj = list(trk.streamlines)
+
+    max_ax0 = -10000
+    min_ax0 = 10000
+    max_ax1 = -10000
+    min_ax1 = 10000
+    max_ax2 = -10000
+    min_ax2 = 10000
+
+    for streamline in streamline_obj:
+        max_ax0_sl = streamline[:, 0].max()
+        min_ax0_sl = streamline[:, 0].min()
+        max_ax1_sl = streamline[:, 1].max()
+        min_ax1_sl = streamline[:, 1].min()
+        max_ax2_sl = streamline[:, 2].max()
+        min_ax2_sl = streamline[:, 2].min()
+
+        if max_ax0_sl > max_ax0:
+            max_ax0 = max_ax0_sl
+        if min_ax0_sl < min_ax0:
+            min_ax0 = min_ax0_sl
+        if max_ax1_sl > max_ax1:
+            max_ax1 = max_ax1_sl
+        if min_ax1_sl < min_ax1:
+            min_ax1= min_ax1_sl
+        if max_ax2_sl > max_ax2:
+            max_ax2 = max_ax2_sl
+        if min_ax2_sl < min_ax2:
+            min_ax2= min_ax2_sl
+
+
+
+    print(f"Axis 0 Max = {max_ax0}, Min = {min_ax0}")
+    print(f"Axis 1 Max = {max_ax1}, Min = {min_ax1}")
+    print(f"Axis 2 Max = {max_ax2}, Min = {min_ax2}")
+
 
 def generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk):
+
+    # This is where the majority of the streamlines go missing.
+
+    trk_report(trk, 1)
+    trk.to_vox()
+    trk.to_corner()
+    trk_report(trk, 2)
+
     v2f_mapping = voxel_to_streamline_map(trk.streamlines, vol_shape=trk.dimensions)
+
 
     # Generate a white matter mask:
     wm_mask = mask_generator(white_matter_probability=white_matter_prob, smoothing=False)
@@ -140,19 +211,22 @@ def generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk):
 
     path_1_count = 0 
     non_zero_count = 0
+    
     for idx, voxel in enumerate(tqdm(wm_positions, "VW SC matrices")):
+
         if tuple(voxel) not in v2f_mapping.keys():
             conn_mat = np.zeros(shape=(ROIs, ROIs))
             path_1_count +=1
         else:
             streamline_indices = v2f_mapping[tuple(voxel)]
             conn_mat = connectivity_matrix(trk.streamlines[streamline_indices], atlas_data,inclusive=False)
-            if np.count_nonzero(conn_mat) > 0:
-                non_zero_count += 1
+            
         
         conn_mat = np.delete(conn_mat, 0, 0)
         conn_mat = np.delete(conn_mat, 0, 1)
 
+        if np.count_nonzero(conn_mat) > 0:
+                non_zero_count += 1
 
         conn_mat = sparse.COO.from_numpy(conn_mat)
         all_connectivity_matrices.append(conn_mat)
@@ -163,7 +237,7 @@ def generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk):
 
     
     all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
-    return all_connectivity_matrices
+    return all_connectivity_matrices, wm_positions
 
 def ebc_computation(numpy_matrix):
     """
