@@ -176,10 +176,6 @@ def voxel_to_streamline_map(streamlines, vol_shape):
             mapping[v].add(idx)
             
     # Convert sets → lists for downstream use
-    print(f"The number of failuires: {failure_count}")
-    print(f"The max: {max_coord}\nThe min {min_coord}")
-    print(f"The allowable values: {vol_shape}")
-
     return {k: list(v) for k, v in mapping.items()}
 
 def generate_masks(wm_mask, test_masks = False):

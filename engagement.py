@@ -12,6 +12,8 @@ from utilities import mask_generator, generate_masks
 from tqdm import tqdm
 from unravel.analysis import connectivity_matrix
 import sparse
+from dipy.io.stateful_tractogram import Origin, Space
+
 
 def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, white_matter_prob, csf_prob,  plotting = False, save_engagement = None, verbose = False):
     """
@@ -148,6 +150,14 @@ def engagement_calculation(EBC_matrix, SC_matrices):
 
 
 def trk_report(trk, value):
+    """
+    Simple function to report the relevant properties of the tractograms that are passed to key functions. Only used for debugging.
+    
+    :param trk: Stateful Tractogram
+        Tractogram of interest.
+    :param value: Int or Str
+        Simple flag to identify which point in the code is generating the report.
+    """
     print(f"TRK Status Check {value}")
     print(f"Affine {trk.affine}\nDimensions:{trk.dimensions}\nOrigin: {trk.origin}\nSpace: {trk.space}")
     streamline_obj = list(trk.streamlines)
@@ -187,20 +197,44 @@ def trk_report(trk, value):
     print(f"Axis 2 Max = {max_ax2}, Min = {min_ax2}")
 
 
-def generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk):
+def generate_VWSC_matrices(atlas_data, trk, white_matter_prob = None, white_matter_mask = None, verbose = False):
+    """
+    Generate a structural connectivity matrix for every white matter voxel. It first generates a mapping of voxel to streamline. 
+    This identifies the subset of streamlines that pass through the voxel. Then, it generates a white matter mask based on provided probability maps.
+    The positions of each white matter voxel are then extracted from the mask. For each voxel, a connectivity matrix is generated showing how 
+    strongly each region of interest is connected via the voxel. These are stored as sparse arrays and returned as a sparse array.
+    
+    :param atlas_data: Array like
+        The labels of the ROI. 
+    :param trk: Stateful_Tractogram
+        Tractogram containing all streamlines for a patient
+    :param white_matter_prob: str/Nifti image
+        Provides the probabilities for each voxel being white matter. Provide either white_matter_probs or white_matter_mask
+    :param white_matter_mask: tr/Nifti image
+        A white matter mask. Provide either white_matter_probs or white_matter_mask
+    :param verbose: If true, prints the number or failures. 
+    """
+    if white_matter_mask is None and white_matter_prob is None:
+        raise ValueError("Please provide either a white_matter_mask or a white_matter_probability file")
+    
+    # Functions as a good check to ensure that everything is in the right space. 
+    #trk_report(trk, 1)
 
-    # This is where the majority of the streamlines go missing.
+    # Ensure that the coordinates are in voxel space and in the corner (vistrack representation)
+    if trk.space != Space.VOX:
+        trk.to_vox()
+    if trk.origin != Origin.TRACKVIS:
+        trk.to_corner()
 
-    trk_report(trk, 1)
-    trk.to_vox()
-    trk.to_corner()
-    trk_report(trk, 2)
-
+    #trk_report(trk, 2)
     v2f_mapping = voxel_to_streamline_map(trk.streamlines, vol_shape=trk.dimensions)
 
 
-    # Generate a white matter mask:
-    wm_mask = mask_generator(white_matter_probability=white_matter_prob, smoothing=False)
+    # Generate a white matter mask if probability is provided:
+    if white_matter_mask == None:
+        wm_mask = mask_generator(white_matter_probability=white_matter_prob, smoothing=False)
+    else:
+        wm_mask = nib.load(white_matter_mask)
     
     # Generate all white matter positions
     wm_positions = generate_masks(wm_mask)
@@ -211,6 +245,7 @@ def generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk):
 
     path_1_count = 0 
     non_zero_count = 0
+    ROIs = len(np.unique(atlas_data))
     
     for idx, voxel in enumerate(tqdm(wm_positions, "VW SC matrices")):
 
@@ -230,9 +265,10 @@ def generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk):
 
         conn_mat = sparse.COO.from_numpy(conn_mat)
         all_connectivity_matrices.append(conn_mat)
-    
-    print(f"The number of voxels with no streamlines: {path_1_count} out of {len(wm_positions)}")
-    print(f"The number of voxels  connectivity matrices with at least one connection: {non_zero_count} out of {len(wm_positions)}")
+
+    if verbose:
+        print(f"The number of voxels with no streamlines: {path_1_count} out of {len(wm_positions)}")
+        print(f"The number of voxels  connectivity matrices with at least one connection: {non_zero_count} out of {len(wm_positions)}")
 
 
     
