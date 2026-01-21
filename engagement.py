@@ -14,8 +14,7 @@ from unravel.analysis import connectivity_matrix
 import sparse
 from dipy.io.stateful_tractogram import Origin, Space
 
-
-def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, white_matter_prob, csf_prob,  plotting = False, save_engagement = None, verbose = False):
+def engagement_pipeline(bold_data, atlas, tractogram_file, white_matter_prob, plotting = False, save_engagement = None, verbose = False, grey_matter_prob = None,  csf_prob = None):
     """
     Pipeline that performs the entire engagement calculation - functions within this will correspond to submodules 
     that can be run with just the required objects. This function works with the filepaths.
@@ -24,6 +23,18 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, grey_matter_prob, whi
         Preprocessed bold data. Can be in any space (T1w, MNI), however this must match the space of the atlas.
     :param atlas: str
         Filepath to the atlas. Space must match the bold data space
+    :param tractogram_file: str
+        Filepath for the tractogram
+    :param white_matter_prob: str
+        Filepath for the white matter probability map.
+    :param plotting: boolean
+        Default is False. If true, the correlation matrix will be plotted.
+    :param save_engagement: str
+        A filepath to save the engagement results.
+    :param verbose: Boolean
+        If true, more printing will occur.
+    :param grey_matter_prob: Optional (unused as of right now)
+    :param csf_prob: Optional (unused as of right now)
     """
     task = 1
     ################################ Step 1 ################################
@@ -345,9 +356,11 @@ if __name__ == "__main__":
     gm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-GM_probseg.nii.gz"
     wm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-WM_probseg.nii.gz"
     csf_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-CSF_probseg.nii.gz"
+    engagement_save_path = "/Users/sam/Desktop/sub-TAU001/anat/engagement_test.nii.gz"
     engagement_pipeline(bold_data=bold_filepath,
                         atlas=atlas_filepath,
                         grey_matter_prob = gm_prob,
                         white_matter_prob=wm_prob,
                         csf_prob= csf_prob,
-                        tractogram_file=tractogram_file)
+                        tractogram_file=tractogram_file,
+                        save_engagement=engagement_save_path)
