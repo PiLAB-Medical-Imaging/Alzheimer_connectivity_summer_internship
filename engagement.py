@@ -13,8 +13,19 @@ from tqdm import tqdm
 from unravel.analysis import connectivity_matrix
 import sparse
 from dipy.io.stateful_tractogram import Origin, Space
+import os.path as path
 
-def engagement_pipeline(bold_data, atlas, tractogram_file, white_matter_prob, plotting = False, save_engagement = None, verbose = False, grey_matter_prob = None,  csf_prob = None):
+
+def engagement_pipeline(bold_data, atlas, 
+                        tractogram_file, 
+                        white_matter_prob, 
+                        cache_pathway = None, 
+                        plotting = False, 
+                        save_engagement_filepath = None, 
+                        verbose = False, 
+                        grey_matter_prob = None,  
+                        csf_prob = None,
+                        confound_removal = False):
     """
     Pipeline that performs the entire engagement calculation - functions within this will correspond to submodules 
     that can be run with just the required objects. This function works with the filepaths.
@@ -48,9 +59,22 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, white_matter_prob, pl
     atlas_data = atlas_img.get_fdata()
 
     atlas_values = np.unique(atlas_data)
-    
-    ROIs = len(atlas_values)
-    fc_mat = connectivity_matrix_generation(bold_img, atlas, False)
+
+    # Check if the functional connectivity matrix already exists
+    if cache_pathway is not None:
+        fc_path = path.join(cache_pathway, "fc_matrix.npy")
+        if path.exists(fc_path):
+            fc_mat = np.load(fc_path)
+        else:
+            if confound_removal:
+                fc_mat = connectivity_matrix_generation(bold_img, atlas, False, bold_filepath=bold_data)
+            else:
+                 fc_mat = connectivity_matrix_generation(bold_img, atlas, False)
+    else:
+        if confound_removal:
+            fc_mat = connectivity_matrix_generation(bold_img, atlas, False, bold_filepath=bold_data)
+        else:
+            fc_mat = connectivity_matrix_generation(bold_img, atlas, False)
     
     if verbose:
         print("The atlas looks like: ", atlas_data)
@@ -73,7 +97,7 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, white_matter_prob, pl
 
     # Threshold the correlations to make it amenable to the EBC metric (may make sense to replace 
     # this with a metric that more accurately characterises the degree of "proximity" a node has to other nodes")
-    fc_mat = correlation_thresholding(fc_mat, 1.0)
+    fc_mat = correlation_thresholding(fc_mat, 0.5)
 
     if verbose:
         print("After thresholding: ", fc_mat)
@@ -94,34 +118,38 @@ def engagement_pipeline(bold_data, atlas, tractogram_file, white_matter_prob, pl
 
     trk = load_tractogram(tractogram_file, "same")
 
-    all_connectivity_matrices, wm_positions = generate_VWSC_matrices(white_matter_prob, atlas_data, ROIs, trk)
+    all_connectivity_matrices, wm_positions = generate_VWSC_matrices(white_matter_prob=white_matter_prob,
+                                                                     trk=trk,
+                                                                     atlas_data=atlas_data,
+                                                                     verbose=verbose)
 
-    print("The connectivity matrices:")
-    print(all_connectivity_matrices)
+    if verbose:
+        print("The connectivity matrices:")
+        print(all_connectivity_matrices)
 
     all_connectivity_matrices = sparse.asnumpy(all_connectivity_matrices)
-    print(all_connectivity_matrices)
+       
 
     task += 1
     ################################ Step 4 ################################
     print(f"{task}. Calculating Engagement")   
+
     engagement = engagement_calculation(EBC_matrix=ebc_mat,
-                           SC_matrices=all_connectivity_matrices)
-    
-    print("The final result")
-    print(engagement)
-    print(engagement.min(), engagement.max())
+                                        SC_matrices=all_connectivity_matrices,
+                                        method = "einsum")
+
+    print(f"Engagment Scorecard:\nMin:{engagement.min()}\nMax: {engagement.max()}\nUnique Values: {len(np.unique(engagement))}")
     task += 1
 
     ################################ Step 5 ################################
-    if save_engagement!= None:
+    if save_engagement_filepath!= None:
         print(f"{task}. Saving Result")
         print(engagement.shape)
         engagement = sparse.asnumpy(engagement)
         save_engagement(engagement, 
                         wm_positions, 
-                        atlas_img.dimensions, 
-                        save_engagement, 
+                        atlas_data.shape, 
+                        save_engagement_filepath, 
                         atlas_img.affine)
     
     print("Finito!")
@@ -145,17 +173,26 @@ def save_engagement(engagement_values, wm_positions, dimensions, save_path, affi
     # Create a blank brain to hold the values
     brain_template = np.zeros(shape = dimensions)
     for idx, position in enumerate(tqdm(wm_positions, "Reshaping Engagement")):
-        brain_template[position] = engagement_values[idx]
+        brain_template[tuple(position)] = engagement_values[idx]
     
     out = nib.Nifti1Image(brain_template, affine)
     out.to_filename(save_path)
 
 
 
-def engagement_calculation(EBC_matrix, SC_matrices):
-    result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
-    denom = SC_matrices.sum(axis=(1, 2)) # This line converts each slice of the SC_matrices array into a single number (the sum of all the values in that slice)
-    result = np.where(result != 0, result / denom, result) # This line performs the division where the denom is non-zero. Otherwise leave as is.
+def engagement_calculation(EBC_matrix, SC_matrices, method = "einsum"):
+    if method == "einsum":
+        result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
+        denom = SC_matrices.sum(axis=(1, 2)) # This line converts each slice of the SC_matrices array into a single number (the sum of all the values in that slice)
+        result_1 = np.where(result != 0, result / denom, result) # This line performs the division where the denom is non-zero. Otherwise leave as is.
+    elif method == "custom":
+        result = []
+        for SC_matrix in SC_matrices:
+            numerator = sparse.sum(sparse.multiply(SC_matrix, EBC_matrix))
+            denom = sparse.sum(SC_matrix)
+            result.append(numerator/denom)
+            
+        result = np.array(result)
 
     return result
 
@@ -306,17 +343,21 @@ def ebc_computation(numpy_matrix):
     return ebc_mat
 
 
-def correlation_thresholding(matrix, proportion=0.9, keep_diagonal=False):
+def correlation_thresholding(matrix, proportion=0.9, keep_diagonal=False, remove_negatives = True, value_threshold = None):
     """
     Threshold a functional connectivity array, only retaining values that are in the top 0.x of the data.
     
     :param matrix: Array
         Numpy array
     :param proportion: numeric
-        Decimal proportion of data to keep. Range between 0 and 1
+        Decimal proportion of data to keep. Range (0, 1]
     """
-    if not 0 <= proportion <= 1:
-        raise ValueError("Ensure proportion is between 0 and 1")
+    if value_threshold is not None:
+        filtered = np.where(matrix > value_threshold, matrix, 0)
+        return filtered
+    
+    if not 0 < proportion <= 1:
+        raise ValueError("Ensure proportion is greater than 0 and less than or equal to 1")
 
     n = matrix.shape[0]
 
@@ -342,6 +383,9 @@ def correlation_thresholding(matrix, proportion=0.9, keep_diagonal=False):
     filtered[iu[0][mask_ut], iu[1][mask_ut]] = values[mask_ut]
     filtered[iu[1][mask_ut], iu[0][mask_ut]] = values[mask_ut]
 
+    # Remove any negative values and replace with zero
+    if remove_negatives:
+        filtered = np.where(filtered<0, 0, filtered)
     if keep_diagonal:
         np.fill_diagonal(filtered, np.diag(matrix))
 
@@ -363,4 +407,7 @@ if __name__ == "__main__":
                         white_matter_prob=wm_prob,
                         csf_prob= csf_prob,
                         tractogram_file=tractogram_file,
-                        save_engagement=engagement_save_path)
+                        save_engagement_filepath=engagement_save_path, 
+                        verbose=True, 
+                        plotting=True, 
+                        confound_removal=True)
