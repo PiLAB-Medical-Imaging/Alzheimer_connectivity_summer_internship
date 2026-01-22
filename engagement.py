@@ -14,6 +14,8 @@ from unravel.analysis import connectivity_matrix
 import sparse
 from dipy.io.stateful_tractogram import Origin, Space
 import os.path as path
+import os
+import sys
 
 
 def engagement_pipeline(bold_data, atlas, 
@@ -67,18 +69,18 @@ def engagement_pipeline(bold_data, atlas,
             fc_mat = np.load(fc_path)
         else:
             if confound_removal:
-                fc_mat = connectivity_matrix_generation(bold_img, atlas, False, bold_filepath=bold_data)
+                fc_mat = connectivity_matrix_generation(bold_img, atlas, False, bold_filepath=bold_data, method="nilearn")
             else:
-                 fc_mat = connectivity_matrix_generation(bold_img, atlas, False)
+                 fc_mat = connectivity_matrix_generation(bold_img, atlas, False, method="nilearn")
     else:
         if confound_removal:
-            fc_mat = connectivity_matrix_generation(bold_img, atlas, False, bold_filepath=bold_data)
+            fc_mat = connectivity_matrix_generation(bold_img, atlas, False, bold_filepath=bold_data, method="nilearn")
         else:
-            fc_mat = connectivity_matrix_generation(bold_img, atlas, False)
+            fc_mat = connectivity_matrix_generation(bold_img, atlas, False, method="nilearn")
     
     if verbose:
-        print("The atlas looks like: ", atlas_data)
-        print("Atlas values are", atlas_values)
+        #print("The atlas looks like: ", atlas_data)
+        #print("Atlas values are", atlas_values)
         print("The FC matrix looks like: ", fc_mat)
 
     # Plotting to see if the matrix makes sense (as of right now it does not!!!)
@@ -97,7 +99,7 @@ def engagement_pipeline(bold_data, atlas,
 
     # Threshold the correlations to make it amenable to the EBC metric (may make sense to replace 
     # this with a metric that more accurately characterises the degree of "proximity" a node has to other nodes")
-    fc_mat = correlation_thresholding(fc_mat, 0.5)
+    fc_mat = correlation_thresholding(fc_mat, value_threshold=0.2)
 
     if verbose:
         print("After thresholding: ", fc_mat)
@@ -111,6 +113,10 @@ def engagement_pipeline(bold_data, atlas,
         print("The ebc matrix")
         print(ebc_mat)
         print(ebc_mat.shape)
+
+        print("EBC Report")
+        print(f"The EBC Matrix has the following properties\nNonZeros: {np.count_nonzero(ebc_mat)}\nMax: {ebc_mat.max()}\nMin: {ebc_mat.min()}\nUNique values: {len(np.unique(ebc_mat))}")
+
     task += 1
 
     ################################ Step 3 ################################
@@ -391,6 +397,22 @@ def correlation_thresholding(matrix, proportion=0.9, keep_diagonal=False, remove
 
     return filtered
 
+def engagement_feeder(subject_bids_root, subj_id_length, save_root_folder):
+
+    os.makedirs(save_root_folder, exist_ok=True)
+    # Make a folder within the subject path
+    engagement_storage_path = path.join(subject_bids_root, "engagement")
+    os.makedirs(engagement_storage_path, exist_ok=True)
+    subj_id = subject_bids_root[-subj_id_length:]
+    # Iterate through directory to identify sessions
+    for directory in os.listdir(subject_bids_root):
+        if directory.__contains__("ses"):
+            #Check if there is a functional folder for that session
+            func_path = path.join(subject_bids_root, directory, "func")
+            if path.exists(func_path):
+                bold_filepath = path.join(func_path, subj_id + "_" + directory + "_rest_space-T1w_desc-preproc_bold.nii.gz" )
+                atlas_filepath = []
+
 
 
 if __name__ == "__main__":
@@ -409,5 +431,5 @@ if __name__ == "__main__":
                         tractogram_file=tractogram_file,
                         save_engagement_filepath=engagement_save_path, 
                         verbose=True, 
-                        plotting=True, 
+                        plotting=False, 
                         confound_removal=True)
