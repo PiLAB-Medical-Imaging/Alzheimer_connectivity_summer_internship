@@ -57,10 +57,11 @@ def connectivity_matrix_generation(bold, atlas, normalise, method= "custom", bol
     masker = NiftiLabelsMasker(labels_img=aal_img, standardize=normalise)
 
     if bold_filepath is not None:
-        counfounds_df= load_confounds_strategy(bold_filepath,
+        counfounds_df,_= load_confounds_strategy(bold_filepath,
                                             denoise_strategy="simple")
         time_series = masker.fit_transform(bold, 
-                                           counfounds=counfounds_df)
+                                           confounds=counfounds_df)
+        
     else:
         time_series = masker.fit_transform(bold)
 
