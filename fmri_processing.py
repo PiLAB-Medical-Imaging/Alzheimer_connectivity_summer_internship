@@ -11,6 +11,7 @@ import os
 from nibabel.nifti1 import Nifti1Image
 import re
 from nilearn.plotting import plot_matrix, show
+from nilearn.interfaces.fmriprep import load_confounds_strategy
 
 
 bold_filepath = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz"
@@ -45,7 +46,7 @@ def fmri_process(atlas_location, label_location):
 
     print(lut)
 
-def connectivity_matrix_generation(bold, atlas, normalise, method= "custom"):
+def connectivity_matrix_generation(bold, atlas, normalise, method= "custom", bold_filepath=None):
     if type(atlas) is str:
         aal_img = nib.load(atlas)
     elif type(atlas) is Nifti1Image:
@@ -54,6 +55,10 @@ def connectivity_matrix_generation(bold, atlas, normalise, method= "custom"):
         raise TypeError("The Atlas should be provided as either a path to an image, or the Nifti image object.")
     
     masker = NiftiLabelsMasker(labels_img=aal_img, standardize=normalise)
+
+    if bold_filepath is not None:
+        counfounds= load_confounds_strategy(bold_filepath,
+                                            denoise_strategy="simple")
 
     time_series = masker.fit_transform(bold)
 
