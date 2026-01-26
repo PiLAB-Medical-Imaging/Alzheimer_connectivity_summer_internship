@@ -6,7 +6,7 @@ from dipy.io.stateful_tractogram import StatefulTractogram, Space, Origin
 from nibabel import Nifti1Image
 import matplotlib.pyplot as plt
 
-atlas_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/registered_atlas.nii.gz"
+""" atlas_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/registered_atlas.nii.gz"
 fMRI_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/fake_fMRI.nii.gz"
 reference_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/basic_brain.nii.gz"
 save_registered_atlas = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/registered_atlas.nii.gz"
@@ -77,16 +77,18 @@ engagement_pipeline(bold_data=fMRI_path,
                     white_matter_prob=wm_path,
                     grey_matter_prob=gm_path,
                     csf_prob=csf_path,
-                    save_engagement_filepath=None,
-                    verbose=True
+                    save_engagement_filepath=engagement_savepath,
+                    verbose=True,
+                    save_connectomes=True
                     )
 
-
+ """
 # Look at the results of the real deal:
-engagement = nib.load("/Users/sam/Desktop/sub-TAU001/anat/engagement_test.nii.gz")
+engagement = nib.load("/Users/sam/Desktop/sub-TAU001/anat/engagement_test_covariance.nii.gz")
 engagement_data = engagement.get_fdata()
 uniques = np.unique(engagement_data)
 print("The unique values", uniques)
+print("Non zeros:", np.count_nonzero(engagement_data))
 plt.hist(engagement.get_fdata().flatten())
 plt.semilogy()
 plt.show()

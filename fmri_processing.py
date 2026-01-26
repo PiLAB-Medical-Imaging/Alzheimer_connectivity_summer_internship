@@ -46,7 +46,7 @@ def fmri_process(atlas_location, label_location):
 
     print(lut)
 
-def connectivity_matrix_generation(bold, atlas, normalise, method= "custom", bold_filepath=None):
+def connectivity_matrix_generation(bold, atlas, normalise, method= "nilearn", kind = "covariance", bold_filepath=None):
     if type(atlas) is str:
         aal_img = nib.load(atlas)
     elif type(atlas) is Nifti1Image:
@@ -68,7 +68,7 @@ def connectivity_matrix_generation(bold, atlas, normalise, method= "custom", bol
     
     # Correlation Matrix
     if method == "nilearn":
-        conn_measure = ConnectivityMeasure(kind="correlation")
+        conn_measure = ConnectivityMeasure(kind=kind)
         conn_matrix = conn_measure.fit_transform([time_series])[0]
     elif method == "custom":
         conn_matrix = matrix_computation(time_series)
@@ -81,6 +81,7 @@ def connectivity_matrix_generation(bold, atlas, normalise, method= "custom", bol
 def matrix_computation(time_series):
     matrix = np.corrcoef(time_series,rowvar=False )
     return matrix
+
 
 def process_fMRI_dataset(root_path, atlas_path):
     # First, crawl through the derivates folder and find successful fMRI data
