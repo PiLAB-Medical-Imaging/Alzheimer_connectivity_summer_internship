@@ -21,6 +21,7 @@ from tqdm import tqdm
 import sparse
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy.stats import zscore
 
 
 def mask_generator(white_matter_probability,
@@ -218,10 +219,17 @@ def voxel_to_streamline_map_V2(streamlines, vol_shape, subsegment:int = 1):
 
         vox = np.round(streamline).astype(np.int32)
 
-        if vox.min() < min_coord:
-            min_coord = vox.min()
-        if vox.max() > max_coord:
-            max_coord = vox.max()
+        try:
+            if vox.min() < min_coord:
+                min_coord = vox.min()
+            if vox.max() > max_coord:
+                max_coord = vox.max()
+        except Exception as e:
+            print(e)
+            print(vox)
+            print(offset)
+            print(idx)
+            print(streamline.shape)
                
 
         # Remove points outside the shape
@@ -287,7 +295,7 @@ def connectivity_matrix_generation(bold,
     
     # Correlation Matrix
     if method == "nilearn":
-        conn_measure = ConnectivityMeasure(kind=kind)
+        conn_measure = ConnectivityMeasure(kind=kind, standardize=False)
         conn_matrix = conn_measure.fit_transform([time_series])[0]
     elif method == "custom":
         conn_matrix = matrix_computation(time_series)
@@ -403,3 +411,10 @@ def visualise_square_mat(matrix, title = "Square Matrix Visualisation"):
                     square=True, linewidths=.5, cbar_kws={"shrink": .5})
         plt.title(title)
         plt.show()
+
+def normalise(array_like):
+    scores = zscore(array_like)
+    minimum = np.min(scores)
+    if minimum < 0:
+        scores = scores - minimum
+    return scores

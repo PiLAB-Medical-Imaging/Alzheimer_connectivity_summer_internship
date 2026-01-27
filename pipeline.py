@@ -15,7 +15,7 @@ from dipy.io.streamline import load_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
 
 ## My Imports (replace these with my package calls)
-from utilities import connectivity_matrix_generation
+from utilities import connectivity_matrix_generation, visualise_square_mat,normalise
 from engagement import correlation_thresholding, ebc_computation, generate_VWSC_matrices
 from engagement import engagement_calculation, save_connectivity_matrices,save_engagement
 from functionnectome import create_masked_T1, compute_connection_probability, vectorised_probability_maps, functionnectome
@@ -112,7 +112,8 @@ def engagement_pipeline(bold_data, atlas,
                         grey_matter_prob = None,  
                         csf_prob = None,
                         confound_removal = False,
-                        save_connectomes = False):
+                        save_connectomes = False, 
+                        white_matter_mask = None):
     """
     Pipeline that performs the entire engagement calculation - functions within 
     this will correspond to submodules that can be run with just the required 
@@ -201,7 +202,7 @@ def engagement_pipeline(bold_data, atlas,
 
     # Threshold the correlations to make it amenable to the EBC metric (may make sense to replace 
     # this with a metric that more accurately characterises the degree of "proximity" a node has to other nodes")
-    fc_mat = correlation_thresholding(fc_mat, value_threshold= 0.0)
+    fc_mat = correlation_thresholding(fc_mat, value_threshold= 0.2)
 
     if verbose:
         print("After thresholding: ", fc_mat)
@@ -219,19 +220,7 @@ def engagement_pipeline(bold_data, atlas,
         print("EBC Report")
         print(f"NonZeros: {np.count_nonzero(ebc_mat)}\nMax: {ebc_mat.max()}")
         print(f"Min: {ebc_mat.min()}\nUNique values: {len(np.unique(ebc_mat))}")
-
-        mask = np.triu(np.ones_like(ebc_mat, dtype=bool))
-
-            # Set up the matplotlib figure
-        f, ax = plt.subplots(figsize=(11, 9))
-
-        # Generate a custom diverging colormap
-        cmap = sns.diverging_palette(230, 20, as_cmap=True)
-
-        # Draw the heatmap with the mask and correct aspect ratio
-        sns.heatmap(ebc_mat, mask=mask, cmap=cmap, vmax=.3, center=0,
-                    square=True, linewidths=.5, cbar_kws={"shrink": .5})
-        plt.show()
+        visualise_square_mat(ebc_mat, "EBC Visualisation")
     task += 1
 
     ################################ Step 3 ################################
@@ -240,11 +229,23 @@ def engagement_pipeline(bold_data, atlas,
     trk = load_tractogram(tractogram_file, "same")
 
     print(type(atlas_data))
-    all_connectivity_matrices, wm_positions = generate_VWSC_matrices(
+
+
+    if white_matter_mask is not None:
+         all_connectivity_matrices, wm_positions = generate_VWSC_matrices(
+                                            white_matter_mask=white_matter_mask,
+                                            trk=trk,
+                                            atlas_data=atlas_data,
+                                            verbose=verbose,
+                                            segmentation=10
+                                            )
+    else:
+        all_connectivity_matrices, wm_positions = generate_VWSC_matrices(
                                             white_matter_prob=white_matter_prob,
                                             trk=trk,
                                             atlas_data=atlas_data,
-                                            verbose=verbose
+                                            verbose=verbose,
+                                            segmentation=10
                                             )
 
     if verbose:
@@ -267,11 +268,13 @@ def engagement_pipeline(bold_data, atlas,
 
     engagement = engagement_calculation(EBC_matrix=ebc_mat,
                                         SC_matrices=all_connectivity_matrices,
-                                        method = "einsum",
-                                        debug_mode=True)
-
-    print(f"Engagment Scorecard:\nMin:{engagement.min()}\nMax: {engagement.max()}")
+                                        method = "custom")
+    #engagement = normalise(engagement)
+    print(f"Engagement Scorecard:\nMin:{engagement.min()}\nMax: {engagement.max()}")
     print(f"Unique Values: {len(np.unique(engagement))}")
+    print(f"Number of non-zeros: {np.count_nonzero(engagement)}")
+
+
     task += 1
 
     ################################ Step 5 ################################
@@ -295,10 +298,11 @@ if __name__ == "__main__":
         bold_filepath = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz"
         atlas_filepath = "/Users/sam/Desktop/sub-TAU001/dilated_atlas_TAU001.nii.gz"
         tractogram_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk"
-        gm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-GM_probseg.nii.gz"
+        gm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-GM_probseg.nii.gz", 
+        wm_mask = "/Users/sam/Desktop/sub-TAU001/test_mask_red.nii.gz"
         wm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-WM_probseg.nii.gz"
         csf_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-CSF_probseg.nii.gz"
-        engagement_save_path = "/Users/sam/Desktop/sub-TAU001/anat/engagement_test_non_inverted_increased_subseg10.nii.gz"
+        engagement_save_path = "/Users/sam/Desktop/sub-TAU001/anat/02_threshold_engagement_10x.nii.gz"
         engagement_pipeline(bold_data=bold_filepath,
                             atlas=atlas_filepath,
                             grey_matter_prob = gm_prob,
@@ -309,7 +313,8 @@ if __name__ == "__main__":
                             verbose=True, 
                             plotting=False, 
                             confound_removal=True, 
-                            save_connectomes=True)
+                            save_connectomes=True
+                           )
 
         
     if TEST_FUNCTIONNECTOME:

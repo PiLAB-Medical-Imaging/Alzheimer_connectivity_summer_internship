@@ -12,6 +12,7 @@ from dipy.io.stateful_tractogram import Origin, Space
 from dipy.io.streamline import load_tractogram
 from tqdm import tqdm
 from unravel.analysis import connectivity_matrix
+import matplotlib.pyplot as plt
 from utilities import connectivity_matrix_generation,mask_generator, generate_masks
 from utilities import voxel_to_streamline_map, voxel_to_streamline_map_V2  
 
@@ -63,11 +64,9 @@ def matrix_report(matrix):
     print(f"Min: {matrix.min()}")
     print(f"Nonzeros: {np.count_nonzero(matrix)}")
 
-
-
-
-
-def engagement_calculation(EBC_matrix, SC_matrices, method = "einsum", debug_mode = False):
+def engagement_calculation(EBC_matrix, 
+                           SC_matrices, 
+                           method = "einsum"):
     """
     Computes engagement from an edge between connectivity matrix and a 
     structural connectivity matrix.
@@ -84,28 +83,43 @@ def engagement_calculation(EBC_matrix, SC_matrices, method = "einsum", debug_mod
         explicit using loops and one more efficient. Default is einsum and 
         this is recommended for efficiency.
     """
-    if debug_mode:
-        for SC_matrix in SC_matrices:
-            weighted_EBC = np.multiply(SC_matrix, EBC_matrix)
-            #matrix_report(weighted_EBC)
-            result = np.sum(weighted_EBC)
-    elif method == "einsum":
+    if method == "einsum":
         result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
         denom = SC_matrices.sum(axis=(1, 2))# This line converts each slice of 
         #the SC_matrices array into a single number (the sum of all the values 
         #in that slice)
-        result_1 = np.where(result != 0, result / denom, result)
+        result = np.where(denom != 0, result / denom, 0)
     elif method == "custom":
         result = []
+        numerators = []
+        denominators = []
+
         for SC_matrix in SC_matrices:
             numerator = sparse.sum(sparse.multiply(SC_matrix, EBC_matrix))
+            numerators.append(numerator)
             denom = sparse.sum(SC_matrix)
-            result.append(numerator/denom)
+            if denom != 0:
+                result.append(numerator/denom)
+            else:
+                if numerator == 0:
+                    result.append(0)
+                else:
+                    raise ValueError(f"The denominator is 0 but the numerator is {numerator}")
+            denominators.append(denom)
             
+
         result = np.array(result)
+
+        plt.hist(numerators)
+        plt.title("numerator distribution")
+        plt.show()
+        plt.hist(denominators)
+        plt.title("Denominators")
+        plt.show()
+        return result
+    else:
+        raise ValueError(f"{method} is not a valid method")
     
-
-
     return result
 
 
@@ -165,7 +179,8 @@ def generate_VWSC_matrices(atlas_data,
                            trk, 
                            white_matter_prob = None, 
                            white_matter_mask = None, 
-                           verbose = False):
+                           verbose = False, 
+                           segmentation = 1):
     """
     Generate a structural connectivity matrix for every white matter voxel. 
     It first generates a mapping of voxel to streamline. This identifies the 
@@ -204,7 +219,7 @@ def generate_VWSC_matrices(atlas_data,
     #trk_report(trk, 2)
     v2f_mapping = voxel_to_streamline_map_V2(trk.streamlines, 
                                           vol_shape=trk.dimensions,
-                                          subsegment=10)
+                                          subsegment=segmentation)
 
     #print("streamlines", v2f_mapping[(109, 129, 128)])
 
@@ -276,7 +291,7 @@ def ebc_computation(numpy_matrix, inverted_values):
     g = nx.from_numpy_array(numpy_matrix, 
                             edge_attr = "weight")
     
-    ebc_dict= edge_betweenness_centrality(G=g, weight="weight")
+    ebc_dict= edge_betweenness_centrality(G=g, weight="weight", normalized=False)
     ebc_mat = np.zeros_like(numpy_matrix)
     for key in ebc_dict.keys():
         ebc_mat[key[0], key[1]] = ebc_dict[key]

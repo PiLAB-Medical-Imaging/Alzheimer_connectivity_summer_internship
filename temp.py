@@ -25,29 +25,3 @@ out.to_filename("/Users/sam/Desktop/sub-TAU001/dilated_atlas_TAU001.nii.gz")
 
 trk = load_tractogram("/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk",
                        reference="same")
-
-
-
-
-
-subsegment = 10
-streams = trk.streamlines
-print(streams._offsets)
-print(streams._offsets.shape)
-
-streams = trk.streamlines
-point = streams.get_data()
-
-# Creating subpoints
-subpoint = np.linspace(point, np.roll(point, -1, axis=0),
-                        subsegment+1, axis=1)
-point = subpoint[:, :-1, :].reshape(point.shape[0]*subsegment, 3)
-
-
-
-
-new_trk = StatefulTractogram.from_sft(sft=trk, 
-             streamlines=expanded_streamlines)
-
-save_tractogram(sft=new_trk,
-                filename="/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1_10x.trk")

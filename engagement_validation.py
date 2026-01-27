@@ -9,6 +9,7 @@ from engagement import generate_VWSC_matrices, correlation_thresholding, ebc_com
 from engagement import engagement_calculation
 from utilities import connectivity_matrix_generation, visualise_square_mat
 import sparse
+import matplotlib.pyplot as plt
 """ atlas_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/registered_atlas.nii.gz"
 fMRI_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/fake_fMRI.nii.gz"
 reference_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/basic_brain.nii.gz"
@@ -100,17 +101,16 @@ plt.show()
  # Run a simple test case for the white matter
 dilated_atlas = "/Users/sam/Desktop/sub-TAU001/dilated_atlas_TAU001.nii.gz"
 dilated_atlas = nib.load(dilated_atlas)
-trk_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1_10x.trk"
-# trk_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk"
+#trk_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1_10x.trk"
+trk_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk"
 trk = load_tractogram(trk_file, reference="same")
 
-cms, wm_pos = generate_VWSC_matrices(atlas_data=dilated_atlas.get_fdata(),
+""" cms, wm_pos = generate_VWSC_matrices(atlas_data=dilated_atlas.get_fdata(),
                             trk=trk,
                             white_matter_mask="/Users/sam/Desktop/sub-TAU001/test_mask_red.nii.gz",
                             verbose=True)
 
-
-
+ """
 # Test the functional connectivity matrix and thresholding
 
 # Load the actual bold data and see the difference
@@ -122,24 +122,54 @@ bold_img_data = bold_img_data[:, :, :, 3:]
 atlas_img = nib.load(atlas)
 atlas_data = atlas_img.get_fdata()
 
+
 fc = connectivity_matrix_generation(bold_img, 
                                     atlas=atlas_img, 
                                     normalise=True,
                                     kind = "correlation",
                                     bold_filepath=bold_data_path)
 
+fc1 = connectivity_matrix_generation(bold_img, 
+                                    atlas=atlas_img, 
+                                    normalise=True,
+                                    kind = "covariance",
+                                    bold_filepath=bold_data_path)
+
+fc2 = connectivity_matrix_generation(bold_img, 
+                                    atlas=atlas_img, 
+                                    normalise=True,
+                                    kind = "partial correlation",
+                                    bold_filepath=bold_data_path)
+
+
+fc4 = connectivity_matrix_generation(bold_img, 
+                                    atlas=atlas_img, 
+                                    normalise=True,
+                                    kind = "precision",
+                                    bold_filepath=bold_data_path)
+
 ebc = ebc_computation(fc, 
-                      inverted_values=True)
-
-visualise_square_mat(ebc)
+                      inverted_values=False)
 
 
-cms = sparse.asnumpy(cms)
-""" for idx, matrix in enumerate(cms):
+fcs = [fc, fc1, fc2, fc4]
+
+
+for mat in fcs:
+    #mat = np.abs(mat)
+    thresh_mat = correlation_thresholding(mat, value_threshold= 0.0)
+    ebc = ebc_computation(thresh_mat, False)
+    visualise_square_mat(ebc)
+    print("non-zeros: ", np.count_nonzero(ebc))
+
+    plt.hist(ebc.flatten())
+    plt.show()
+"""cms = sparse.asnumpy(cms)
+ for idx, matrix in enumerate(cms):
     title = f"Voxel {wm_pos[idx]} Connectivity"
     #print(np.unique(matrix))
     #visualise_square_mat(matrix, title)
- """
+
 
 numerators = []
 
@@ -149,3 +179,4 @@ for conn_mat in cms:
     print(numerator)
 
 numerator_np = np.array(numerators)
+ """
