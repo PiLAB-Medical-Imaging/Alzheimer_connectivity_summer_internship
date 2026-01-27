@@ -18,8 +18,8 @@ from unravel.utils import get_streamline_density
 from nilearn.maskers import NiftiLabelsMasker, NiftiMasker
 from nilearn import image, masking
 from nilearn.regions import signals_to_img_labels
-from utilities import voxel_to_streamline_map, mask_generator
-import Functionnectome.functionnectome as funct
+from utilities import voxel_to_streamline_map, mask_generator, is_sparse
+
 NOISE_OFFSET = 5
 
 def target_1(trk, mask, affine):  

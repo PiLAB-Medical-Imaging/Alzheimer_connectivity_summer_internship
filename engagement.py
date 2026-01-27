@@ -13,7 +13,9 @@ from dipy.io.streamline import load_tractogram
 from tqdm import tqdm
 from unravel.analysis import connectivity_matrix
 from utilities import connectivity_matrix_generation,mask_generator, generate_masks
-from utilities import voxel_to_streamline_map  
+from utilities import voxel_to_streamline_map, voxel_to_streamline_map_V2  
+
+
 
 def save_engagement(engagement_values, 
                     wm_positions, 
@@ -43,7 +45,7 @@ def save_engagement(engagement_values,
     # Create a blank brain to hold the values
     brain_template = np.zeros(shape = dimensions)
     for idx, position in enumerate(tqdm(wm_positions, "Reshaping Engagement")):
-        print(f"Position: {position}\nValue: {engagement_values[idx]}\n")
+        #print(f"Position: {position}\nValue: {engagement_values[idx]}\n")
         if engagement_values[idx] == 0:
             value = 0
         else:
@@ -55,9 +57,17 @@ def save_engagement(engagement_values,
     out = nib.Nifti1Image(brain_template, affine)
     out.to_filename(save_path)
 
+def matrix_report(matrix):
+    print("Matrix Report")
+    print(f"Max: {matrix.max()}")
+    print(f"Min: {matrix.min()}")
+    print(f"Nonzeros: {np.count_nonzero(matrix)}")
 
 
-def engagement_calculation(EBC_matrix, SC_matrices, method = "einsum"):
+
+
+
+def engagement_calculation(EBC_matrix, SC_matrices, method = "einsum", debug_mode = False):
     """
     Computes engagement from an edge between connectivity matrix and a 
     structural connectivity matrix.
@@ -74,7 +84,12 @@ def engagement_calculation(EBC_matrix, SC_matrices, method = "einsum"):
         explicit using loops and one more efficient. Default is einsum and 
         this is recommended for efficiency.
     """
-    if method == "einsum":
+    if debug_mode:
+        for SC_matrix in SC_matrices:
+            weighted_EBC = np.multiply(SC_matrix, EBC_matrix)
+            #matrix_report(weighted_EBC)
+            result = np.sum(weighted_EBC)
+    elif method == "einsum":
         result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
         denom = SC_matrices.sum(axis=(1, 2))# This line converts each slice of 
         #the SC_matrices array into a single number (the sum of all the values 
@@ -88,6 +103,8 @@ def engagement_calculation(EBC_matrix, SC_matrices, method = "einsum"):
             result.append(numerator/denom)
             
         result = np.array(result)
+    
+
 
     return result
 
@@ -185,10 +202,11 @@ def generate_VWSC_matrices(atlas_data,
         trk.to_corner()
 
     #trk_report(trk, 2)
-    v2f_mapping = voxel_to_streamline_map(trk.streamlines, 
-                                          vol_shape=trk.dimensions)
+    v2f_mapping = voxel_to_streamline_map_V2(trk.streamlines, 
+                                          vol_shape=trk.dimensions,
+                                          subsegment=10)
 
-    print("streamlines", v2f_mapping[(109, 129, 128)])
+    #print("streamlines", v2f_mapping[(109, 129, 128)])
 
 
     # Generate a white matter mask if probability is provided:
@@ -201,7 +219,7 @@ def generate_VWSC_matrices(atlas_data,
     # Generate all white matter positions
     wm_positions = generate_masks(wm_mask)
 
-    print("white matter positions", wm_positions.shape)
+    #print("white matter positions", wm_positions.shape)
 
     # Naive method:
     all_connectivity_matrices = []
@@ -237,14 +255,14 @@ def generate_VWSC_matrices(atlas_data,
     if verbose:
         print(f"No. of voxels with no streamlines: {path_1_count} out of {len(wm_positions)}")
         print(f"The number of voxel CMs with at least one connection: {non_zero_count} out of {len(wm_positions)}")
-        print("The voxels with no streamlines: ")
-        print(no_streamlines)
+        #print("The voxels with no streamlines: ")
+        #print(no_streamlines)
 
     
     all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
     return all_connectivity_matrices, wm_positions
 
-def ebc_computation(numpy_matrix):
+def ebc_computation(numpy_matrix, inverted_values):
     """
     Simple wrapper to calculate the EBC matrix starting with a functional 
     connectivity matrix.
@@ -252,6 +270,9 @@ def ebc_computation(numpy_matrix):
     :param numpy_matrix: np array
         Functional connectivity array.
     """
+    if inverted_values:
+        numpy_matrix = 1/numpy_matrix
+
     g = nx.from_numpy_array(numpy_matrix, 
                             edge_attr = "weight")
     
@@ -292,6 +313,10 @@ def correlation_thresholding(matrix, proportion=0.9,
     """
     if value_threshold is not None:
         filtered = np.where(matrix > value_threshold, matrix, 0)
+        if keep_diagonal:
+            np.fill_diagonal(filtered, np.diag(matrix))
+        else:
+            np.fill_diagonal(filtered, 0)
         return filtered
     
     if not 0 < proportion <= 1:

@@ -2,7 +2,10 @@ from os import path
 import logging
 import numpy as np
 import sparse
-from matplotlib.pyplot import plt
+import matplotlib.pyplot as plt
+from string import ascii_letters
+import pandas as pd
+import seaborn as sns
 
 import nibabel as nib
 from nilearn.plotting import plot_matrix, show
@@ -16,6 +19,9 @@ from utilities import connectivity_matrix_generation
 from engagement import correlation_thresholding, ebc_computation, generate_VWSC_matrices
 from engagement import engagement_calculation, save_connectivity_matrices,save_engagement
 from functionnectome import create_masked_T1, compute_connection_probability, vectorised_probability_maps, functionnectome
+
+
+
 
 TEST_FUNCTIONNECTOME  = False
 TEST_ENGAGEMENT = True
@@ -195,7 +201,7 @@ def engagement_pipeline(bold_data, atlas,
 
     # Threshold the correlations to make it amenable to the EBC metric (may make sense to replace 
     # this with a metric that more accurately characterises the degree of "proximity" a node has to other nodes")
-    fc_mat = correlation_thresholding(fc_mat, value_threshold=0.2)
+    fc_mat = correlation_thresholding(fc_mat, value_threshold= 0.0)
 
     if verbose:
         print("After thresholding: ", fc_mat)
@@ -204,7 +210,7 @@ def engagement_pipeline(bold_data, atlas,
 
     ################################ Step 2 ################################
     print(f"{task}. Computing Edge Between Connectedness Matrix") 
-    ebc_mat = ebc_computation(fc_mat)
+    ebc_mat = ebc_computation(fc_mat, inverted_values=False)
     if verbose:
         print("The ebc matrix")
         print(ebc_mat)
@@ -213,6 +219,19 @@ def engagement_pipeline(bold_data, atlas,
         print("EBC Report")
         print(f"NonZeros: {np.count_nonzero(ebc_mat)}\nMax: {ebc_mat.max()}")
         print(f"Min: {ebc_mat.min()}\nUNique values: {len(np.unique(ebc_mat))}")
+
+        mask = np.triu(np.ones_like(ebc_mat, dtype=bool))
+
+            # Set up the matplotlib figure
+        f, ax = plt.subplots(figsize=(11, 9))
+
+        # Generate a custom diverging colormap
+        cmap = sns.diverging_palette(230, 20, as_cmap=True)
+
+        # Draw the heatmap with the mask and correct aspect ratio
+        sns.heatmap(ebc_mat, mask=mask, cmap=cmap, vmax=.3, center=0,
+                    square=True, linewidths=.5, cbar_kws={"shrink": .5})
+        plt.show()
     task += 1
 
     ################################ Step 3 ################################
@@ -248,7 +267,8 @@ def engagement_pipeline(bold_data, atlas,
 
     engagement = engagement_calculation(EBC_matrix=ebc_mat,
                                         SC_matrices=all_connectivity_matrices,
-                                        method = "einsum")
+                                        method = "einsum",
+                                        debug_mode=True)
 
     print(f"Engagment Scorecard:\nMin:{engagement.min()}\nMax: {engagement.max()}")
     print(f"Unique Values: {len(np.unique(engagement))}")
@@ -269,7 +289,6 @@ def engagement_pipeline(bold_data, atlas,
 
 
 
-
 if __name__ == "__main__":
 
     if TEST_ENGAGEMENT:
@@ -279,7 +298,7 @@ if __name__ == "__main__":
         gm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-GM_probseg.nii.gz"
         wm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-WM_probseg.nii.gz"
         csf_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-CSF_probseg.nii.gz"
-        engagement_save_path = "/Users/sam/Desktop/sub-TAU001/anat/engagement_test_covariance.nii.gz"
+        engagement_save_path = "/Users/sam/Desktop/sub-TAU001/anat/engagement_test_non_inverted_increased_subseg10.nii.gz"
         engagement_pipeline(bold_data=bold_filepath,
                             atlas=atlas_filepath,
                             grey_matter_prob = gm_prob,
@@ -291,10 +310,6 @@ if __name__ == "__main__":
                             plotting=False, 
                             confound_removal=True, 
                             save_connectomes=True)
-        
-        LOGFILENAME = "/Users/sam/Desktop/sub-TAU001/engagement.log"
-
-        logging.basicConfig(filename= LOGFILENAME, level=logging.DEBUG)
 
         
     if TEST_FUNCTIONNECTOME:

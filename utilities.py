@@ -19,7 +19,8 @@ from unravel.utils import get_streamline_density
 from unravel.stream import smooth_streamlines
 from tqdm import tqdm
 import sparse
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 def mask_generator(white_matter_probability,
@@ -158,10 +159,63 @@ def voxel_to_streamline_map(streamlines, vol_shape):
 
     failure_count = 0
 
+    # Try to upsample the streamlines
+
     min_coord = 100000000
     max_coord = -1000000
     for idx, streamline in enumerate(tqdm(streamlines, "Vox-SL")):
         # Force an integer value for the streamline index
+        vox = np.round(streamline).astype(np.int32)
+
+        if vox.min() < min_coord:
+            min_coord = vox.min()
+        if vox.max() > max_coord:
+            max_coord = vox.max()
+               
+
+        # Remove points outside the shape
+        valid_vox = (
+                        (vox[:,0] >= 0) & (vox[:, 0] < vol_shape[0]) &
+                        (vox[:,1] >= 0) & (vox[:, 1] < vol_shape[1]) &
+                        (vox[:,2] >= 0) & (vox[:, 2] < vol_shape[2])
+        )
+        if np.sum(valid_vox) < 3:
+            failure_count += 1
+        vox = vox[valid_vox]
+
+        # One streamline should only be counted once per voxel
+        for v in map(tuple, np.unique(vox, axis=0)):
+            mapping[v].add(idx)
+            
+    # Convert sets → lists for downstream use
+    return {k: list(v) for k, v in mapping.items()}
+
+def voxel_to_streamline_map_V2(streamlines, vol_shape, subsegment:int = 1):
+    mapping = defaultdict(set)
+
+    failure_count = 0
+
+    points = streamlines.get_data()
+
+    # Creating subpoints
+    subpoint = np.linspace(points, np.roll(points, -1, axis=0),
+                           subsegment+1, axis=1)
+    points = subpoint[:, :-1, :].reshape(points.shape[0]*subsegment, 3)
+    del subpoint
+
+    subsegment_offsets = (streamlines._offsets + streamlines._lengths-1)*subsegment
+
+    # Try to upsample the streamlines
+
+    min_coord = 100000000
+    max_coord = -1000000
+    for idx, offset in enumerate(tqdm(subsegment_offsets, "Vox-SL")):
+       # Force an integer value for the streamline index
+        if idx >= len(subsegment_offsets)-1:
+            streamline=points[offset:-subsegment+1]
+        else:
+            streamline=points[offset:subsegment_offsets[idx+1]-subsegment+1]
+
         vox = np.round(streamline).astype(np.int32)
 
         if vox.min() < min_coord:
@@ -245,8 +299,6 @@ def connectivity_matrix_generation(bold,
 def matrix_computation(time_series):
     matrix = np.corrcoef(time_series,rowvar=False )
     return matrix
-
-
 
 def atlas_registration(atlas_path, 
                        template_file, 
@@ -336,3 +388,18 @@ def dilate_atlas_labels(atlas, brain_mask, dilation_width):
 
     return dilated_atlas
 
+
+def visualise_square_mat(matrix, title = "Square Matrix Visualisation"):
+        mask = np.triu(np.ones_like(matrix, dtype=bool))
+
+            # Set up the matplotlib figure
+        f, ax = plt.subplots(figsize=(11, 9))
+
+        # Generate a custom diverging colormap
+        cmap = sns.diverging_palette(230, 20, as_cmap=True)
+
+        # Draw the heatmap with the mask and correct aspect ratio
+        sns.heatmap(matrix, mask=mask, cmap=cmap, center=0,
+                    square=True, linewidths=.5, cbar_kws={"shrink": .5})
+        plt.title(title)
+        plt.show()

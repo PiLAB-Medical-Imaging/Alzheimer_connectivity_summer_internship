@@ -1,11 +1,14 @@
-from engagement import engagement_pipeline
 import numpy as np
 import nibabel as nib
 from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram, Space, Origin
 from nibabel import Nifti1Image
 import matplotlib.pyplot as plt
-
+from nilearn import image
+from engagement import generate_VWSC_matrices, correlation_thresholding, ebc_computation
+from engagement import engagement_calculation
+from utilities import connectivity_matrix_generation, visualise_square_mat
+import sparse
 """ atlas_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/registered_atlas.nii.gz"
 fMRI_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/fake_fMRI.nii.gz"
 reference_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/basic_brain.nii.gz"
@@ -83,7 +86,7 @@ engagement_pipeline(bold_data=fMRI_path,
                     )
 
  """
-# Look at the results of the real deal:
+""" # Look at the results of the real deal:
 engagement = nib.load("/Users/sam/Desktop/sub-TAU001/anat/engagement_test_covariance.nii.gz")
 engagement_data = engagement.get_fdata()
 uniques = np.unique(engagement_data)
@@ -92,3 +95,57 @@ print("Non zeros:", np.count_nonzero(engagement_data))
 plt.hist(engagement.get_fdata().flatten())
 plt.semilogy()
 plt.show()
+ """
+
+ # Run a simple test case for the white matter
+dilated_atlas = "/Users/sam/Desktop/sub-TAU001/dilated_atlas_TAU001.nii.gz"
+dilated_atlas = nib.load(dilated_atlas)
+trk_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1_10x.trk"
+# trk_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk"
+trk = load_tractogram(trk_file, reference="same")
+
+cms, wm_pos = generate_VWSC_matrices(atlas_data=dilated_atlas.get_fdata(),
+                            trk=trk,
+                            white_matter_mask="/Users/sam/Desktop/sub-TAU001/test_mask_red.nii.gz",
+                            verbose=True)
+
+
+
+# Test the functional connectivity matrix and thresholding
+
+# Load the actual bold data and see the difference
+bold_data_path = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz"
+atlas = "/Users/sam/Desktop/sub-TAU001/dilated_atlas_TAU001.nii.gz"
+bold_img = image.load_img(bold_data_path)
+bold_img_data = bold_img.get_fdata()
+bold_img_data = bold_img_data[:, :, :, 3:]
+atlas_img = nib.load(atlas)
+atlas_data = atlas_img.get_fdata()
+
+fc = connectivity_matrix_generation(bold_img, 
+                                    atlas=atlas_img, 
+                                    normalise=True,
+                                    kind = "correlation",
+                                    bold_filepath=bold_data_path)
+
+ebc = ebc_computation(fc, 
+                      inverted_values=True)
+
+visualise_square_mat(ebc)
+
+
+cms = sparse.asnumpy(cms)
+""" for idx, matrix in enumerate(cms):
+    title = f"Voxel {wm_pos[idx]} Connectivity"
+    #print(np.unique(matrix))
+    #visualise_square_mat(matrix, title)
+ """
+
+numerators = []
+
+for conn_mat in cms:
+    numerator = np.sum(np.multiply(conn_mat, ebc))
+    numerators.append(numerator)
+    print(numerator)
+
+numerator_np = np.array(numerators)
