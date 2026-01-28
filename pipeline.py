@@ -229,7 +229,9 @@ def engagement_pipeline(bold_data, atlas,
 
     ################################ Step 2 ################################
     print(f"{task}. Computing Edge Between Connectedness Matrix") 
+
     ebc_mat = ebc_computation(fc_mat, inverted_values=False)
+
     if verbose:
         print("The ebc matrix")
         print(ebc_mat)
@@ -344,16 +346,24 @@ if __name__ == "__main__":
         
     if TEST_FUNCTIONNECTOME:
         atlas_path = "/Users/sam/Desktop/sub-TAU001/aal.nii.gz"
-        fMRI_path = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz"
-        reference_file = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w.nii.gz"
-        save_registered_atlas = "/Users/sam/Desktop/sub-TAU001/sub-TAU001_desc-registered_atlas_space-T1w.nii.gz"
+        fMRI_path = ("/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_"
+            "ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz")
+        reference_file = ("/Users/sam/Desktop/sub-TAU001/anat/sub-"
+            "TAU001_desc-preproc_T1w.nii.gz")
+        save_registered_atlas = ("/Users/sam/Desktop/sub-TAU001/sub-TAU001_"
+            "desc-registered_atlas_space-T1w.nii.gz")
         tractogram_filepath = "/Users/sam/Desktop/sub-TAU001/test_tract.trk"
-        wm_mask_filepath = "/Users/sam/Desktop/sub-TAU001/sub-TAU001_space-T1w_label-WM_mask.nii.gz"
-        brain_mask_path = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-brain_mask.nii.gz"
-        moving_file = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
+        wm_mask_filepath = ("/Users/sam/Desktop/sub-TAU001/sub-TAU001_space-"
+            "T1w_label-WM_mask.nii.gz")
+        brain_mask_path = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_"
+            "desc-brain_mask.nii.gz")
+        moving_file = ("/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_"
+            "brain.nii.gz")
         density_map_path = "/Users/sam/Desktop/sub-TAU001"
-        functionnectome_savepath = "/Users/sam/Desktop/sub-TAU001/functionnectome.nii.gz"
-        gm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-GM_probseg.nii.gz"
+        functionnectome_savepath = ("/Users/sam/Desktop/sub-TAU001/"
+            "functionnectome.nii.gz")
+        gm_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
+            "GM_probseg.nii.gz")
 
         print("Testing the pipeline")
         functionnectome_pipeline(
