@@ -5,7 +5,7 @@ from scipy.ndimage import distance_transform_edt
 from regis.core import find_transform, apply_transform
 from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
-from utilities import dilate_atlas_labels, atlas_masker
+from utilities import dilate_atlas_labels, atlas_masker, time_slicing
 
 
 """ atlas = "/Users/sam/Desktop/sub-TAU001/check_atlas_TAU001.nii.gz"
@@ -27,14 +27,19 @@ trk = load_tractogram("/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk",
                        reference="same") """
 
 
-original_mask = nib.load("/Users/sam/Desktop/sub-TAU001/check_atlas_TAU001.nii.gz")
+""" original_mask = nib.load("/Users/sam/Desktop/sub-TAU001/check_atlas_TAU001.nii.gz")
 new_maskname = "/Users/sam/Desktop/sub-TAU001/submask_TAU001.nii.gz"
 
 target_indices = [1, 7, 46]
 
 new_mask = atlas_masker(original_mask.get_fdata(), target_labels=target_indices)
 
-print(np.count_nonzero(new_mask))
-
 out = nib.Nifti1Image(new_mask, affine=original_mask.affine)
 out.to_filename(new_maskname)
+
+ """
+bold_file = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_desc-preproc_bold.nii.gz"
+bold_img = nib.load(bold_file)
+sliced_bold = time_slicing(bold_img.get_fdata(), slice_length=8)
+for slice in sliced_bold:
+    print(slice.shape)

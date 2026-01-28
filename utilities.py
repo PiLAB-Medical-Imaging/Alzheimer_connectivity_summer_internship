@@ -460,3 +460,35 @@ def atlas_masker(atlas_data:np.array, target_labels:list):
 def parse_nib_file(image_obj):
     if type(image_obj) is str:
         pass
+
+def time_slicing(bold_data, slice_length, sliding= False):
+    """
+    Divides a bold signal into time windows. 
+    
+    :param bold_data: 4D numpy array
+        fMRI data with dimensions (x, y, z, time)
+    :param slice_length: int
+        Length of each time slice
+
+    Notes:
+        - Currently discards any excess time points that are not 
+            divisible by the slice_length. Consider your slice length 
+            value carefully.
+    """
+    slices = []
+    if sliding == False:
+        num_slices = bold_data.shape[3] // slice_length
+        for i in range(num_slices):
+            start = i * slice_length
+            end = start + slice_length
+            slices.append(bold_data[:, :, :, start:end])
+
+    else:
+        idx = 0
+        while idx < bold_data.shape[3]-slice_length:
+            end = idx + slice_length
+            slice = bold_data[:,:,:,idx:end]
+            slices.append(slice)
+            idx += 1
+
+    return slices
