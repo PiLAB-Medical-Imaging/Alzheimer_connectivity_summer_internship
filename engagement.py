@@ -15,7 +15,7 @@ from unravel.analysis import connectivity_matrix
 import matplotlib.pyplot as plt
 from utilities import connectivity_matrix_generation,mask_generator, generate_masks
 from utilities import voxel_to_streamline_map, voxel_to_streamline_map_V2  
-
+from utilities import create_time_series, fc_mat_gen, nifti_vs_img
 
 
 def save_engagement(engagement_values, 
@@ -122,7 +122,6 @@ def engagement_calculation(EBC_matrix,
     
     return result
 
-
 def trk_report(trk, value):
     """
     Simple function to report the relevant properties of the tractograms that 
@@ -173,7 +172,6 @@ def trk_report(trk, value):
     print(f"Axis 0 Max = {max_ax0}, Min = {min_ax0}")
     print(f"Axis 1 Max = {max_ax1}, Min = {min_ax1}")
     print(f"Axis 2 Max = {max_ax2}, Min = {min_ax2}")
-
 
 def generate_VWSC_matrices(atlas_data, 
                            trk, 
@@ -300,7 +298,6 @@ def ebc_computation(numpy_matrix, inverted_values):
 
     return ebc_mat
 
-
 def value_threshold(matrix, value_threshold = 0.2):
     """
     Produces a new matrix, retaining only values over a certain threshold. 
@@ -311,7 +308,6 @@ def value_threshold(matrix, value_threshold = 0.2):
     """
     filtered = np.where(matrix > value_threshold, matrix, 0)
     return filtered
-
 
 def correlation_thresholding(matrix, proportion=0.9, 
                              keep_diagonal=False, 
@@ -373,6 +369,21 @@ def save_connectivity_matrices(all_connectivity_mats, save_path):
     np.save(file=save_path,
             arr=all_connectivity_mats)
 
+def dynamic_engagement(sliced_time_series, connectivity_matrices, atlas,):
+   
+    ebc_matrices = []
+
+    for slice in sliced_time_series:
+        fc_matrix  = fc_mat_gen(timeseries=slice)
+        ebc = ebc_computation(fc_matrix, False)
+        ebc_matrices.append(ebc)
+
+    ebc_matrices = np.stack(ebc_matrices)
+
+    engagement = np.einsum("ijk,njk->ni", ebc_matrices, connectivity_matrices)
+
+    return engagement
+        
 
 def engagement_feeder(subject_bids_root, subj_id_length, save_root_folder):
 

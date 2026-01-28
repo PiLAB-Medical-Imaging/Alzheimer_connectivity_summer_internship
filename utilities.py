@@ -268,12 +268,67 @@ def generate_masks(wm_mask, test_masks = False):
 def is_sparse(arr):
     return isinstance(arr, sparse.COO)
 
+def nifti_vs_img(object):
+    """
+    Checks input to insure it is either a nifti image, 
+    or a path to a nifti image
+    
+    :param object: the object provided
+    """
+    if type(object) is str:
+        img = nib.load(object)
+    elif type(object) is Nifti1Image:
+        img = object
+    else:
+        raise TypeError(("Image should be provided as either a path "
+            "to an Nifti image, or Nifti image object."))
+    return img
+
+def create_time_series(
+        atlas, 
+        bold_data, 
+        discard_initial:int = 3,
+        bold_filepath= None, 
+        normalise:bool = True):
+    
+    aal_img = nifti_vs_img(atlas)
+
+    masker = NiftiLabelsMasker(labels_img=aal_img, standardize=normalise)
+
+    if bold_filepath is not None:
+        counfounds_df,_= load_confounds_strategy(bold_filepath,
+                                            denoise_strategy="simple")
+        time_series = masker.fit_transform(bold_data[discard_initial:], 
+                                           confounds=counfounds_df)
+        
+    else:
+        time_series = masker.fit_transform(bold_data[discard_initial:])
+
+    return time_series
+
+def fc_mat_gen(
+        timeseries, 
+        method: str = "nilearn", 
+        kind: str = "correlation"):
+        
+    # Correlation Matrix
+    if method == "nilearn":
+        conn_measure = ConnectivityMeasure(kind=kind, standardize=False)
+        conn_matrix = conn_measure.fit_transform([timeseries])[0]
+    elif method == "custom":
+        conn_matrix = matrix_computation(time_series=timeseries)
+    else:
+        raise ValueError("Enter a valid method: nilearn or custom")
+    
+    return conn_matrix
+    
 def connectivity_matrix_generation(bold, 
                                    atlas, 
                                    normalise, 
                                    method= "nilearn", 
                                    kind = "correlation", 
-                                   bold_filepath=None):
+                                   bold_filepath=None, 
+                                   return_time_series = False):
     if type(atlas) is str:
         aal_img = nib.load(atlas)
     elif type(atlas) is Nifti1Image:
@@ -301,7 +356,10 @@ def connectivity_matrix_generation(bold,
         conn_matrix = matrix_computation(time_series)
     else:
         raise ValueError("Enter a valid method: nilearn or custom")
-
+    
+    if return_time_series:
+        return conn_matrix, time_series
+    
     return conn_matrix
 
 def matrix_computation(time_series):
@@ -461,7 +519,7 @@ def parse_nib_file(image_obj):
     if type(image_obj) is str:
         pass
 
-def time_slicing(bold_data, slice_length, sliding= False):
+def time_slicing(data, slice_length, sliding= False):
     """
     Divides a bold signal into time windows. 
     
@@ -477,18 +535,20 @@ def time_slicing(bold_data, slice_length, sliding= False):
     """
     slices = []
     if sliding == False:
-        num_slices = bold_data.shape[3] // slice_length
+        num_slices = data.shape[3] // slice_length
         for i in range(num_slices):
             start = i * slice_length
             end = start + slice_length
-            slices.append(bold_data[:, :, :, start:end])
+            slices.append(data[:, :, :, start:end])
 
     else:
         idx = 0
-        while idx < bold_data.shape[3]-slice_length:
+        while idx < data.shape[3]-slice_length:
             end = idx + slice_length
-            slice = bold_data[:,:,:,idx:end]
+            slice = data[:,:,:,idx:end]
             slices.append(slice)
             idx += 1
 
+    slices = np.stack(slices)
+    
     return slices

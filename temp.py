@@ -5,7 +5,7 @@ from scipy.ndimage import distance_transform_edt
 from regis.core import find_transform, apply_transform
 from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
-from utilities import dilate_atlas_labels, atlas_masker, time_slicing
+from utilities import dilate_atlas_labels, atlas_masker, BOLD_slicing
 
 
 """ atlas = "/Users/sam/Desktop/sub-TAU001/check_atlas_TAU001.nii.gz"
@@ -40,6 +40,8 @@ out.to_filename(new_maskname)
  """
 bold_file = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_desc-preproc_bold.nii.gz"
 bold_img = nib.load(bold_file)
-sliced_bold = time_slicing(bold_img.get_fdata(), slice_length=8)
+sliced_bold = BOLD_slicing(bold_img.get_fdata(), slice_length=8, sliding=True)
 for slice in sliced_bold:
     print(slice.shape)
+
+print(len(sliced_bold))
