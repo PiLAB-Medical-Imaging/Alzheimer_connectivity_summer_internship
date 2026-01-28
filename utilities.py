@@ -1,7 +1,8 @@
 import os
 import os.path as path
-import numpy as np
 from collections import defaultdict
+
+import numpy as np
 from scipy.ndimage import gaussian_filter, binary_fill_holes, label
 from scipy.ndimage import distance_transform_edt
 import nibabel as nib

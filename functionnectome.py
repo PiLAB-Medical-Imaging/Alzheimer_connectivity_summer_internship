@@ -44,7 +44,6 @@ def target_1(trk, mask, affine):
     rel_streamlines = target(streamlines, affine, mask)
     return rel_streamlines
 
-
 def probability_maps(trk, mask_array, mask_debug=False):
     """
     Compute the probability that a given voxel is connected to any 
@@ -80,16 +79,15 @@ def probability_maps(trk, mask_array, mask_debug=False):
         f"Streamline counts:\n"
         f"{streamline_count}")
 
-
 def vectorised_probability_maps(
         registered_atlas, 
         trk,
+        mask_positions,
+        brain_template,
+        v2f_mapping,
         smoothing = False, 
         mode = "roi", 
         save_density_map_path = None, 
-        grey_matter_probs = None, 
-        white_matter_probabilities = None, 
-        csf_probability = None, 
         verbose_debug = False):
     """
     Docstring for vectorised_probability_maps
@@ -122,20 +120,14 @@ def vectorised_probability_maps(
         overall_density_map = gaussian_filter(overall_density_map, 1.0)
     
 
-    # Iterate through the AAL regions and extract only the streamlines that go through each region. (116 iterations, will give a NxN matrix for each ROI, where N is the number of white matter voxels) 
+    """ Iterate through the atlas regions and extract only the streamlines
+        that go through each region. (116 iterations, will give a NxN 
+        matrix for each ROI, where N is the number of white matter voxels) """
 
-    if save_density_map_path != None:
-        filepath = path.join(save_density_map_path, 
-                             f"{mode}_density_map.nii.gz")
-
-        if os.path.exists(filepath):
-                print("\tLoading Pre-existing density maps")
-                all_density_maps = nib.load(filepath)
-                all_density_maps = all_density_maps.get_fdata()
-                return all_density_maps, overall_density_map
 
     if mode == "roi":
         print("\tUsing the ROI mode")
+
         atlas_matrix = registered_atlas.get_fdata()
         roi_ids = np.unique(atlas_matrix) 
 
@@ -150,9 +142,9 @@ def vectorised_probability_maps(
             idx -= 1
             if roi == 0:
                 continue
+
             # Get all the streamlines that reach the grey matter ROI
             mask =  (atlas_matrix == roi).astype(np.uint8)
-
 
             if mask.shape != atlas_matrix.shape:
                 raise ValueError("The mask does not match " \
@@ -168,65 +160,19 @@ def vectorised_probability_maps(
             # Get a density map of the relevant streamlines
             # Use the white matter mask here? 
             roi_density_map = density_map(
-                trk_new.streamlines, np.eye(4), 
-                trk_new.dimensions)
-
+                streamlines=relevant_streamlines, 
+                affine=np.eye(4), 
+                vol_dims=trk.dimensions)
 
             if smoothing:
                 roi_density_map = gaussian_filter(roi_density_map, 1.0)
             # Output the density maps so that they can be visualised
             all_density_maps[idx] = roi_density_map
-        
-        if save_density_map_path != None:
-            complete_density_map_data = np.transpose(
-                    all_density_maps, 
-                    (1,2,3,0))
-            out = nib.Nifti1Image(
-                    complete_density_map_data.astype(float), 
-                    trk.affine)
-            out.to_filename(filename=filepath)
 
     elif mode == "vox":
         print("\tUsing the Voxel mode")
-        if (grey_matter_probs is None 
-                or csf_probability is None 
-                or white_matter_probabilities is None):
-            raise ValueError("Grey matter probability, csf_probability "
-                "and white matter probability must be provided if the mode "
-                "is set to voxel. Provide as a filepath to the grey matter " \
-                "mask")
-        
-        # Generate a grey matter mask to work with.
-        gm_mask = mask_generator(
-            white_matter_probability=white_matter_probabilities, 
-            grey_matter_probability=grey_matter_probs,
-            csf_probability= csf_probability,
-            mask_type="grey", 
-            gm_threshold=0.9)
-        
-        gm_mask.to_filename("/Users/sam/Desktop/sub-TAU001/gm_mask.nii.gz")
-        gm_mask = gm_mask.get_fdata()
-        
-        # Get the voxels to streamline mapping
-        v2f_mapping = voxel_to_streamline_map(trk.streamlines, gm_mask.shape)
-
-        if verbose_debug:
-            filename = "/Users/sam/Desktop/sub-TAU001/v2f.json"
-            mapping_str = {
-                f"{k[0]},{k[1]},{k[2]}": v for k, v in v2f_mapping.items()
-                }
-            with open(filename, "w") as f:
-                    json.dump(mapping_str, f,indent=4)
-
-        
-        # Now, obtain the grey matter positions:
-        mask_positions = mask_to_positions(gm_mask)
-        #test for a limited subset
-        mask_positions = mask_positions[0:1000]
-        n = len(mask_positions)
-        #all_density_maps = np.zeros(shape = (n, gm_mask.shape[0], gm_mask.shape[1], gm_mask.shape[2]))
+        brain_template = brain_template.get_fdata()
         all_density_maps = []
-
 
         # Need to loop through grey matter voxels:
         failure_count = 0
@@ -235,23 +181,24 @@ def vectorised_probability_maps(
                 enumerate(mask_positions), 
                 desc="\tVoxel wise fibre connectivity", 
                 leave=True):
+            
             # Compute the relevant streamlines for that voxel:
             if tuple(mask_positions[grey_vox]) in v2f_mapping.keys():
-                streamlines = v2f_mapping[tuple(mask_positions[grey_vox])]
+                streamline_idxs = v2f_mapping[tuple(mask_positions[grey_vox])]
                 vox_density_map = density_map(
-                    streamlines=trk.streamlines[streamlines], 
+                    streamlines=trk.streamlines[streamline_idxs], 
                     affine = np.eye(4),
                     vol_dims=trk.dimensions
                     )    
                 
             else:
-                vox_density_map = np.zeros_like(gm_mask)  
+                vox_density_map = np.zeros_like(brain_template)  
                 failure_count+=1
                
             sarr = sparse.COO.from_numpy(vox_density_map)
             all_density_maps.append(sarr)
 
-        failure_proportion = failure_count/n        
+        failure_proportion = failure_count/len(mask_positions)     
         all_density_maps = sparse.stack(all_density_maps, axis=0)                         
         
     else:
@@ -470,3 +417,32 @@ def plot_ROI_activity(registered_atlas, roi_timeseries):
             image_data[j, idx] = np.where(registered_atlas==roi, 
                                           roi_timeseries[j, idx], 
                                           np.nan)
+
+
+"""
+Possibly useful detritus - maybe need to add some of these to the pipeline
+
+Originally from the probability maps vectorised. It would check
+if the values were saved and if they were, it would load them
+
+    if save_density_map_path != None:
+        filepath = path.join(save_density_map_path, 
+                             f"{mode}_density_map.nii.gz")
+
+        if os.path.exists(filepath):
+                print("\tLoading Pre-existing density maps")
+                all_density_maps = nib.load(filepath)
+                all_density_maps = all_density_maps.get_fdata()
+                return all_density_maps, overall_density_map
+
+        if save_density_map_path != None:
+            complete_density_map_data = np.transpose(
+                    all_density_maps, 
+                    (1,2,3,0))
+            out = nib.Nifti1Image(
+                    complete_density_map_data.astype(float), 
+                    trk.affine)
+            out.to_filename(filename=filepath)
+
+
+"""
