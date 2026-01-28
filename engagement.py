@@ -13,9 +13,9 @@ from dipy.io.streamline import load_tractogram
 from tqdm import tqdm
 from unravel.analysis import connectivity_matrix
 import matplotlib.pyplot as plt
-from utilities import connectivity_matrix_generation,mask_generator, generate_masks
+from utilities import connectivity_matrix_generation,mask_generator, mask_to_positions
 from utilities import voxel_to_streamline_map, voxel_to_streamline_map_V2  
-from utilities import create_time_series, fc_mat_gen, nifti_vs_img, is_sparse
+from utilities import create_ROI_time_series, fc_mat_gen, nifti_vs_img, is_sparse
 
 
 def save_engagement(engagement_values, 
@@ -222,7 +222,7 @@ def generate_VWSC_matrices(atlas_data,
         wm_mask = nib.load(white_matter_mask)
     
     # Generate all white matter positions
-    wm_positions = generate_masks(wm_mask)
+    wm_positions = mask_to_positions(wm_mask)
 
     #print("white matter positions", wm_positions.shape)
 

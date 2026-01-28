@@ -15,10 +15,14 @@ from dipy.io.stateful_tractogram import StatefulTractogram
 import nibabel as nib
 from nibabel.nifti1 import Nifti1Image
 from unravel.utils import get_streamline_density
-from nilearn.maskers import NiftiLabelsMasker, NiftiMasker
+from nilearn.maskers import (NiftiLabelsMasker, 
+                             NiftiMasker)
 from nilearn import image, masking
 from nilearn.regions import signals_to_img_labels
-from utilities import voxel_to_streamline_map, mask_generator, is_sparse
+from utilities import (voxel_to_streamline_map, 
+                       mask_generator, 
+                       is_sparse, 
+                       mask_to_positions)
 
 NOISE_OFFSET = 5
 
@@ -39,29 +43,6 @@ def target_1(trk, mask, affine):
     streamlines = trk.streamlines
     rel_streamlines = target(streamlines, affine, mask)
     return rel_streamlines
-
-def generate_masks(wm_mask, test_masks = False):
-    if test_masks:
-        mask_1 = nib.load("/Users/sam/Desktop/sub-TAU001/one_white_matter_mask.nii.gz")
-        mask_2 = nib.load("/Users/sam/Desktop/sub-TAU001/two_white_matter_mask.nii.gz")
-        return np.stack([mask_1.get_fdata(), mask_2.get_fdata()], axis=0)
-    else:
-        if type(wm_mask) == Nifti1Image:
-            wm_data = wm_mask.get_fdata()
-        else: 
-            wm_data = wm_mask
-       
-        wm_positions = np.array(np.nonzero(wm_data)).T
-        #n = len(wm_positions)
-
-        """ # Make an array to store the masks. It should be n long, and then the same shape as the original white matter mask
-        output = np.zeros((n,) + wm_data.shape, dtype=wm_data.dtype)
-
-        # For each index in the wm_positions array, create a single 1.0 value in the mask.
-        for i, idx in tqdm(enumerate(wm_positions), "\tGenerating the white matter masks"):
-            output[i][tuple(idx)] = 1.0 """
-        
-        return wm_positions
 
 
 def probability_maps(trk, mask_array, mask_debug=False):
@@ -239,7 +220,7 @@ def vectorised_probability_maps(
 
         
         # Now, obtain the grey matter positions:
-        mask_positions = generate_masks(gm_mask)
+        mask_positions = mask_to_positions(gm_mask)
         #test for a limited subset
         mask_positions = mask_positions[0:1000]
         n = len(mask_positions)
@@ -379,7 +360,7 @@ def normalizer(funct_results,
 
         
 def functionnectome(probability_maps, 
-                    fMRI_file, 
+                    timeseries, 
                     registered_atlas,
                     extensive_visualisation=None, 
                     debug_prints= False, 
@@ -399,43 +380,25 @@ def functionnectome(probability_maps,
         Contains the atlas that has been adapted to the patient 
         T1 space.
     """
-    bold_data = image.load_img(fMRI_file)
-
-
-    if grey_matter_mask != None:
-        masker = NiftiMasker(mask_img=grey_matter_mask,
-                             standardize=True,
-                             target_affine=np.eye(4))
-        print("\tGrey matter mask provided")
-    else:
-        masker = NiftiLabelsMasker(
-            registered_atlas, 
-            standardize=True,
-            verbose=1)
-
-
-    # This is now a timepoints x ROI matrix.
-    roi_time_series = masker.fit_transform(bold_data)
-    roi_time_series = roi_time_series[NOISE_OFFSET:, :]
 
     if extensive_visualisation != None:
         reg_atlas_img = nib.load(registered_atlas)
-        img_by_ROI = signals_to_img_labels(signals=roi_time_series,
+        img_by_ROI = signals_to_img_labels(signals=timeseries,
                                         labels_img=reg_atlas_img)
         img_by_ROI.to_filename(extensive_visualisation)
 
-    bold_max = np.max(roi_time_series)
-    bold_min = np.min(roi_time_series)
+    bold_max = np.max(timeseries)
+    bold_min = np.min(timeseries)
     if debug_prints:
         print(f"Minimum BOLD value: {bold_min}\nMaximum BOLD value: {bold_max}"
               f"Shape of prob_maps: { probability_maps.shape}"
-              f"ROI_time series shape: {roi_time_series.shape}") 
+              f"ROI_time series shape: {timeseries.shape}") 
         
 
     if is_sparse(probability_maps):
-        funct_result = sparse.tensordot(roi_time_series, probability_maps)
+        funct_result = sparse.tensordot(timeseries, probability_maps)
     else:
-        funct_result = tensordot(roi_time_series, probability_maps,1) 
+        funct_result = tensordot(timeseries, probability_maps,1) 
         # need to double check the shapes of the roi_timeseries.
 
     funct_result = normalizer(

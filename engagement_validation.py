@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from nilearn import image
 from engagement import generate_VWSC_matrices, correlation_thresholding, ebc_computation
 from engagement import engagement_calculation, reshape_engagement_slices
-from engagement import fc_mat_gen, create_time_series, dynamic_engagement
+from engagement import fc_mat_gen, create_ROI_time_series, dynamic_engagement
 from utilities import connectivity_matrix_generation, visualise_square_mat, time_slicing
 import sparse
 import matplotlib.pyplot as plt
@@ -129,7 +129,7 @@ wmm_path = "/Users/sam/Desktop/sub-TAU001/test_mask_red.nii.gz"
 # Time series
 
 t1 = time.time()
-total_ts = create_time_series(atlas=atlas_img,
+total_ts = create_ROI_time_series(atlas=atlas_img,
                               bold_data=bold_img,
                               bold_filepath=bold_data_path)
 t2 = time.time()

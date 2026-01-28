@@ -8,7 +8,7 @@ import nibabel as nib
 from nilearn.image import resample_to_img
 from nibabel.processing import resample_from_to
 from nibabel.nifti1 import Nifti1Image
-from nilearn.maskers import NiftiLabelsMasker
+from nilearn.maskers import NiftiLabelsMasker, NiftiMasker
 from nilearn.interfaces.fmriprep import load_confounds_strategy
 from nilearn.connectome import ConnectivityMeasure
 from dipy.io.stateful_tractogram import Space, StatefulTractogram
@@ -249,20 +249,15 @@ def voxel_to_streamline_map_V2(streamlines, vol_shape, subsegment:int = 1):
     # Convert sets → lists for downstream use
     return {k: list(v) for k, v in mapping.items()}
 
-def generate_masks(wm_mask, test_masks = False):
-    if test_masks:
-        mask_1 = nib.load("/Users/sam/Desktop/sub-TAU001/one_white_matter_mask.nii.gz")
-        mask_2 = nib.load("/Users/sam/Desktop/sub-TAU001/two_white_matter_mask.nii.gz")
-        return np.stack([mask_1.get_fdata(), mask_2.get_fdata()], axis=0)
-    else:
-        if type(wm_mask) == Nifti1Image:
-            wm_data = wm_mask.get_fdata()
-        else: 
-            wm_data = wm_mask
-       
-        wm_positions = np.array(np.nonzero(wm_data)).T
-        
-        return wm_positions
+def mask_to_positions(mask):
+    if type(mask) == Nifti1Image:
+        wm_data = mask.get_fdata()
+    else: 
+        wm_data = mask
+    
+    wm_positions = np.array(np.nonzero(wm_data)).T
+    
+    return wm_positions
 
 
 def is_sparse(arr):
@@ -284,7 +279,18 @@ def nifti_vs_img(object):
             "to an Nifti image, or Nifti image object."))
     return img
 
-def create_time_series(
+def transform_masker(bold_data, masker, bold_filepath, discard_initial):
+    if bold_filepath is not None:
+        counfounds_df,_= load_confounds_strategy(bold_filepath,
+                                            denoise_strategy="simple")
+        time_series = masker.fit_transform(bold_data, 
+                                           confounds=counfounds_df)    
+    else:
+        time_series = masker.fit_transform(bold_data)
+
+    return time_series
+
+def create_ROI_time_series(
         atlas, 
         bold_data, 
         discard_initial:int = 3,
@@ -295,16 +301,24 @@ def create_time_series(
 
     masker = NiftiLabelsMasker(labels_img=aal_img, standardize=normalise)
 
-    if bold_filepath is not None:
-        counfounds_df,_= load_confounds_strategy(bold_filepath,
-                                            denoise_strategy="simple")
-        time_series = masker.fit_transform(bold_data, 
-                                           confounds=counfounds_df)
-        
-    else:
-        time_series = masker.fit_transform(bold_data[discard_initial:])
+    return transform_masker(bold_data=bold_data, 
+                            masker = masker,
+                            discard_initial=discard_initial)
 
-    return time_series[discard_initial:]
+def create_VOX_time_series(
+        mask,
+        bold_data, 
+        discard_initial:int = 3,
+        normalise:bool = True):
+    
+    masker = NiftiMasker(mask_img=mask,
+                         standardize=normalise)
+    
+    return transform_masker(bold_data=bold_data, 
+                            masker = masker,
+                            discard_initial=discard_initial)
+    
+
 
 def fc_mat_gen(
         timeseries, 
