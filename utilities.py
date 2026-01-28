@@ -412,9 +412,51 @@ def visualise_square_mat(matrix, title = "Square Matrix Visualisation"):
         plt.title(title)
         plt.show()
 
-def normalise(array_like):
+def normalise(array_like, shift_zero: bool = False):
+    """
+    Docstring for normalise
+    
+    :param array_like: Matrix or array to normalise
+    :param shift_zero: Whether to shift all data such that 0 is the minimum
+    :type shift_zero: bool
+    """
     scores = zscore(array_like)
     minimum = np.min(scores)
     if minimum < 0:
         scores = scores - minimum
     return scores
+
+def atlas_masker(atlas_data:np.array, target_labels:list):
+    """Create a mask of an atlas that retains only the specified label values.
+    Parameters
+    ----------
+    atlas_data : numpy.ndarray
+        Array of labeled regions (e.g., an atlas volume or parcellation). Values
+        are expected to be label identifiers (commonly integers). The input array's
+        shape and dtype are preserved in the returned mask.
+    target_labels : Sequence[int]
+        Iterable of label values to keep in the output. All entries not matching
+        any of these labels will be set to 0 in the returned array.
+    Returns
+    -------
+    numpy.ndarray
+        An array with the same shape and dtype as atlas_data where entries that
+        match any value in target_labels retain their original label value and
+        all other entries are zero.
+    Notes
+    -----
+    - The function prints the indices of nonzero entries for each target label as
+      a side effect.
+    - If a requested label is not present in atlas_data, it simply has no effect.
+    - The input atlas_data is not modified; a new array is returned.
+    """
+    masked_atlas = np.zeros_like(atlas_data)
+    for value in target_labels:
+        masked_atlas_v = np.where(atlas_data == value, atlas_data, 0)
+        masked_atlas = np.where(masked_atlas_v!=0, masked_atlas_v, masked_atlas)
+    
+    return masked_atlas
+
+def parse_nib_file(image_obj):
+    if type(image_obj) is str:
+        pass
