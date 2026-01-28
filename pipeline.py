@@ -15,10 +15,13 @@ from dipy.io.streamline import load_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
 
 ## My Imports (replace these with my package calls)
-from utilities import connectivity_matrix_generation, visualise_square_mat,normalise
-from engagement import correlation_thresholding, ebc_computation, generate_VWSC_matrices
-from engagement import engagement_calculation, save_connectivity_matrices,save_engagement
-from functionnectome import create_masked_T1, compute_connection_probability, vectorised_probability_maps, functionnectome
+from utilities import connectivity_matrix_generation, visualise_square_mat
+from utilities import normalise
+from engagement import correlation_thresholding, ebc_computation
+from engagement import generate_VWSC_matrices, engagement_calculation
+from engagement import save_connectivity_matrices,save_engagement
+from functionnectome import create_masked_T1, compute_connection_probability
+from functionnectome import vectorised_probability_maps, functionnectome
 
 
 
@@ -26,18 +29,29 @@ from functionnectome import create_masked_T1, compute_connection_probability, ve
 TEST_FUNCTIONNECTOME  = False
 TEST_ENGAGEMENT = True
 
-def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, tractogram, anatomical_scan_atlas_space, 
-                             save_registered_atlas, savepath_density_map, brain_mask_path = None, save_probability_maps = None, 
-                             remap = False, functionnectome_savepath = None, grey_matter_path = None, white_matter_prob = None,
-                             csf_prob = None, gm_mask = None, mode = "roi", is_aligned = False, brain_only_t1w_path = None):
+def functionnectome_pipeline(
+        atlas_path, fMRI_path, t1w_file, tractogram, 
+        anatomical_scan_atlas_space, save_registered_atlas, 
+        savepath_density_map, brain_mask_path = None, 
+        save_probability_maps = None, remap = False, 
+        functionnectome_savepath = None, grey_matter_path = None, 
+        white_matter_prob = None,csf_prob = None, 
+        gm_mask = None, mode = "roi", is_aligned = False, 
+        brain_only_t1w_path = None):
+    
     task = 1
 
     # Load the tractogram and shift to voxel corner
     print(f"{task}. Load Tractogram")
+
+    # Allow user to pass either the filepath or tractogram
+
     if type(tractogram) is str:
-        trk = load_tractogram(tractogram, "same")    # Allows the user to pass either a string to the file, or the tractogram already loaded.
+        trk = load_tractogram(tractogram, "same")
     elif type(tractogram) is StatefulTractogram:
         trk = tractogram
+
+    # Shift to correct reference frame
     trk.to_vox()
     trk.to_corner()
     task += 1
@@ -53,33 +67,31 @@ def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, tractogram, anatom
         brain_only_t1w = create_masked_T1(t1w_file, brain_mask_path) 
         brain_only_t1w_path = t1w_file[:-7] + "_masked.nii.gz"
     elif brain_mask_path == None and brain_only_t1w_path == None:
-        raise ValueError("Please provide either a brain_only_t1w path, or a brain_mask_t1w path and t1w_file path")
+        raise ValueError("Please provide either a brain_only_t1w path, "
+                        "or a brain_mask_t1w path and t1w_file path")
     task += 1
 
     # Generate the probability maps
     print(f"{task}. Generate density maps")
-    all_density_maps, overall_density_map  = vectorised_probability_maps(template_file= anatomical_scan_atlas_space,
-                                                            atlas_path=atlas_path,
-                                                            reference_file= brain_only_t1w_path, 
-                                                            trk=trk,
-                                                            save_path=save_registered_atlas, 
-                                                            remap=remap,
-                                                            save_output=save_probability_maps, 
-                                                            smoothing=False,
-                                                            save_density_map_path=savepath_density_map,
-                                                            mode=mode,
-                                                            grey_matter_probs=grey_matter_path,
-                                                            white_matter_probabilities=white_matter_prob,
-                                                            csf_probability=csf_prob,
-                                                            aligned=is_aligned
-                                                            )
+    all_density_maps, overall_density_map  = vectorised_probability_maps(
+        template_file= anatomical_scan_atlas_space,atlas_path=atlas_path,
+        reference_file= brain_only_t1w_path, trk=trk,
+        save_path=save_registered_atlas, remap=remap,
+        save_output=save_probability_maps, smoothing=False,
+        save_density_map_path=savepath_density_map, mode=mode,
+        grey_matter_probs=grey_matter_path,
+        white_matter_probabilities=white_matter_prob,csf_probability=csf_prob,
+        aligned=is_aligned)
+    
     task += 1
 
     print(f"{task}. Generate connection probability")
-    probability_maps_computed = compute_connection_probability(overall_density_map=overall_density_map, 
-                                                               all_density_maps=all_density_maps,
-                                                               save_output=savepath_density_map,
-                                                               trk = trk)
+
+    probability_maps_computed = compute_connection_probability(
+        overall_density_map=overall_density_map, 
+        all_density_maps=all_density_maps,save_output=savepath_density_map,
+        trk = trk)
+    
     task += 1
     # Calculate the functionnectome
     print(f"{task}. Compute Functionnectome")
@@ -88,10 +100,12 @@ def functionnectome_pipeline(atlas_path, fMRI_path, t1w_file, tractogram, anatom
         print("\tWarning, ignoring grey matter mask due to ROI mode selection!")
         grey_matter_path = None
 
-    funct_result = functionnectome(probability_maps = probability_maps_computed, 
-                            fMRI_file= fMRI_path,
-                            registered_atlas=save_registered_atlas,
-                            grey_matter_mask=grey_matter_path)
+    funct_result = functionnectome(
+                    probability_maps = probability_maps_computed, 
+                    fMRI_file= fMRI_path,
+                    registered_atlas=save_registered_atlas,
+                    grey_matter_mask=grey_matter_path)
+    
     task += 1
 
     
@@ -162,24 +176,28 @@ def engagement_pipeline(bold_data, atlas,
             fc_mat = np.load(fc_path)
         else:
             if confound_removal:
-                fc_mat = connectivity_matrix_generation(bold_img, 
-                                                        atlas, 
-                                                        False, 
-                                                        bold_filepath=bold_data, 
-                                                        method="nilearn")
+                fc_mat = connectivity_matrix_generation(
+                            bold_img, 
+                            atlas, 
+                            False, 
+                            bold_filepath=bold_data, 
+                            method="nilearn")
             else:
-                 fc_mat = connectivity_matrix_generation(bold_img, 
-                                                         atlas, 
-                                                         False, 
-                                                         method="nilearn")
+                 fc_mat = connectivity_matrix_generation(
+                            bold_img, 
+                            atlas, 
+                            False, 
+                            method="nilearn")
     else:
         if confound_removal:
-            fc_mat = connectivity_matrix_generation(bold_img, atlas, False, 
-                                                    bold_filepath=bold_data, 
-                                                    method="nilearn")
+            fc_mat = connectivity_matrix_generation(
+                        bold_img, atlas, False, 
+                        bold_filepath=bold_data, 
+                        method="nilearn")
         else:
-            fc_mat = connectivity_matrix_generation(bold_img, atlas, 
-                                                    False, method="nilearn")
+            fc_mat = connectivity_matrix_generation(
+                        bold_img, atlas, 
+                        False, method="nilearn")
     
     if verbose:
         #print("The atlas looks like: ", atlas_data)
@@ -191,7 +209,8 @@ def engagement_pipeline(bold_data, atlas,
         np.fill_diagonal(fc_mat, 0)
         plot_matrix(
         fc_mat,
-        labels = np.unique(atlas_img.get_fdata())[np.unique(atlas_img.get_fdata())!=0],
+        labels = (np.unique(atlas_img.get_fdata())
+                  [np.unique(atlas_img.get_fdata())!=0]),
         figure=(10, 8),
         vmax=0.8,
         vmin=-0.8,
@@ -200,8 +219,9 @@ def engagement_pipeline(bold_data, atlas,
         )
         plt.show()
 
-    # Threshold the correlations to make it amenable to the EBC metric (may make sense to replace 
-    # this with a metric that more accurately characterises the degree of "proximity" a node has to other nodes")
+    # Threshold the correlations to make it amenable to the EBC metric 
+    # (may make sense to replace this with a metric that more accurately 
+    # characterises the degree of "proximity" a node has to other nodes")
     fc_mat = correlation_thresholding(fc_mat, value_threshold= 0.2)
 
     if verbose:
@@ -258,9 +278,9 @@ def engagement_pipeline(bold_data, atlas,
         root_path = path.dirname(save_engagement_filepath)
 
         connectome_path = path.join(root_path, "connectivity_matrices.npy")
-        save_connectivity_matrices(all_connectivity_mats=all_connectivity_matrices,
-                                   save_path=connectome_path)
-       
+        save_connectivity_matrices(
+            all_connectivity_mats=all_connectivity_matrices,
+            save_path=connectome_path)
 
     task += 1
     ################################ Step 4 ################################
@@ -282,11 +302,12 @@ def engagement_pipeline(bold_data, atlas,
         print(f"{task}. Saving Result")
         print(engagement.shape)
         engagement = sparse.asnumpy(engagement)
-        save_engagement(engagement, 
-                        wm_positions, 
-                        atlas_data.shape, 
-                        save_engagement_filepath, 
-                        atlas_img.affine)
+        save_engagement(
+            engagement, 
+            wm_positions, 
+            atlas_data.shape, 
+            save_engagement_filepath, 
+            atlas_img.affine)
     
     print("Finito!")
 
@@ -295,26 +316,33 @@ def engagement_pipeline(bold_data, atlas,
 if __name__ == "__main__":
 
     if TEST_ENGAGEMENT:
-        bold_filepath = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz"
-        atlas_filepath = "/Users/sam/Desktop/sub-TAU001/dilated_atlas_TAU001.nii.gz"
+        bold_filepath = ("/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-"
+            "TAU001_ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz")
+        atlas_filepath = ("/Users/sam/Desktop/sub-TAU001/dilated_atlas_"
+            "TAU001.nii.gz")
         tractogram_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk"
-        gm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-GM_probseg.nii.gz", 
-        wm_mask = "/Users/sam/Desktop/sub-TAU001/test_mask_red.nii.gz"
-        wm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-WM_probseg.nii.gz"
-        csf_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-CSF_probseg.nii.gz"
-        engagement_save_path = "/Users/sam/Desktop/sub-TAU001/anat/02_threshold_engagement_10x.nii.gz"
-        engagement_pipeline(bold_data=bold_filepath,
-                            atlas=atlas_filepath,
-                            grey_matter_prob = gm_prob,
-                            white_matter_prob=wm_prob,
-                            csf_prob= csf_prob,
-                            tractogram_file=tractogram_file,
-                            save_engagement_filepath=engagement_save_path, 
-                            verbose=True, 
-                            plotting=False, 
-                            confound_removal=True, 
-                            save_connectomes=True
-                           )
+        gm_prob = ("/Users/sam/Desktop/sub-TAU001/anat/"
+            "sub-TAU001_label-GM_probseg.nii.gz"), 
+        wm_mask = ("/Users/sam/Desktop/sub-TAU001/test_mask_red.nii.gz")
+        wm_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
+            "WM_probseg.nii.gz")
+        csf_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
+            "CSF_probseg.nii.gz")
+        engagement_save_path = ("/Users/sam/Desktop/sub-TAU001/anat/02_"
+            "threshold_engagement_10x.nii.gz")
+        
+        engagement_pipeline(
+            bold_data=bold_filepath,
+            atlas=atlas_filepath,
+            grey_matter_prob = gm_prob,
+            white_matter_prob=wm_prob,
+            csf_prob= csf_prob,
+            tractogram_file=tractogram_file,
+            save_engagement_filepath=engagement_save_path, 
+            verbose=True, 
+            plotting=False, 
+            confound_removal=True, 
+            save_connectomes=True)
 
         
     if TEST_FUNCTIONNECTOME:
@@ -331,18 +359,19 @@ if __name__ == "__main__":
         gm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-GM_probseg.nii.gz"
 
         print("Testing the pipeline")
-        functionnectome_pipeline(atlas_path=atlas_path,
-                                fMRI_path=fMRI_path,
-                                t1w_file=reference_file,
-                                tractogram=tractogram_filepath,
-                                anatomical_scan_atlas_space=moving_file, 
-                                brain_mask_path=brain_mask_path,
-                                save_registered_atlas=save_registered_atlas,
-                                savepath_density_map =    density_map_path,
-                                functionnectome_savepath=functionnectome_savepath,
-                                white_matter_prob="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-WM_probseg.nii.gz",
-                                csf_prob="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-CSF_probseg.nii.gz",
-                                grey_matter_path=gm_prob,
-                                mode="roi",
-                                remap = True
+        functionnectome_pipeline(
+            atlas_path=atlas_path,
+            fMRI_path=fMRI_path,
+            t1w_file=reference_file,
+            tractogram=tractogram_filepath,
+            anatomical_scan_atlas_space=moving_file, 
+            brain_mask_path=brain_mask_path,
+            save_registered_atlas=save_registered_atlas,
+            savepath_density_map =    density_map_path,
+            functionnectome_savepath=functionnectome_savepath,
+            white_matter_prob="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-WM_probseg.nii.gz",
+            csf_prob="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-CSF_probseg.nii.gz",
+            grey_matter_path=gm_prob,
+            mode="roi",
+            remap = True
                                 )
