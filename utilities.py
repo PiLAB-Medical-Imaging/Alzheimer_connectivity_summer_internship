@@ -298,13 +298,13 @@ def create_time_series(
     if bold_filepath is not None:
         counfounds_df,_= load_confounds_strategy(bold_filepath,
                                             denoise_strategy="simple")
-        time_series = masker.fit_transform(bold_data[discard_initial:], 
+        time_series = masker.fit_transform(bold_data, 
                                            confounds=counfounds_df)
         
     else:
         time_series = masker.fit_transform(bold_data[discard_initial:])
 
-    return time_series
+    return time_series[discard_initial:]
 
 def fc_mat_gen(
         timeseries, 
@@ -519,7 +519,7 @@ def parse_nib_file(image_obj):
     if type(image_obj) is str:
         pass
 
-def time_slicing(data, slice_length, sliding= False):
+def time_slicing(data, slice_length, sliding= False, axis:int = 3):
     """
     Divides a bold signal into time windows. 
     
@@ -534,21 +534,28 @@ def time_slicing(data, slice_length, sliding= False):
             value carefully.
     """
     slices = []
-    if sliding == False:
-        num_slices = data.shape[3] // slice_length
+    axis_size = data.shape[axis]
+
+    if not sliding:
+        num_slices = axis_size // slice_length
         for i in range(num_slices):
             start = i * slice_length
             end = start + slice_length
-            slices.append(data[:, :, :, start:end])
+
+            slicer = [slice(None)] * data.ndim
+            slicer[axis] = slice(start, end)
+
+            slices.append(data[tuple(slicer)])
 
     else:
         idx = 0
-        while idx < data.shape[3]-slice_length:
+        while idx <= axis_size - slice_length:
             end = idx + slice_length
-            slice = data[:,:,:,idx:end]
-            slices.append(slice)
+
+            slicer = [slice(None)] * data.ndim
+            slicer[axis] = slice(idx, end)
+
+            slices.append(data[tuple(slicer)])
             idx += 1
 
-    slices = np.stack(slices)
-    
-    return slices
+    return np.stack(slices)

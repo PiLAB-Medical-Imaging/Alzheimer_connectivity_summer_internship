@@ -15,7 +15,7 @@ from unravel.analysis import connectivity_matrix
 import matplotlib.pyplot as plt
 from utilities import connectivity_matrix_generation,mask_generator, generate_masks
 from utilities import voxel_to_streamline_map, voxel_to_streamline_map_V2  
-from utilities import create_time_series, fc_mat_gen, nifti_vs_img
+from utilities import create_time_series, fc_mat_gen, nifti_vs_img, is_sparse
 
 
 def save_engagement(engagement_values, 
@@ -43,17 +43,9 @@ def save_engagement(engagement_values,
           the affine information from the original brain scans used to create 
           the engagement metrics.
     """
-    # Create a blank brain to hold the values
-    brain_template = np.zeros(shape = dimensions)
-    for idx, position in enumerate(tqdm(wm_positions, "Reshaping Engagement")):
-        #print(f"Position: {position}\nValue: {engagement_values[idx]}\n")
-        if engagement_values[idx] == 0:
-            value = 0
-        else:
-            value = engagement_values[idx]
-        brain_template[tuple(position)] = value
-
-    print()
+    brain_template = reshape_engagement(shape=dimensions, 
+                                        wm_positions=wm_positions, 
+                                        engagement_vals=engagement_values)
 
     out = nib.Nifti1Image(brain_template, affine)
     out.to_filename(save_path)
@@ -216,8 +208,8 @@ def generate_VWSC_matrices(atlas_data,
 
     #trk_report(trk, 2)
     v2f_mapping = voxel_to_streamline_map_V2(trk.streamlines, 
-                                          vol_shape=trk.dimensions,
-                                          subsegment=segmentation)
+                                            vol_shape=trk.dimensions,
+                                            subsegment=segmentation)
 
     #print("streamlines", v2f_mapping[(109, 129, 128)])
 
@@ -369,21 +361,49 @@ def save_connectivity_matrices(all_connectivity_mats, save_path):
     np.save(file=save_path,
             arr=all_connectivity_mats)
 
-def dynamic_engagement(sliced_time_series, connectivity_matrices, atlas,):
+def dynamic_engagement(sliced_time_series, connectivity_matrices):
    
     ebc_matrices = []
 
-    for slice in sliced_time_series:
+    for slice in tqdm(sliced_time_series, "Slicewise EBC"):
         fc_matrix  = fc_mat_gen(timeseries=slice)
         ebc = ebc_computation(fc_matrix, False)
         ebc_matrices.append(ebc)
 
     ebc_matrices = np.stack(ebc_matrices)
 
+    if is_sparse(connectivity_matrices):
+        connectivity_matrices = sparse.asnumpy(connectivity_matrices)
+
+
     engagement = np.einsum("ijk,njk->ni", ebc_matrices, connectivity_matrices)
 
     return engagement
-        
+
+def reshape_engagement(shape, 
+                       wm_positions, 
+                       engagement_vals):
+    
+    brain_template = np.zeros(shape = shape)
+
+    for idx, position in enumerate((wm_positions, "Reshaping Engagement")):
+        #print(f"Position: {position}\nValue: {engagement_values[idx]}\n")
+        value = engagement_vals[idx]
+        brain_template[tuple(position)] = value
+
+    return brain_template
+
+def reshape_engagement_slices(
+        sliced_engagement, image_template, wm_positions):
+    
+    all_slices = []
+    for i in tqdm(range(sliced_engagement.shape[1]), "Reshaping"):
+        slice =  reshape_engagement(shape=image_template.shape,
+                                    wm_positions=wm_positions,
+                                    engagement_vals=sliced_engagement[:, i])
+        all_slices.append(slice)
+
+    return np.stack(all_slices, axis=-1)
 
 def engagement_feeder(subject_bids_root, subj_id_length, save_root_folder):
 

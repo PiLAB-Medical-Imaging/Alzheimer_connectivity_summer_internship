@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import nibabel as nib
 from dipy.io.streamline import load_tractogram, save_tractogram
@@ -6,8 +7,9 @@ from nibabel import Nifti1Image
 import matplotlib.pyplot as plt
 from nilearn import image
 from engagement import generate_VWSC_matrices, correlation_thresholding, ebc_computation
-from engagement import engagement_calculation
-from utilities import connectivity_matrix_generation, visualise_square_mat
+from engagement import engagement_calculation, reshape_engagement_slices
+from engagement import fc_mat_gen, create_time_series, dynamic_engagement
+from utilities import connectivity_matrix_generation, visualise_square_mat, time_slicing
 import sparse
 import matplotlib.pyplot as plt
 """ atlas_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/registered_atlas.nii.gz"
@@ -121,50 +123,69 @@ bold_img_data = bold_img.get_fdata()
 bold_img_data = bold_img_data[:, :, :, 3:]
 atlas_img = nib.load(atlas)
 atlas_data = atlas_img.get_fdata()
+wmm_path = "/Users/sam/Desktop/sub-TAU001/test_mask_red.nii.gz"
+#thresh_mat = correlation_thresholding(fc, value_threshold= 0.2)
+
+# Time series
+
+t1 = time.time()
+total_ts = create_time_series(atlas=atlas_img,
+                              bold_data=bold_img,
+                              bold_filepath=bold_data_path)
+t2 = time.time()
+
+print(f"Time series generation: {t2-t1} s")
+t1 = time.time()
+sliced_timeseries = time_slicing(total_ts, 10, True, axis=0)
+t2 = time.time()
+print(f"Time slicing generation: {t2-t1} s")
+
+t1 = time.time()
+for slice in sliced_timeseries:
+    fc_mat_gen(slice)
+t2 = time.time()
+print(f"Time to generate all FC mats: {t2-t1} s")
+
+t1 = time.time()
+all_cms, wm_pos = generate_VWSC_matrices(
+        atlas_data=atlas_data,
+        trk = trk, 
+        white_matter_mask=wmm_path,
+        segmentation=10)
+t2 = time.time()
+
+print(f"Time to generate mapping: {t2-t1} s")
+
+t1 = time.time()
+all_eng = dynamic_engagement(sliced_timeseries,
+                             all_cms)
+t2 = time.time()
 
 
-fc = connectivity_matrix_generation(bold_img, 
-                                    atlas=atlas_img, 
-                                    normalise=True,
-                                    kind = "correlation",
-                                    bold_filepath=bold_data_path)
-
-fc1 = connectivity_matrix_generation(bold_img, 
-                                    atlas=atlas_img, 
-                                    normalise=True,
-                                    kind = "covariance",
-                                    bold_filepath=bold_data_path)
-
-fc2 = connectivity_matrix_generation(bold_img, 
-                                    atlas=atlas_img, 
-                                    normalise=True,
-                                    kind = "partial correlation",
-                                    bold_filepath=bold_data_path)
+print(f"Time to get all engagements: {t2-t1} s")
 
 
-fc4 = connectivity_matrix_generation(bold_img, 
-                                    atlas=atlas_img, 
-                                    normalise=True,
-                                    kind = "precision",
-                                    bold_filepath=bold_data_path)
 
-ebc = ebc_computation(fc, 
-                      inverted_values=False)
+t1 = time.time()
+reshaped_engagement = reshape_engagement_slices(all_eng,
+                                                atlas_data,
+                                                wm_pos)
+t2 = time.time()
 
 
-fcs = [fc, fc1, fc2, fc4]
+print(f"Time to reshape {t2-t1} s")
+
+print(reshaped_engagement.shape)
 
 
-for mat in fcs:
-    #mat = np.abs(mat)
-    thresh_mat = correlation_thresholding(mat, value_threshold= 0.0)
-    ebc = ebc_computation(thresh_mat, False)
-    visualise_square_mat(ebc)
-    print("non-zeros: ", np.count_nonzero(ebc))
 
-    plt.hist(ebc.flatten())
-    plt.show()
-"""cms = sparse.asnumpy(cms)
+
+
+
+
+
+
+"""cms = sparse.asnumpy(cms2
  for idx, matrix in enumerate(cms):
     title = f"Voxel {wm_pos[idx]} Connectivity"
     #print(np.unique(matrix))
