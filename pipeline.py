@@ -167,8 +167,6 @@ def engagement_pipeline(bold_data, atlas,
     atlas_img = nib.load(atlas)
     atlas_data = atlas_img.get_fdata()
 
-    atlas_values = np.unique(atlas_data)
-
     # Check if the functional connectivity matrix already exists
     if cache_pathway is not None:
         fc_path = path.join(cache_pathway, "fc_matrix.npy")
@@ -310,7 +308,6 @@ def engagement_pipeline(bold_data, atlas,
             atlas_img.affine)
     
     print("Finito!")
-
 
 
 if __name__ == "__main__":
