@@ -16,18 +16,18 @@ from dipy.io.stateful_tractogram import StatefulTractogram
 
 ## My Imports (replace these with my package calls)
 from utilities import connectivity_matrix_generation, visualise_square_mat
-from utilities import normalise
+from utilities import normalise, create_masked_T1, atlas_registration
 from engagement import correlation_thresholding, ebc_computation
 from engagement import generate_VWSC_matrices, engagement_calculation
 from engagement import save_connectivity_matrices,save_engagement
-from functionnectome import create_masked_T1, compute_connection_probability
+from functionnectome import compute_connection_probability
 from functionnectome import vectorised_probability_maps, functionnectome
 
 
 
 
-TEST_FUNCTIONNECTOME  = False
-TEST_ENGAGEMENT = True
+TEST_FUNCTIONNECTOME  = True
+TEST_ENGAGEMENT = False
 
 def functionnectome_pipeline(
         atlas_path, fMRI_path, t1w_file, tractogram, 
@@ -63,8 +63,9 @@ def functionnectome_pipeline(
         brain_only_t1w_path = brain_only_t1w_path
         brain_only_t1w = nib.load(brain_only_t1w_path)
     elif brain_mask_path != None:
+        save_location = t1w_file[:-7]+"_brain_only.nii.gz"
         print(f"{task}. Generate brain-only T1w scan")
-        brain_only_t1w = create_masked_T1(t1w_file, brain_mask_path) 
+        brain_only_t1w = create_masked_T1(t1w_file, brain_mask_path, save_location) 
         brain_only_t1w_path = t1w_file[:-7] + "_masked.nii.gz"
     elif brain_mask_path == None and brain_only_t1w_path == None:
         raise ValueError("Please provide either a brain_only_t1w path, "
@@ -73,15 +74,14 @@ def functionnectome_pipeline(
 
     # Generate the probability maps
     print(f"{task}. Generate density maps")
+    registered_atlas = atlas_registration(
+        atlas_path=atlas_path
+    )
     all_density_maps, overall_density_map  = vectorised_probability_maps(
-        template_file= anatomical_scan_atlas_space,atlas_path=atlas_path,
-        reference_file= brain_only_t1w_path, trk=trk,
-        save_path=save_registered_atlas, remap=remap,
-        save_output=save_probability_maps, smoothing=False,
-        save_density_map_path=savepath_density_map, mode=mode,
-        grey_matter_probs=grey_matter_path,
-        white_matter_probabilities=white_matter_prob,csf_probability=csf_prob,
-        aligned=is_aligned)
+        
+        trk=trk, 
+        smoothing=False,
+        mode=mode,)
     
     task += 1
 
@@ -364,6 +364,9 @@ if __name__ == "__main__":
             "functionnectome.nii.gz")
         gm_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
             "GM_probseg.nii.gz")
+        t1w_filepath = ("/Users/sam/Desktop/sub-TAU001/anat/sub-"
+            "TAU001_desc-preproc_T1w_brain_only.nii.gz")
+
 
         print("Testing the pipeline")
         functionnectome_pipeline(

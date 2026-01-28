@@ -86,9 +86,7 @@ def vectorised_probability_maps(
         brain_template,
         v2f_mapping,
         smoothing = False, 
-        mode = "roi", 
-        save_density_map_path = None, 
-        verbose_debug = False):
+        mode = "roi"):
     """
     Docstring for vectorised_probability_maps
     
@@ -209,9 +207,7 @@ def vectorised_probability_maps(
 
 def compute_connection_probability(
         overall_density_map, 
-        all_density_maps, 
-        save_output, 
-        trk):
+        all_density_maps):
     try:
         safe_overall_density = np.where(
             overall_density_map==0, 
@@ -230,16 +226,6 @@ def compute_connection_probability(
             connection_probability, 
             True, 
             nan=0)
-
-    if save_output != None and is_sparse(connection_probability)== False:
-        if type(save_output) is not str:
-           raise ValueError("Please ensure save_output is a string " \
-                            "filepath to save the probability maps")
-        
-        save_name = path.join(save_output, f"probability_maps.nii.gz")
-        save_values = np.transpose(connection_probability, (1,2,3,0))
-        out = nib.Nifti1Image(save_values.astype(float), trk.affine)
-        out.to_filename(save_name)
 
     return connection_probability
 
@@ -304,8 +290,7 @@ def normalizer(funct_results,
     
     normalised = funct_results/summed_probs   
     return normalised
-
-        
+    
 def functionnectome(probability_maps, 
                     timeseries, 
                     registered_atlas,
@@ -363,11 +348,9 @@ def functionnectome(probability_maps,
 
     return funct_result
 
-
 def plot_timeseries(roi_time_series):
     plt.plot(roi_time_series)
     plt.show()
-
 
 def visual_inspection(density_map_img, region):
     data = density_map_img.get_fdata()
@@ -377,21 +360,6 @@ def visual_inspection(density_map_img, region):
           f"Non-zeros    : {np.count_nonzero(data)}"
           )
   
-
-
-def create_masked_T1(t1_file, mask_file):
-    t1_img = nib.load(t1_file)
-    t1_data = t1_img.get_fdata()
-    mask_img = nib.load(mask_file)
-    mask_data = mask_img.get_fdata()
-
-    t1_data *= mask_data
-
-    out = nib.Nifti1Image(t1_data, t1_img.affine)
-    file_path = t1_file[:-7] + "_masked.nii.gz"
-    out.to_filename(file_path)
-    return out
-
 def plot_ROI_activity(registered_atlas, roi_timeseries):
     """
     Goal is to prepare a visualisation that contains the bold 
@@ -443,6 +411,17 @@ if the values were saved and if they were, it would load them
                     complete_density_map_data.astype(float), 
                     trk.affine)
             out.to_filename(filename=filepath)
+
+    if save_output != None and is_sparse(connection_probability) == False:
+        if type(save_output) is not str:
+           raise ValueError("Please ensure save_output is a string " \
+                            "filepath to save the probability maps")
+        
+        save_name = path.join(save_output, f"probability_maps.nii.gz")
+        save_values = np.transpose(connection_probability, (1,2,3,0))
+        out = nib.Nifti1Image(save_values.astype(float), trk.affine)
+        out.to_filename(save_name)
+
 
 
 """

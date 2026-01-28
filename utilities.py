@@ -192,7 +192,11 @@ def voxel_to_streamline_map(streamlines, vol_shape):
     # Convert sets → lists for downstream use
     return {k: list(v) for k, v in mapping.items()}
 
-def voxel_to_streamline_map_V2(streamlines, vol_shape, subsegment:int = 1):
+def voxel_to_streamline_map_V2(
+        streamlines, 
+        vol_shape, 
+        subsegment:int = 1):
+    
     mapping = defaultdict(set)
 
     failure_count = 0
@@ -205,7 +209,8 @@ def voxel_to_streamline_map_V2(streamlines, vol_shape, subsegment:int = 1):
     points = subpoint[:, :-1, :].reshape(points.shape[0]*subsegment, 3)
     del subpoint
 
-    subsegment_offsets = (streamlines._offsets + streamlines._lengths-1)*subsegment
+    subsegment_offsets = ((streamlines._offsets + streamlines._lengths-1)
+                         * subsegment)
 
     # Try to upsample the streamlines
 
@@ -259,7 +264,6 @@ def mask_to_positions(mask):
     wm_positions = np.array(np.nonzero(wm_data)).T
     
     return wm_positions
-
 
 def is_sparse(arr):
     return isinstance(arr, sparse.COO)
@@ -319,8 +323,6 @@ def create_VOX_time_series(
                             masker = masker,
                             discard_initial=discard_initial)
     
-
-
 def fc_mat_gen(
         timeseries, 
         method: str = "nilearn", 
@@ -408,7 +410,7 @@ def atlas_registration(atlas_path,
     """
     # First, match the atlas to the patient (this will be a slow step so try 
     # and cache it). Save it somewhere and then just check that filepath.
-    img = nib.load(template_file)
+    img = nifti_vs_img(atlas_path)
 
     if  remap == False and path.exists(save_path):
         registered_atlas = nib.load(save_path)
@@ -424,7 +426,6 @@ def atlas_registration(atlas_path,
 
         out = nib.Nifti1Image(registered_atlas.astype(float), img.affine) 
         out.to_filename(save_path)
-
 
 def dilate_atlas_labels(atlas, brain_mask, dilation_width):
     """
@@ -468,7 +469,6 @@ def dilate_atlas_labels(atlas, brain_mask, dilation_width):
         dilated_atlas[x, y, z] = atlas[nx, ny, nz]
 
     return dilated_atlas
-
 
 def visualise_square_mat(matrix, title = "Square Matrix Visualisation"):
         mask = np.triu(np.ones_like(matrix, dtype=bool))
@@ -574,3 +574,14 @@ def time_slicing(data, slice_length, sliding= False, axis:int = 3):
             idx += 1
 
     return np.stack(slices)
+
+def create_masked_T1(t1_file, mask_file, file_path):
+    t1_img = nib.load(t1_file)
+    t1_data = t1_img.get_fdata()
+    mask_img = nib.load(mask_file)
+    mask_data = mask_img.get_fdata()
+    t1_data *= mask_data
+    out = nib.Nifti1Image(t1_data, t1_img.affine)
+    out.to_filename(file_path)
+    return out
+
