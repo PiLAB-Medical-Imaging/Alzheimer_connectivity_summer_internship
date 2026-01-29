@@ -6,6 +6,7 @@ from regis.core import find_transform, apply_transform
 from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
 from utilities import dilate_atlas_labels, atlas_masker, time_slicing
+from utilities import split_nifti_to_visualise
 
 
 """ atlas = "/Users/sam/Desktop/sub-TAU001/check_atlas_TAU001.nii.gz"
@@ -38,10 +39,13 @@ out = nib.Nifti1Image(new_mask, affine=original_mask.affine)
 out.to_filename(new_maskname)
 
  """
-bold_file = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_desc-preproc_bold.nii.gz"
+""" bold_file = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_desc-preproc_bold.nii.gz"
 bold_img = nib.load(bold_file)
 sliced_bold = time_slicing(bold_img.get_fdata(), slice_length=8, sliding=True)
 for slice in sliced_bold:
     print(slice.shape)
 
-print(len(sliced_bold))
+print(len(sliced_bold)) """
+
+# Quickly visualise:
+split_nifti_to_visualise("/Users/sam/Desktop/sub-TAU001/region_bold.nii.gz")

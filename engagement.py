@@ -167,6 +167,7 @@ def trk_report(trk, value):
 
 def generate_VWSC_matrices(atlas_data, 
                            trk, 
+                           v2f_mapping = None,
                            white_matter_prob = None, 
                            white_matter_mask = None, 
                            verbose = False, 
@@ -194,28 +195,23 @@ def generate_VWSC_matrices(atlas_data,
     :param verbose: If true, prints the number or failures. 
     """
     if white_matter_mask is None and white_matter_prob is None:
-        raise ValueError("Please provide either white_matter_mask or white_matter_probability file")
+        raise ValueError(f"Please provide either white_matter_mask" 
+                         f"or white_matter_probability file")
     
-    # Functions as a good check to ensure that everything is in the right space. 
-    #trk_report(trk, 1)
-
-    # Ensure that the coordinates are in voxel space and in the corner 
-    # (vistrack representation)
     if trk.space != Space.VOX:
         trk.to_vox()
     if trk.origin != Origin.TRACKVIS:
         trk.to_corner()
 
-    #trk_report(trk, 2)
-    v2f_mapping = voxel_to_streamline_map_V2(trk.streamlines, 
-                                            vol_shape=trk.dimensions,
-                                            subsegment=segmentation)
-
-    #print("streamlines", v2f_mapping[(109, 129, 128)])
+    if v2f_mapping is None:
+        v2f_mapping = voxel_to_streamline_map_V2(
+            trk.streamlines, 
+            vol_shape=trk.dimensions,
+            subsegment=segmentation)
 
 
     # Generate a white matter mask if probability is provided:
-    if white_matter_mask == None:
+    if white_matter_mask is None:
         wm_mask = mask_generator(white_matter_probability=white_matter_prob, 
                                  smoothing=False)
     else:

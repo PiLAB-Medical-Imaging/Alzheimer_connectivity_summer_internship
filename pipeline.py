@@ -1,5 +1,5 @@
 from os import path
-import logging
+import os
 import numpy as np
 import sparse
 import matplotlib.pyplot as plt
@@ -15,29 +15,33 @@ from dipy.io.streamline import load_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
 
 ## My Imports (replace these with my package calls)
-from utilities import connectivity_matrix_generation, visualise_square_mat
-from utilities import normalise, create_masked_T1, atlas_registration
+from utilities import connectivity_matrix_generation, visualise_square_mat, nifti_vs_img,mask_generator
+from utilities import normalise, create_masked_T1, atlas_registration, mask_to_positions, voxel_to_streamline_map_V2
+from utilities import create_ROI_time_series, create_VOX_time_series
 from engagement import correlation_thresholding, ebc_computation
 from engagement import generate_VWSC_matrices, engagement_calculation
 from engagement import save_connectivity_matrices,save_engagement
 from functionnectome import compute_connection_probability
 from functionnectome import vectorised_probability_maps, functionnectome
 
+CSFP_PATH = "CSF_probseg.nii.gz"
+GMP_PATH = "GM_probseg.nii.gz"
+WMP_PATH = "WM_probseg.nii.gz"
 
-
-
-TEST_FUNCTIONNECTOME  = True
-TEST_ENGAGEMENT = False
+TEST_FUNCTIONNECTOME  = False
+TEST_ENGAGEMENT = True
 
 def functionnectome_pipeline(
-        atlas_path, fMRI_path, t1w_file, tractogram, 
-        anatomical_scan_atlas_space, save_registered_atlas, 
-        savepath_density_map, brain_mask_path = None, 
-        save_probability_maps = None, remap = False, 
-        functionnectome_savepath = None, grey_matter_path = None, 
-        white_matter_prob = None,csf_prob = None, 
-        gm_mask = None, mode = "roi", is_aligned = False, 
-        brain_only_t1w_path = None):
+        atlas_path, 
+        fMRI_path,
+        tractogram, 
+        grey_matter_mask,
+        t1w_file = None, 
+        anatomical_scan_atlas_space = None,
+        functionnectome_savepath = None, 
+        mode = "roi", 
+        register_atlas = False,
+        v2f_mapping = None):
     
     task = 1
 
@@ -56,62 +60,111 @@ def functionnectome_pipeline(
     trk.to_corner()
     task += 1
 
-    # Create a masked T1w file. 
-
-    if brain_only_t1w_path != None:
-        print(f"{task}. Loading brain-only T1w scan")
-        brain_only_t1w_path = brain_only_t1w_path
-        brain_only_t1w = nib.load(brain_only_t1w_path)
-    elif brain_mask_path != None:
-        save_location = t1w_file[:-7]+"_brain_only.nii.gz"
-        print(f"{task}. Generate brain-only T1w scan")
-        brain_only_t1w = create_masked_T1(t1w_file, brain_mask_path, save_location) 
-        brain_only_t1w_path = t1w_file[:-7] + "_masked.nii.gz"
-    elif brain_mask_path == None and brain_only_t1w_path == None:
-        raise ValueError("Please provide either a brain_only_t1w path, "
-                        "or a brain_mask_t1w path and t1w_file path")
-    task += 1
-
+ 
     # Generate the probability maps
     print(f"{task}. Generate density maps")
-    registered_atlas = atlas_registration(
-        atlas_path=atlas_path
-    )
-    all_density_maps, overall_density_map  = vectorised_probability_maps(
+
+    if register_atlas:
         
-        trk=trk, 
-        smoothing=False,
-        mode=mode,)
+        if (anatomical_scan_atlas_space is None
+                or t1w_file is None):
+            raise ValueError("Please provide both an " \
+                            "anatomical_scan_atlas_space "
+                            "and t1w_file")
+        
+
+        registered_atlas = atlas_registration(
+                            atlas_path=atlas_path,
+                            template_file=anatomical_scan_atlas_space,
+                            reference_file=t1w_file)
+    else:
+        registered_atlas = atlas_path
+
+    grey_matter_mask_img = nifti_vs_img(grey_matter_mask)
+    gm_positions = mask_to_positions(grey_matter_mask_img)
+    registered_atlas = nifti_vs_img(registered_atlas)
+
+    if v2f_mapping is None:
+        v2f_mapping = voxel_to_streamline_map_V2(
+            streamlines=trk.streamlines,
+            vol_shape=trk.dimensions,
+            subsegment=10)
     
+    non_zeros = 0
+    for key in v2f_mapping.keys():
+        if len(v2f_mapping[key]) != 0:
+            non_zeros += 1
+    if non_zeros == 0:
+        raise ValueError("All the voxels have no streamlines")
+
+    all_density_maps, overall_density_map  = vectorised_probability_maps(
+        registered_atlas=registered_atlas,
+        trk=trk, 
+        v2f_mapping=v2f_mapping,
+        mask_positions=gm_positions,
+        brain_template=grey_matter_mask_img,
+        smoothing=False,
+        mode=mode,
+        verbose=False
+    )
+
+    if np.count_nonzero(all_density_maps) == 0:
+        raise ValueError("All density maps are 0")
+    if np.count_nonzero(overall_density_map) == 0:
+        raise("All values in overall density are 0")
+  
     task += 1
 
     print(f"{task}. Generate connection probability")
 
     probability_maps_computed = compute_connection_probability(
         overall_density_map=overall_density_map, 
-        all_density_maps=all_density_maps,save_output=savepath_density_map,
-        trk = trk)
+        all_density_maps=all_density_maps)
     
+    non_zeros = np.count_nonzero(probability_maps_computed)
+
+    if non_zeros == 0:
+        raise ValueError("Probability maps are entirely zeros")
+    print(f"Nans: {np.sum(np.isnan(probability_maps_computed))}")
     task += 1
+
     # Calculate the functionnectome
     print(f"{task}. Compute Functionnectome")
-
-    if mode == "roi" and grey_matter_path != None:
+    if mode == "roi" and grey_matter_mask != None:
         print("\tWarning, ignoring grey matter mask due to ROI mode selection!")
-        grey_matter_path = None
+    bold_img = nib.load(fMRI_path)
 
+    if mode == "roi":
+        time_series = create_ROI_time_series(
+            atlas=registered_atlas,
+            bold_data = bold_img,
+            bold_filepath=fMRI_path
+        )
+    elif mode == "vox":
+        time_series = create_VOX_time_series(
+            mask=gm_mask,
+            bold_data=bold_img,
+            bold_filepath=fMRI_path
+        )
+    else:
+        raise ValueError("Please enter a valid mode")
+    
+    if np.count_nonzero(time_series) == 0:
+        raise ValueError("All timeseries values are 0")
+    
     funct_result = functionnectome(
-                    probability_maps = probability_maps_computed, 
-                    fMRI_file= fMRI_path,
-                    registered_atlas=save_registered_atlas,
-                    grey_matter_mask=grey_matter_path)
+                    probability_maps = probability_maps_computed,
+                    timeseries=time_series,
+                    registered_atlas=registered_atlas,
+                    extensive_visualisation=False,
+                    normalisation="none"
+    )
     
     task += 1
 
-    
     if functionnectome_savepath != None:
         print(f"{task}. Saving Functionnectome")
-        out = nib.Nifti1Image(funct_result, brain_only_t1w.affine)
+        out = nib.Nifti1Image(funct_result, grey_matter_mask_img.affine)
         out.to_filename(functionnectome_savepath)
 
     print("Complete!")
@@ -123,8 +176,6 @@ def engagement_pipeline(bold_data, atlas,
                         plotting = False, 
                         save_engagement_filepath = None, 
                         verbose = False, 
-                        grey_matter_prob = None,  
-                        csf_prob = None,
                         confound_removal = False,
                         save_connectomes = False, 
                         white_matter_mask = None):
@@ -311,6 +362,12 @@ def engagement_pipeline(bold_data, atlas,
     
     print("Finito!")
 
+def anatamoy_crawler(anatomy_path):
+    for file in os.listdir(anatomy_path):
+        pass
+
+def the_grand_central_pipeline(anatomy_path):
+    pass
 
 if __name__ == "__main__":
 
@@ -319,7 +376,8 @@ if __name__ == "__main__":
             "TAU001_ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz")
         atlas_filepath = ("/Users/sam/Desktop/sub-TAU001/dilated_atlas_"
             "TAU001.nii.gz")
-        tractogram_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk"
+        tractogram_file = ("/Users/sam/Desktop/sub-TAU001/"
+                            "TAU_1_ses-2_tractogram.trk")
         gm_prob = ("/Users/sam/Desktop/sub-TAU001/anat/"
             "sub-TAU001_label-GM_probseg.nii.gz"), 
         wm_mask = ("/Users/sam/Desktop/sub-TAU001/test_mask_red.nii.gz")
@@ -333,9 +391,7 @@ if __name__ == "__main__":
         engagement_pipeline(
             bold_data=bold_filepath,
             atlas=atlas_filepath,
-            grey_matter_prob = gm_prob,
             white_matter_prob=wm_prob,
-            csf_prob= csf_prob,
             tractogram_file=tractogram_file,
             save_engagement_filepath=engagement_save_path, 
             verbose=True, 
@@ -346,6 +402,8 @@ if __name__ == "__main__":
         
     if TEST_FUNCTIONNECTOME:
         atlas_path = "/Users/sam/Desktop/sub-TAU001/aal.nii.gz"
+        atlas_filepath = ("/Users/sam/Desktop/sub-TAU001/dilated_atlas_"
+            "TAU001.nii.gz")
         fMRI_path = ("/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_"
             "ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz")
         reference_file = ("/Users/sam/Desktop/sub-TAU001/anat/sub-"
@@ -361,27 +419,55 @@ if __name__ == "__main__":
             "brain.nii.gz")
         density_map_path = "/Users/sam/Desktop/sub-TAU001"
         functionnectome_savepath = ("/Users/sam/Desktop/sub-TAU001/"
-            "functionnectome.nii.gz")
+            "functionnectome_streamlinecheck.nii.gz")
         gm_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
             "GM_probseg.nii.gz")
         t1w_filepath = ("/Users/sam/Desktop/sub-TAU001/anat/sub-"
             "TAU001_desc-preproc_T1w_brain_only.nii.gz")
+        wm_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
+            "WM_probseg.nii.gz")
+        csf_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
+            "CSF_probseg.nii.gz")
 
 
         print("Testing the pipeline")
+
+        gm_mask = mask_generator(
+            white_matter_probability=wm_prob,
+            grey_matter_probability=gm_prob,
+            csf_probability=csf_prob)
+
+
         functionnectome_pipeline(
-            atlas_path=atlas_path,
+            atlas_path=atlas_filepath,
             fMRI_path=fMRI_path,
-            t1w_file=reference_file,
             tractogram=tractogram_filepath,
-            anatomical_scan_atlas_space=moving_file, 
-            brain_mask_path=brain_mask_path,
-            save_registered_atlas=save_registered_atlas,
-            savepath_density_map =    density_map_path,
-            functionnectome_savepath=functionnectome_savepath,
-            white_matter_prob="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-WM_probseg.nii.gz",
-            csf_prob="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-CSF_probseg.nii.gz",
-            grey_matter_path=gm_prob,
-            mode="roi",
-            remap = True
-                                )
+            grey_matter_mask=gm_mask,
+            functionnectome_savepath=functionnectome_savepath)
+        
+    else:
+        the_grand_central_pipeline()
+
+
+
+""" 
+Detritus:
+
+   # Create a masked T1w file. 
+
+    if brain_only_t1w_path != None:
+        print(f"{task}. Loading brain-only T1w scan")
+        brain_only_t1w_path = brain_only_t1w_path
+        brain_only_t1w = nib.load(brain_only_t1w_path)
+    elif brain_mask_path != None:
+        save_location = t1w_file[:-7]+"_brain_only.nii.gz"
+        print(f"{task}. Generate brain-only T1w scan")
+        brain_only_t1w = create_masked_T1(t1w_file, brain_mask_path, save_location) 
+        brain_only_t1w_path = t1w_file[:-7] + "_masked.nii.gz"
+    elif brain_mask_path == None and brain_only_t1w_path == None:
+        raise ValueError("Please provide either a brain_only_t1w path, "
+                        "or a brain_mask_t1w path and t1w_file path")
+    task += 1
+
+
+"""

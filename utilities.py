@@ -26,7 +26,6 @@ from scipy.stats import zscore
 
 
 def mask_generator(white_matter_probability,
-                   gm_path= None, 
                    grey_matter_probability=None, 
                    csf_probability = None, 
                    mask_type = "white", 
@@ -60,7 +59,7 @@ def mask_generator(white_matter_probability,
         if grey_matter_probability == None or csf_probability == None:
             raise ValueError("Both grey matter probability and csf probability must be provided.")
 
-        gm_img = nib.load(gm_path)
+        gm_img = nib.load(grey_matter_probability)
         gm_data = gm_img.get_fdata()  
         csf_img = nib.load(csf_probability)
         csf_data = csf_img.get_fdata()
@@ -284,7 +283,10 @@ def nifti_vs_img(object):
             "to an Nifti image, or Nifti image object."))
     return img
 
-def transform_masker(bold_data, masker, bold_filepath, discard_initial):
+def transform_masker(bold_data, 
+                     masker,
+                     discard_initial, 
+                     bold_filepath = None):
     if bold_filepath is not None:
         counfounds_df,_= load_confounds_strategy(bold_filepath,
                                             denoise_strategy="simple")
@@ -293,7 +295,7 @@ def transform_masker(bold_data, masker, bold_filepath, discard_initial):
     else:
         time_series = masker.fit_transform(bold_data)
 
-    return time_series
+    return time_series[discard_initial:]
 
 def create_ROI_time_series(
         atlas, 
@@ -306,22 +308,29 @@ def create_ROI_time_series(
 
     masker = NiftiLabelsMasker(labels_img=aal_img, standardize=normalise)
 
-    return transform_masker(bold_data=bold_data, 
+    time_series = transform_masker(bold_data=bold_data, 
                             masker = masker,
+                            bold_filepath=bold_filepath,
                             discard_initial=discard_initial)
+    
+    return time_series
 
 def create_VOX_time_series(
         mask,
         bold_data, 
+        bold_filepath = None,
         discard_initial:int = 3,
         normalise:bool = True):
     
     masker = NiftiMasker(mask_img=mask,
                          standardize=normalise)
     
-    return transform_masker(bold_data=bold_data, 
+    time_series = transform_masker(bold_data=bold_data, 
                             masker = masker,
+                            bold_filepath=bold_filepath,
                             discard_initial=discard_initial)
+    
+    return time_series
     
 def fc_mat_gen(
         timeseries, 
@@ -386,8 +395,7 @@ def matrix_computation(time_series):
 def atlas_registration(atlas_path, 
                        template_file, 
                        reference_file,
-                       save_path, 
-                       remap = False):
+                       save_path = None):
     """
     Registers an atlas to a patient scan. Calculates the transformation based on
     the template file and the reference file (transformation to take the 
@@ -412,7 +420,7 @@ def atlas_registration(atlas_path,
     # and cache it). Save it somewhere and then just check that filepath.
     img = nifti_vs_img(atlas_path)
 
-    if  remap == False and path.exists(save_path):
+    if  save_path is not None and path.exists(save_path):
         registered_atlas = nib.load(save_path)
     else:
         mapping = find_transform(moving_file= template_file,
@@ -425,7 +433,12 @@ def atlas_registration(atlas_path,
         # Save the label volume for validation
 
         out = nib.Nifti1Image(registered_atlas.astype(float), img.affine) 
-        out.to_filename(save_path)
+
+        if save_path is None:
+            return out
+        else:
+            out.to_filename(save_path)
+            return out
 
 def dilate_atlas_labels(atlas, brain_mask, dilation_width):
     """
@@ -584,4 +597,16 @@ def create_masked_T1(t1_file, mask_file, file_path):
     out = nib.Nifti1Image(t1_data, t1_img.affine)
     out.to_filename(file_path)
     return out
+
+def split_nifti_to_visualise(original_fp:str):
+    original = nib.load(original_fp)
+    original_data = original.get_fdata()
+    pos_data = np.where(original_data>0, original_data, 0)
+    neg_data = np.where(original_data<0, np.abs(original_data), 0)
+    neg_fp = original_fp[:-7] + "_neg.nii.gz"
+    pos_fp = original_fp[:-7] + "_pos.nii.gz"
+    pos_img = nib.Nifti1Image(pos_data, original.affine)
+    pos_img.to_filename(pos_fp)
+    neg_img = nib.Nifti1Image(neg_data, original.affine)
+    neg_img.to_filename(neg_fp)
 
