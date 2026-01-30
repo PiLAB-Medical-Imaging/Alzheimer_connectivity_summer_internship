@@ -75,7 +75,9 @@ def mask_generator(white_matter_probability,
     else: 
         print(f"Invalid mask type specified: {mask_type}. Valid values are \"white\" and \"grey\"")
 
-def complete_data_compiler(dfmri_fp, bold_fp, data_filepath=None):
+def complete_data_compiler(dfmri_fp, 
+                           bold_fp,
+                             data_filepath=None):
     """
     Docstring for complete_data_compiler
     
@@ -109,28 +111,25 @@ def complete_data_compiler(dfmri_fp, bold_fp, data_filepath=None):
         if os.path.exists(bold_path):
             dict_for_results[participant][2]= True
 
-def diffusion_to_t1space(moving_file, static_file, mni= False, smooth = False):
+def diffusion_to_t1space(moving_file, 
+                         static_file, 
+                         trk_file,
+                         mni= False, 
+                         smooth = False, 
+                         save = False):
     # TODO this needs to be cleaned up.
-
-    # Diffusion space file
-    moving_file = '/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_FA.nii.gz'
-
+    # Moving file is in diffusion space
     if mni:
     # Ignore
         static_file = 'C:/Users/nicol/Documents/Doctorat/Data/Atlas_Maps/FSL_HCP1065_FA_1mm.nii.gz'
         mapping = find_transform(static_file, moving_file, diffeomorph=False)
     else:
     # T1 file
-        static_file = '/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w.nii.gz'
         mapping = find_transform(static_file, moving_file, only_affine=True)
-
 
     # For every tract you want to register
     for r in ["1"]:
     # Or hardcode the filename
-        trk_file = '/Users/sam/Desktop/TAU_1_ses-2_tractogram.trk'
-        #trk_file = 'C:/Users/nicol/Desktop/temp_anais/10_'+r+'.trk'
-
         trk = load_tractogram(trk_file, 'same')
 
         stream_reg = transform_streamlines(trk.streamlines,
@@ -138,7 +137,9 @@ def diffusion_to_t1space(moving_file, static_file, mni= False, smooth = False):
                                        mapping.affine)
 
         sft_reg = StatefulTractogram(
-        stream_reg, nib.load(static_file), Space.RASMM)
+            stream_reg, 
+            nib.load(static_file), 
+            Space.RASMM)
 
     # trk_new = StatefulTractogram(streams, trk, Space.VOX,
     #                                  origin=Origin.TRACKVIS)
@@ -147,13 +148,15 @@ def diffusion_to_t1space(moving_file, static_file, mni= False, smooth = False):
             out_file = trk_file[:-4]+'_mni.trk'
         else:
             out_file = trk_file[:-4]+'_T1.trk'
-
-        save_tractogram(sft_reg, out_file, bbox_valid_check=False)
+        if save:
+            save_tractogram(sft_reg, out_file, bbox_valid_check=False)
 
         if smooth:
         # For visualization, not computing
             smooth_streamlines(out_file, out_file=out_file[:-4]+'_smoothed.trk',
                            iterations=50)
+        
+        return sft_reg
             
 def voxel_to_streamline_map(streamlines, vol_shape):
     mapping = defaultdict(set)
@@ -412,27 +415,32 @@ def atlas_registration(atlas_path,
     :param save_path: str
         Location to save the registered atlas. First checks this location to see
           if the atlas has already been registered.
-    :param remap: str
-        Overwrite the loading - if true, the mapping will be calculated again, 
-        even if it already exists.
     """
     # First, match the atlas to the patient (this will be a slow step so try 
     # and cache it). Save it somewhere and then just check that filepath.
     img = nifti_vs_img(atlas_path)
 
     if  save_path is not None and path.exists(save_path):
-        registered_atlas = nib.load(save_path)
+        out = nib.load(save_path)
+        return out
     else:
-        mapping = find_transform(moving_file= template_file,
-                                    static_file= reference_file,
-                                    level_iters=[1000, 100, 10],
-                                    diffeomorph=False)
+        mapping = find_transform(
+            moving_file= template_file,
+            static_file= reference_file,
+            level_iters=[1000, 100, 10],
+            diffeomorph=False
+            )
         
-        registered_atlas = apply_transform(atlas_path, mapping, labels=True)
+        registered_atlas = apply_transform(
+            atlas_path,
+            mapping, 
+            labels=True)
 
         # Save the label volume for validation
-
-        out = nib.Nifti1Image(registered_atlas.astype(float), img.affine) 
+        reference_img = nifti_vs_img(reference_file)
+        out = nib.Nifti1Image(
+            registered_atlas.astype(float), 
+            reference_img.affine) 
 
         if save_path is None:
             return out
@@ -609,4 +617,13 @@ def split_nifti_to_visualise(original_fp:str):
     pos_img.to_filename(pos_fp)
     neg_img = nib.Nifti1Image(neg_data, original.affine)
     neg_img.to_filename(neg_fp)
+
+def trk_vs_filepath(trk_obj):
+    if type(trk_obj) is StatefulTractogram:
+        return trk_obj
+    elif trk_obj.isinstance(str):
+        return load_tractogram(trk_obj, "same")
+    else:
+        raise ValueError(f"Expected either a stateful tractogram," 
+                         f"or a path to a trk file")
 

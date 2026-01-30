@@ -13,11 +13,12 @@ from nilearn import image
 from dipy.io.streamline import load_tractogram
 
 from dipy.io.stateful_tractogram import StatefulTractogram
-
+from regis.core import find_transform, apply_transform
 ## My Imports (replace these with my package calls)
 from utilities import connectivity_matrix_generation, visualise_square_mat, nifti_vs_img,mask_generator
 from utilities import normalise, create_masked_T1, atlas_registration, mask_to_positions, voxel_to_streamline_map_V2
-from utilities import create_ROI_time_series, create_VOX_time_series
+from utilities import create_ROI_time_series, create_VOX_time_series, diffusion_to_t1space
+from utilities import trk_vs_filepath, dilate_atlas_labels
 from engagement import correlation_thresholding, ebc_computation
 from engagement import generate_VWSC_matrices, engagement_calculation
 from engagement import save_connectivity_matrices,save_engagement
@@ -27,9 +28,15 @@ from functionnectome import vectorised_probability_maps, functionnectome
 CSFP_PATH = "CSF_probseg.nii.gz"
 GMP_PATH = "GM_probseg.nii.gz"
 WMP_PATH = "WM_probseg.nii.gz"
+BRAIN_MASK = "brain_mask.nii.gz"
+T1W_ANAT = "preproc_T1w.nii.gz"
+MNI_REFERENCE = "MNI152_T1_1mm_brain.nii.gz"
+BOLD_TAG = "T1w_desc-preproc_bold.nii.gz"
+
+TARGET_ANAT_FILES = [CSFP_PATH, GMP_PATH, WMP_PATH, BRAIN_MASK, T1W_ANAT]
 
 TEST_FUNCTIONNECTOME  = False
-TEST_ENGAGEMENT = True
+TEST_ENGAGEMENT = False
 
 def functionnectome_pipeline(
         atlas_path, 
@@ -169,7 +176,8 @@ def functionnectome_pipeline(
 
     print("Complete!")
 
-def engagement_pipeline(bold_data, atlas, 
+def engagement_pipeline(bold_data, 
+                        atlas, 
                         tractogram_file, 
                         white_matter_prob, 
                         cache_pathway = None, 
@@ -217,6 +225,7 @@ def engagement_pipeline(bold_data, atlas,
     bold_img_data = bold_img_data[:, :, :, 3:]
     atlas_img = nib.load(atlas)
     atlas_data = atlas_img.get_fdata()
+
 
     # Check if the functional connectivity matrix already exists
     if cache_pathway is not None:
@@ -296,12 +305,11 @@ def engagement_pipeline(bold_data, atlas,
 
     ################################ Step 3 ################################
     print(f"{task}. Computing all fibres that penetrate each voxel")   
-
-    trk = load_tractogram(tractogram_file, "same")
-
-    print(type(atlas_data))
-
-
+    trk = trk_vs_filepath(tractogram_file)
+    # Compatability check
+    if np.array_equal(trk.affine, atlas_img.affine) is False:
+        raise ValueError("The two affines are incompatible!")
+    
     if white_matter_mask is not None:
          all_connectivity_matrices, wm_positions = generate_VWSC_matrices(
                                             white_matter_mask=white_matter_mask,
@@ -319,6 +327,10 @@ def engagement_pipeline(bold_data, atlas,
                                             segmentation=10
                                             )
 
+    if np.count_nonzero(all_connectivity_matrices) == 0:
+        raise ValueError("There are no connections " \
+                        "within the connectivity matrices")
+    
     if verbose:
         print("The connectivity matrices:")
         print(all_connectivity_matrices)
@@ -363,11 +375,173 @@ def engagement_pipeline(bold_data, atlas,
     print("Finito!")
 
 def anatamoy_crawler(anatomy_path):
+    filepaths = {}
     for file in os.listdir(anatomy_path):
-        pass
+        if file.__contains__(MNI_REFERENCE):
+            filepaths["mni_reference"] = file
+        if file.__contains__("MNI"):
+            continue
+        for target in TARGET_ANAT_FILES:
+            if file.__contains__(target):
+                filepaths[target[:-7]] = path.join(anatomy_path,
+                                                   file
+                )
+    return filepaths
 
-def the_grand_central_pipeline(anatomy_path):
-    pass
+def find_anat_func_folder(fmri_prep_derivatives,
+                        subj_id,
+                        session_num):
+    
+    subject_fmri_folder = path.join(
+        fmri_prep_derivatives, 
+        "sub-"+subj_id)
+    
+    if "anat" in os.listdir(subject_fmri_folder):
+        anatomy_folder = path.join(
+            subject_fmri_folder,
+            "anat")
+    else: 
+        anatomy_folder = None
+
+    if type(session_num) is str:
+        session_folder = path.join(
+            subject_fmri_folder,
+            session_num)
+    else:
+        session_folder = path.join(
+            subject_fmri_folder,
+              "ses-" + str(session_num))
+    
+    if anatomy_folder is None:
+        anatomy_folder = path.join(
+            session_folder,
+            "anat"
+        )
+
+    funct_folder = path.join(
+        session_folder,
+        "func"
+    )
+
+    if path.exists(anatomy_folder) == False:
+        raise (ValueError(f"Anatomy folder {anatomy_folder} not found"))
+    if path.exists(funct_folder) == False:
+        raise (ValueError(f"Functional folder {funct_folder} not found"))
+
+    return anatomy_folder, funct_folder
+
+def find_bold_filepath(functional_folder):
+    for file in os.listdir(functional_folder):
+        if file.__contains__(BOLD_TAG):
+            return file
+    raise ValueError(f"Bold file not found in {functional_folder}\n"
+                     f"Searched for {BOLD_TAG}")
+    
+
+def the_grand_central_pipeline(
+        fmri_prep_derivatives,
+        tractography_folder,
+        subj_id, 
+        session_num,
+        atlas_filepath,
+        atlas_template = None,
+        diffusion_data = None,
+        verbose = True,
+        dilate = True,
+        overwrite = False):
+    
+    anatomy_folder, functional_folder = find_anat_func_folder(
+        fmri_prep_derivatives=fmri_prep_derivatives,
+        subj_id=subj_id,
+        session_num=session_num
+    )
+
+
+    anatomy_fps = anatamoy_crawler(anatomy_folder)
+    bold_fp = find_bold_filepath(functional_folder)
+
+    atlas_img = nifti_vs_img(atlas_filepath)
+    t1w_img = nifti_vs_img(anatomy_fps["preproc_T1w"])
+
+    if not np.allclose(atlas_img.affine, t1w_img.affine, atol=1e-3):
+
+        save_path = anatomy_fps["preproc_T1w"][:-7]+"_t1w_atlas.nii.gz"
+        if atlas_template is None:
+            raise ValueError(
+                f"The atlas is not aligned with the t1w space."
+                f"Please provide a template file in the T1 space,"
+                f" or provide an aligned atlas"
+                )
+        # Create a brain only t1w scan
+        brain_only_fp = (anatomy_fps["preproc_T1w"][:-7]
+                    + "_brain_only.nii.gz")
+        if path.exists(brain_only_fp) == False or overwrite == True:
+            brain_mask_img = nifti_vs_img(anatomy_fps["brain_mask"])
+            brain_mask_data = brain_mask_img.get_fdata()
+            brain_only_t1w_data = t1w_img.get_fdata()*brain_mask_data
+            out = nib.Nifti1Image(
+                brain_only_t1w_data,
+                affine=t1w_img.affine
+                )
+            out.to_filename(brain_only_fp)
+            del out, brain_mask_img, brain_mask_data, brain_only_t1w_data
+
+        corrected_atlas_path = (anatomy_fps["preproc_T1w"][:-7]
+                        + "_corrected_atlas.nii.gz")
+        if path.exists(corrected_atlas_path) == False or overwrite == True:
+            atlas_transform = find_transform(
+                moving_file=atlas_filepath,
+                static_file=atlas_template,
+                only_affine=True
+            )
+            apply_transform(
+                moving_file=atlas_filepath, 
+                mapping=atlas_transform,
+                static_file=atlas_template,
+                output_path=corrected_atlas_path,
+                labels=True
+            )
+
+        atlas_registration(
+            atlas_path=corrected_atlas_path,
+            template_file=atlas_template,
+            reference_file=brain_only_fp,
+            save_path=save_path
+        )
+        atlas_filepath = save_path
+        atlas_img = nifti_vs_img(atlas_filepath)
+    if not np.allclose(atlas_img.affine, t1w_img.affine, atol=1e-3):
+        print(atlas_img.affine, t1w_img.affine)
+        raise ValueError("Atlas is not in t1w space")
+    
+    # If the user wants the atlas dilated, the following code 
+    # checks if a dilated atlas already exists before creating one
+    if dilate:
+        dilated_atlas_fp = path.join(
+            anatomy_folder,
+            atlas_filepath[:-7] + "_registered.nii.gz"
+        )
+        if path.exists(dilated_atlas_fp) and overwrite==False:
+            dilated_atlas = nib.load(dilated_atlas_fp)
+        else:
+            brain_mask_data=nifti_vs_img(
+                 anatomy_fps["brain_mask"]).get_fdata()
+            dilated_atlas = dilate_atlas_labels(
+                atlas=atlas_img.get_fdata(),
+                brain_mask=brain_mask_data,
+                dilation_width=2
+            )
+            dilated_atlas_img = nib.Nifti1Image(
+                dilated_atlas,
+                affine = atlas_img.affine
+            )
+            dilated_atlas_img.to_filename(dilated_atlas_fp)
+        atlas_img = dilated_atlas_img
+        atlas_filepath = dilated_atlas_fp
+
+        
+
+
 
 if __name__ == "__main__":
 
@@ -388,13 +562,25 @@ if __name__ == "__main__":
         engagement_save_path = ("/Users/sam/Desktop/sub-TAU001/anat/02_"
             "threshold_engagement_10x.nii.gz")
         
+
+        diffusion_space = "/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_FA.nii.gz"
+        t1_space = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-" \
+                    "preproc_T1w_brain_only.nii.gz"
+        
+
+        realigned_trk = diffusion_to_t1space(
+            moving_file=diffusion_space, 
+            static_file=t1_space,
+            trk_file=tractogram_file,
+            mni=False)
+
         engagement_pipeline(
             bold_data=bold_filepath,
             atlas=atlas_filepath,
             white_matter_prob=wm_prob,
-            tractogram_file=tractogram_file,
+            tractogram_file=realigned_trk,
             save_engagement_filepath=engagement_save_path, 
-            verbose=True, 
+            verbose=False, 
             plotting=False, 
             confound_removal=True, 
             save_connectomes=True)
@@ -446,7 +632,24 @@ if __name__ == "__main__":
             functionnectome_savepath=functionnectome_savepath)
         
     else:
-        the_grand_central_pipeline()
+       tractography_folder = ("/Users/sam/Documents/sams_pc/University/"
+                            "2025_Univ/Belgium/data_temp/TestFileStructure/"
+                            "high_sl_tract")
+       
+       derivatives = ("/Users/sam/Documents/sams_pc/University/2025_Univ/"
+                    "Belgium/data_temp/TestFileStructure/derivatives")
+       atlas_fp = "/Users/sam/Desktop/sub-TAU001/aal.nii.gz"
+       subj = "TAU001"
+       session_num = 2
+       mni_template = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
+       the_grand_central_pipeline(
+           fmri_prep_derivatives=derivatives,
+           tractography_folder=tractography_folder,
+           atlas_filepath=atlas_fp,
+           subj_id=subj,
+           session_num=session_num,
+           atlas_template=mni_template
+       )
 
 
 

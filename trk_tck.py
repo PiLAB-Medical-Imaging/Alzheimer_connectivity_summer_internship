@@ -7,5 +7,5 @@ def trk2tck(input_file: str):
     save_tractogram(tract, input_file[:-3]+'tck')
 
 
-tck = trk2tck("/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk")
+tck = trk2tck("/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_tractogram.trk")
 

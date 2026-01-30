@@ -49,3 +49,9 @@ print(len(sliced_bold)) """
 
 # Quickly visualise:
 split_nifti_to_visualise("/Users/sam/Desktop/sub-TAU001/region_bold.nii.gz")
+
+from regis.core import find_transform, apply_transform
+aal = "/Users/sam/Desktop/sub-TAU001/aal.nii.gz"
+mni = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
+transform = find_transform(aal, mni, only_affine=True)
+apply_transform(aal, transform, mni, output_path="/Users/sam/Desktop/sub-TAU001/aal_mni_registered.nii.gz", labels=True)

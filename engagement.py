@@ -209,6 +209,13 @@ def generate_VWSC_matrices(atlas_data,
             vol_shape=trk.dimensions,
             subsegment=segmentation)
 
+    non_empty = 0
+    for voxel in v2f_mapping.keys():
+        if len(v2f_mapping[voxel]) != 0:
+            non_empty += 1
+    if non_empty == 0:
+        raise ValueError("The mapping identified no " \
+                        "voxels containing streamlines")
 
     # Generate a white matter mask if probability is provided:
     if white_matter_mask is None:
@@ -219,8 +226,6 @@ def generate_VWSC_matrices(atlas_data,
     
     # Generate all white matter positions
     wm_positions = mask_to_positions(wm_mask)
-
-    #print("white matter positions", wm_positions.shape)
 
     # Naive method:
     all_connectivity_matrices = []
@@ -254,11 +259,10 @@ def generate_VWSC_matrices(atlas_data,
         all_connectivity_matrices.append(conn_mat)
 
     if verbose:
-        print(f"No. of voxels with no streamlines: {path_1_count} out of {len(wm_positions)}")
-        print(f"The number of voxel CMs with at least one connection: {non_zero_count} out of {len(wm_positions)}")
-        #print("The voxels with no streamlines: ")
-        #print(no_streamlines)
-
+        print(f"No. of voxels with no streamlines:"
+              f"{path_1_count} out of {len(wm_positions)}")
+        print(f"The number of voxel CMs with at least one connection:"
+              f"{non_zero_count} out of {len(wm_positions)}")
     
     all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
     return all_connectivity_matrices, wm_positions
@@ -400,19 +404,3 @@ def reshape_engagement_slices(
         all_slices.append(slice)
 
     return np.stack(all_slices, axis=-1)
-
-def engagement_feeder(subject_bids_root, subj_id_length, save_root_folder):
-
-    os.makedirs(save_root_folder, exist_ok=True)
-    # Make a folder within the subject path
-    engagement_storage_path = path.join(subject_bids_root, "engagement")
-    os.makedirs(engagement_storage_path, exist_ok=True)
-    subj_id = subject_bids_root[-subj_id_length:]
-    # Iterate through directory to identify sessions
-    for directory in os.listdir(subject_bids_root):
-        if directory.__contains__("ses"):
-            #Check if there is a functional folder for that session
-            func_path = path.join(subject_bids_root, directory, "func")
-            if path.exists(func_path):
-                bold_filepath = path.join(func_path, subj_id + "_" + directory + "_rest_space-T1w_desc-preproc_bold.nii.gz" )
-                atlas_filepath = []
