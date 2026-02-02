@@ -27,6 +27,7 @@ from engagement import save_connectivity_matrices,save_engagement
 from functionnectome import compute_connection_probability
 from functionnectome import vectorised_probability_maps, functionnectome
 import utilities
+from structural_connectivity import compute_connectivity_matrix
 
 CSFP_PATH = "CSF_probseg.nii.gz"
 GMP_PATH = "GM_probseg.nii.gz"
@@ -469,14 +470,17 @@ def find_anat_func_folder(
 def find_bold_filepath(functional_folder):
     for file in os.listdir(functional_folder):
         if file.__contains__(BOLD_TAG):
-            return file
+            return path.join(
+                functional_folder,
+                file)
     raise ValueError(f"Bold file not found in {functional_folder}\n"
                      f"Searched for {BOLD_TAG}")
 
 def find_tractogram_file(tractography_folder, 
                          subj_id, 
                          session_num):
-    subj_file = subj_id+"_"+session_num+"_tractogram.trk"
+    new_id = f"TAU_{int(subj_id[3:])}"
+    subj_file = new_id+"_"+"ses-"+ str(session_num)+"_tractogram_T1.trk"
     trk_file = path.join(
         tractography_folder,
         subj_file)
@@ -505,7 +509,7 @@ def the_grand_central_pipeline(
     destination_folder = path.join(
         output_folder,
         subj_id,
-        session_num
+        "ses-"+ str(session_num)
     )
 
     if not path.exists(destination_folder):
@@ -579,7 +583,7 @@ def the_grand_central_pipeline(
             atlas_filepath[:-7] + "_registered.nii.gz"
         )
         if path.exists(dilated_atlas_fp) and overwrite==False:
-            dilated_atlas = nib.load(dilated_atlas_fp)
+            dilated_atlas_img = nib.load(dilated_atlas_fp)
         else:
             brain_mask_data=nifti_vs_img(
                  anatomy_fps["brain_mask"]).get_fdata()
@@ -605,20 +609,22 @@ def the_grand_central_pipeline(
         raise FileNotFoundError(
             f"Unable to find trk file at {trk_file}"
         )
-    trk = load_tractogram(trk_file)
+    trk = load_tractogram(
+        trk_file, 
+        reference="same")
     trk.to_vox()
     trk.to_corner()
-    v2sl_map = voxel_to_streamline_map_V2(
+    """ v2sl_map = voxel_to_streamline_map_V2(
         streamlines=trk.streamlines,
         vol_shape=trk.dimensions,
         subsegment=10
-    )
+    ) """
     # Whole brain FC and SC
-    file_name = subj_id+"_"+session_num+"fc_matrix.npy"
+    file_name = subj_id+"_"+str(session_num)+"fc_matrix.npy"
     fc_fp = path.join(destination_folder, file_name)
 
     if path.exists(fc_fp):
-        np.load(fc_fp)
+        fc_mat = np.load(fc_fp)
     else:
         bold_data = nib.load(bold_fp)
         roi_ts = create_ROI_time_series(
@@ -633,11 +639,67 @@ def the_grand_central_pipeline(
             method = "nilearn",
             kind="correlation"
         )
-
         np.save(
             file=fc_fp,
             arr=fc_mat)
-    
+        
+    sc_filename = subj_id+"_"+str(session_num)+"sc_matrix.npy"
+    sc_fp = path.join(destination_folder, sc_filename)
+    if path.exists(sc_fp):
+        sc_mat = np.load(sc_fp)
+    else:
+        sc_mat = compute_connectivity_matrix(
+            trk_file=trk_file,
+            label_volume=atlas_img.get_fdata()
+        )
+        np.save(
+            file=sc_fp,
+            arr=sc_mat
+        )
+
+    # Combine the two matrices into the simple representation
+    sw_filename = subj_id+"_"+str(session_num)+"sw_matrix.npy"
+    sw_fp = path.join(
+        destination_folder,
+        sw_filename
+    )
+    sw_mat = utilities.simple_weighting(
+        SC=sc_mat,
+        FC=fc_mat
+    )
+    np.save(
+        file=sw_fp,
+        arr=sw_mat
+    )
+
+    # Generate/load a grey matter mask:
+    gm_mask_filename = subj_id+"_"+str(session_num)+"gm_mask.nii.gz"
+    gm_mask_fp = path.join(
+        anatomy_folder,
+        gm_mask_filename
+    )
+    if path.exists(gm_mask_fp):
+        gm_mask = nifti_vs_img(gm_mask_fp)
+    else:
+        gm_mask = mask_generator(
+            white_matter_probability=anatomy_fps["WM_probseg"],
+            grey_matter_probability=anatomy_fps["GM_probseg"],
+            csf_probability=anatomy_fps["CSF_probseg"],
+            mask_type="grey",
+            gm_threshold=0.3
+        )
+        gm_mask.to_filename(gm_mask_fp)
+
+    #Tractogram to the T1w space:
+    realigned_trk = diffusion_to_t1space(
+        moving_file=diffusion_data, 
+        static_file=anatomy_fps["preproc_T1w"],
+        trk_file=trk_file,
+        mni=False,
+        save=True
+    )
+
+
 
 
 
@@ -673,7 +735,8 @@ if __name__ == "__main__":
             moving_file=diffusion_space, 
             static_file=t1_space,
             trk_file=tractogram_file,
-            mni=False)
+            mni=False,
+            save=True)
 
         engagement_pipeline(
             bold_data=bold_filepath,
@@ -744,14 +807,16 @@ if __name__ == "__main__":
        subj = "TAU001"
        session_num = 2
        mni_template = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
-
+       output_folder = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs"
        the_grand_central_pipeline(
            fmri_prep_derivatives=derivatives,
            tractography_folder=tractography_folder,
            atlas_filepath=atlas_fp,
            subj_id=subj,
            session_num=session_num,
-           atlas_template=mni_template
+           atlas_template=mni_template,
+           output_folder=output_folder,
+           diffusion_data="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/TAU_1_ses-2_FA.nii.gz"
        )
 
 

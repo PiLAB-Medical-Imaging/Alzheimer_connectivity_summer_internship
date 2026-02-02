@@ -712,3 +712,13 @@ def trk2tck(input_file: str):
     tract = load_tractogram(input_file, 'same')
     save_tractogram(tract, input_file[:-3]+'tck')
 
+def simple_weighting(SC, FC):
+   """Simple element wise multiplcation of structural and functional connectivity"""
+
+   # Start with a simple normalised structural connectivity matrix each entry is normalised to a 0-1 value, with 1 corresponding to the strongest connection
+   normed_SC = SC/np.max(SC)
+
+   # Simple element wise weighting
+   resultant = np.multiply(normed_SC, FC)
+
+   return resultant

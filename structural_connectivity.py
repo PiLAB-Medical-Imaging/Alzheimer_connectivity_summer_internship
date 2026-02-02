@@ -45,17 +45,17 @@ def compute_connectivity_matrix(trk_file, label_volume):
     Generate the connectivity matrix from tractography and labels.
     """
 
-    print(f"Attempting to load trk file: {trk_file} with label volume: {label_volume}")
+    #print(f"Attempting to load trk file: {trk_file} with label volume: {label_volume}")
     trk = load_tractogram(trk_file, 'same')
     trk.to_vox()
     trk.to_corner()
 
     streamlines = trk.streamlines
 
-    print("Label volume shape:", label_volume.shape)
+    """     print("Label volume shape:", label_volume.shape)
     print("Tractogram reference shape:", trk._data_per_streamline[0].shape if hasattr(trk, '_data_per_streamline') else "unknown")
     print("Streamline bounds:", np.min(np.vstack(trk.streamlines)), np.max(np.vstack(trk.streamlines)))
-
+    """
 
     matrix = connectivity_matrix(streamlines, label_volume, inclusive=False)
 
