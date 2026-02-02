@@ -1,4 +1,5 @@
 from os import path
+from time import time
 import os
 import numpy as np
 import sparse
@@ -6,6 +7,7 @@ import matplotlib.pyplot as plt
 from string import ascii_letters
 import pandas as pd
 import seaborn as sns
+
 
 import nibabel as nib
 from nilearn.plotting import plot_matrix, show
@@ -20,10 +22,11 @@ from utilities import normalise, create_masked_T1, atlas_registration, mask_to_p
 from utilities import create_ROI_time_series, create_VOX_time_series, diffusion_to_t1space
 from utilities import trk_vs_filepath, dilate_atlas_labels
 from engagement import correlation_thresholding, ebc_computation
-from engagement import generate_VWSC_matrices_V2, engagement_calculation
+from engagement import generate_VWSC_matrices_V2, engagement_calculation, generate_VWSC_matrices
 from engagement import save_connectivity_matrices,save_engagement
 from functionnectome import compute_connection_probability
 from functionnectome import vectorised_probability_maps, functionnectome
+import utilities
 
 CSFP_PATH = "CSF_probseg.nii.gz"
 GMP_PATH = "GM_probseg.nii.gz"
@@ -36,7 +39,7 @@ BOLD_TAG = "T1w_desc-preproc_bold.nii.gz"
 TARGET_ANAT_FILES = [CSFP_PATH, GMP_PATH, WMP_PATH, BRAIN_MASK, T1W_ANAT]
 
 TEST_FUNCTIONNECTOME  = False
-TEST_ENGAGEMENT = True
+TEST_ENGAGEMENT = False
 
 def functionnectome_pipeline(
         atlas_path, 
@@ -310,22 +313,54 @@ def engagement_pipeline(bold_data,
     if np.array_equal(trk.affine, atlas_img.affine) is False:
         raise ValueError("The two affines are incompatible!")
     
+    v2f_map = voxel_to_streamline_map_V2(
+        trk.streamlines,
+        trk.dimensions,
+        subsegment=10
+    )
+    
     if white_matter_mask is not None:
-         all_connectivity_matrices, wm_positions = generate_VWSC_matrices_V2(
+        t1 = time()
+        all_connectivity_matrices, wm_positions = generate_VWSC_matrices(
                                             white_matter_mask=white_matter_mask,
                                             trk=trk,
                                             atlas_data=atlas_data,
                                             verbose=verbose,
-                                            segmentation=10
+                                            v2f_mapping=v2f_map
                                             )
+        t2 = time()
+        test_1, test_2 = generate_VWSC_matrices_V2(
+            white_matter_mask=white_matter_mask,
+            trk=trk,
+            atlas_data=atlas_data,
+            verbose=verbose,
+            v2f_mapping=v2f_map
+        )
+        t3 = time()
     else:
-        all_connectivity_matrices, wm_positions = generate_VWSC_matrices_V2(
-                                            white_matter_prob=white_matter_prob,
-                                            trk=trk,
-                                            atlas_data=atlas_data,
-                                            verbose=verbose,
-                                            segmentation=10
-                                            )
+        t1 = time()
+        all_connectivity_matrices, wm_positions = generate_VWSC_matrices(
+            white_matter_prob=white_matter_prob,
+            trk=trk,
+            atlas_data=atlas_data,
+            verbose=verbose,
+            v2f_mapping=v2f_map
+        )
+        t2 = time()
+        test_1, test_2 = generate_VWSC_matrices_V2(
+            white_matter_prob=white_matter_prob,
+            trk=trk,
+            atlas_data=atlas_data,
+            verbose=verbose,
+            v2f_mapping=v2f_map
+        )
+        t3 = time()
+
+
+    print(f"Original Method: {t2-t1}"
+          f"Method 2: {t3-t2}")
+
+    print(test_1.nnz)
 
     if all_connectivity_matrices.nnz == 0:
         raise ValueError("There are no connections " \
@@ -388,9 +423,10 @@ def anatamoy_crawler(anatomy_path):
                 )
     return filepaths
 
-def find_anat_func_folder(fmri_prep_derivatives,
-                        subj_id,
-                        session_num):
+def find_anat_func_folder(
+        fmri_prep_derivatives,
+        subj_id,
+        session_num):
     
     subject_fmri_folder = path.join(
         fmri_prep_derivatives, 
@@ -453,6 +489,7 @@ def the_grand_central_pipeline(
         subj_id, 
         session_num,
         atlas_filepath,
+        output_folder,
         atlas_template = None,
         diffusion_data = None,
         verbose = True,
@@ -465,6 +502,17 @@ def the_grand_central_pipeline(
         session_num=session_num
     )
 
+    destination_folder = path.join(
+        output_folder,
+        subj_id,
+        session_num
+    )
+
+    if not path.exists(destination_folder):
+        os.makedirs(
+            destination_folder, 
+            exist_ok=True)
+    
 
     anatomy_fps = anatamoy_crawler(anatomy_folder)
     bold_fp = find_bold_filepath(functional_folder)
@@ -565,7 +613,34 @@ def the_grand_central_pipeline(
         vol_shape=trk.dimensions,
         subsegment=10
     )
-        
+    # Whole brain FC and SC
+    file_name = subj_id+"_"+session_num+"fc_matrix.npy"
+    fc_fp = path.join(destination_folder, file_name)
+
+    if path.exists(fc_fp):
+        np.load(fc_fp)
+    else:
+        bold_data = nib.load(bold_fp)
+        roi_ts = create_ROI_time_series(
+            atlas=atlas_filepath,
+            bold_data=bold_data,
+            bold_filepath=bold_fp,
+            discard_initial=3,
+            normalise=True
+        )
+        fc_mat = utilities.fc_mat_gen(
+            timeseries=roi_ts,
+            method = "nilearn",
+            kind="correlation"
+        )
+
+        np.save(
+            file=fc_fp,
+            arr=fc_mat)
+    
+
+
+
 
 
 
@@ -603,6 +678,7 @@ if __name__ == "__main__":
         engagement_pipeline(
             bold_data=bold_filepath,
             atlas=atlas_filepath,
+            white_matter_mask=wm_mask,
             white_matter_prob=wm_prob,
             tractogram_file=realigned_trk,
             save_engagement_filepath=engagement_save_path, 
@@ -668,6 +744,7 @@ if __name__ == "__main__":
        subj = "TAU001"
        session_num = 2
        mni_template = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
+
        the_grand_central_pipeline(
            fmri_prep_derivatives=derivatives,
            tractography_folder=tractography_folder,

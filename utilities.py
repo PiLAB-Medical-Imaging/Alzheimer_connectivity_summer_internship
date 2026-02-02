@@ -20,6 +20,7 @@ from unravel.utils import get_streamline_density
 from unravel.stream import smooth_streamlines
 from tqdm import tqdm
 import sparse
+from sparse import DOK
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import zscore
@@ -210,21 +211,53 @@ def sl_to_roi_map(
         sl_end   = points[end - 1].astype(np.int32)
         vxl_coords_start = tuple(sl_start)
         vxl_coords_end = tuple(sl_end)
-
         if (not value_in_bounds(vxl_coords_start, vol_shape) or
-            not value_in_bounds(vxl_coords_end, vol_shape)) == False:
+            not value_in_bounds(vxl_coords_end, vol_shape)):
             continue
         start_roi = int(atlas[vxl_coords_start])
         end_roi = int(atlas[vxl_coords_end])
-
         if (start_roi == 0 or end_roi == 0):
             continue
-
-        mapping[start_roi][end_roi].append(idx)
+        #mapping[start_roi][end_roi].append(idx)
+        mapping[idx] = tuple([start_roi, end_roi])
 
     return mapping
 
+def conn_matrices(
+        sl_roi_map, 
+        vox_sl_map,
+        atlas_data,
+        mask_positions = None
+):
+    unique_values = np.unique(atlas_data)
+    number_uniques = len(unique_values)
+    voxel_cm = {}
+    if mask_positions is None:
+        for voxel in tqdm(vox_sl_map.keys()):
+            voxel_sls = vox_sl_map[voxel]
+            temp_array = np.zeros(shape=(number_uniques,number_uniques))
+            for sl in voxel_sls:
+                start = sl_roi_map[sl][0]
+                end = sl_roi_map[sl][1]
+                temp_array[start,end] += 1
+            temp_array = temp_array + temp_array.T
+            conn_mat = sparse.COO.from_numpy(temp_array)
+            voxel_cm[voxel] = conn_mat
+    else:
+        for voxel in tqdm(vox_sl_map.keys()):
+            if voxel not in mask_positions:
+                continue
+            voxel_sls = vox_sl_map[voxel]
+            temp_array = np.zeros(shape=(number_uniques,number_uniques))
+            for sl in voxel_sls:
+                start = sl_roi_map[sl][0]
+                end = sl_roi_map[sl][1]
+                temp_array[start,end] += 1
+            temp_array = temp_array + temp_array.T
+            conn_mat = sparse.COO.from_numpy(temp_array)
+            voxel_cm[voxel] = conn_mat
 
+    return voxel_cm
 
 def value_in_bounds(
         coords, 

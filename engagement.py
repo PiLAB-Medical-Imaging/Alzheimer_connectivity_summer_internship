@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 from utilities import connectivity_matrix_generation,mask_generator, mask_to_positions
 from utilities import voxel_to_streamline_map, voxel_to_streamline_map_V2  
 from utilities import create_ROI_time_series, fc_mat_gen, nifti_vs_img, is_sparse, sl_to_roi_map
+from utilities import conn_matrices
 
 
 def save_engagement(engagement_values, 
@@ -268,7 +269,6 @@ def generate_VWSC_matrices(atlas_data,
     all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
     return all_connectivity_matrices, wm_positions
 
-
 def generate_VWSC_matrices_V2(atlas_data, 
                            trk, 
                            v2f_mapping = None,
@@ -314,6 +314,7 @@ def generate_VWSC_matrices_V2(atlas_data,
             subsegment=segmentation)
 
     non_empty = 0
+
     for voxel in v2f_mapping.keys():
         if len(v2f_mapping[voxel]) != 0:
             non_empty += 1
@@ -331,47 +332,30 @@ def generate_VWSC_matrices_V2(atlas_data,
     # Generate all white matter positions
     wm_positions = mask_to_positions(wm_mask)
 
-    sl_roi_map = sl_to_roi_map(
+    # Improved Efficiency
+    sl_roi_map  = sl_to_roi_map(
         trk.streamlines,
-        vol_shape=trk.dimensions
+        atlas_data
     )
 
-    # Naive method:
+    cn_matrices = conn_matrices(
+        sl_roi_map=sl_roi_map,
+        vox_sl_map=v2f_mapping,
+        atlas_data=atlas_data,
+        mask_positions=wm_positions
+    )
+    
+    roi_num = len(np.unique(atlas_data))
     all_connectivity_matrices = []
 
-
-    path_1_count = 0 
-    non_zero_count = 0
-    ROIs = len(np.unique(atlas_data))
-
-    no_streamlines = []
-    
     for idx, voxel in enumerate(tqdm(wm_positions, "VW SC matrices")):
-
-        if tuple(voxel) not in v2f_mapping.keys():
-            conn_mat = np.zeros(shape=(ROIs, ROIs))
-            path_1_count +=1
-            no_streamlines.append(tuple(voxel))
-        else:
-            streamline_indices = v2f_mapping[tuple(voxel)]
-            conn_mat = connectivity_matrix(trk.streamlines[streamline_indices], 
-                                           atlas_data,inclusive=False)
-            
-        
-        conn_mat = np.delete(conn_mat, 0, 0)
-        conn_mat = np.delete(conn_mat, 0, 1)
-
-        if np.count_nonzero(conn_mat) > 0:
-                non_zero_count += 1
-
-        conn_mat = sparse.COO.from_numpy(conn_mat)
-        all_connectivity_matrices.append(conn_mat)
-
-    if verbose:
-        print(f"No. of voxels with no streamlines:"
-              f"{path_1_count} out of {len(wm_positions)}")
-        print(f"The number of voxel CMs with at least one connection:"
-              f"{non_zero_count} out of {len(wm_positions)}")
+        voxel = tuple(voxel)
+        try:
+            all_connectivity_matrices.append(cn_matrices[voxel])
+        except KeyError as e:
+            zero_matrix = np.zeros(shape=(roi_num, roi_num))
+            sparse_version = sparse.COO.from_numpy(zero_matrix)
+            all_connectivity_matrices.append(sparse_version)
     
     all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
     return all_connectivity_matrices, wm_positions
@@ -504,7 +488,9 @@ def reshape_engagement(shape,
     return brain_template
 
 def reshape_engagement_slices(
-        sliced_engagement, image_template, wm_positions):
+        sliced_engagement, 
+        image_template, 
+        wm_positions):
     
     all_slices = []
     for i in tqdm(range(sliced_engagement.shape[1]), "Reshaping"):
@@ -514,27 +500,3 @@ def reshape_engagement_slices(
         all_slices.append(slice)
 
     return np.stack(all_slices, axis=-1)
-
-def roi_to_roi_streamlines(
-        trk,
-        rois,
-        atlas):
-    
-    roi_roi_dict = {}
-
-    for idx, roi_1 in enumerate(rois):
-        for roi_2 in rois[idx:]:
-            if roi_1 == roi_2:
-                continue
-
-            subset_sl = select_by_rois(
-                streamlines=trk.streamlines,
-                affine=trk.affine,
-                rois=atlas,
-                include=[roi_1, roi_2],
-                mode="both_end"
-            )
-
-            roi_roi_dict[roi_1][roi_2] = list(subset_sl)
-    return roi_roi_dict
-
