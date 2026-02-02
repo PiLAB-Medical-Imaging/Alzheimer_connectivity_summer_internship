@@ -232,6 +232,7 @@ def conn_matrices(
     unique_values = np.unique(atlas_data)
     number_uniques = len(unique_values)
     voxel_cm = {}
+
     if mask_positions is None:
         for voxel in tqdm(vox_sl_map.keys()):
             voxel_sls = vox_sl_map[voxel]
@@ -253,11 +254,50 @@ def conn_matrices(
                 start = sl_roi_map[sl][0]
                 end = sl_roi_map[sl][1]
                 temp_array[start,end] += 1
-            temp_array = temp_array + temp_array.T
+                temp_array[end,start] += 1
             conn_mat = sparse.COO.from_numpy(temp_array)
             voxel_cm[voxel] = conn_mat
 
     return voxel_cm
+
+def conn_matrices_V2(sl_roi_map, 
+        vox_sl_map,
+        atlas_data,
+        mask_positions
+):
+    v_coord = []
+    rows = []
+    cols = []
+    values = []
+
+    conn_mat_sz =len(np.unique(atlas_data))-1
+    N = len(mask_positions)
+    for idx, voxel in enumerate(mask_positions):
+        voxel_tuple = tuple(voxel)
+        if voxel_tuple not in vox_sl_map.keys():
+            continue
+        for sl in vox_sl_map[voxel_tuple]:
+            v_coord.append(idx)
+            start = sl_roi_map[sl][0]
+            end = sl_roi_map[sl][1]
+            rows.append(start)
+            cols.append(end)
+            values.append(1) 
+            rows.append(end)
+            cols.append(start)
+            values.append(1)
+    
+    all_cms = sparse.COO(
+        coords=[v_coord,rows,cols],
+        data = values,
+        shape=(N,conn_mat_sz, conn_mat_sz),
+        has_duplicates=True
+    )
+
+    return all_cms
+    
+    
+
 
 def value_in_bounds(
         coords, 

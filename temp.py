@@ -7,11 +7,10 @@ from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
 from utilities import dilate_atlas_labels, atlas_masker, time_slicing
 from utilities import split_nifti_to_visualise, diffusion_to_t1space
-from utilities import sl_to_roi_map, voxel_to_streamline_map_V2, conn_matrices
+from utilities import sl_to_roi_map, voxel_to_streamline_map_V2, conn_matrices, conn_matrices_V2
 from time import time
 trk = load_tractogram("/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk",
                       reference="same")
-
 
 atlas = nib.load("/Users/sam/Desktop/sub-TAU001/dilated_atlas_TAU001.nii.gz")
 trk.to_vox()
@@ -40,6 +39,16 @@ conn_mats = conn_matrices(
     atlas_data=atlas.get_fdata()
 )
 t2 = time()
-print(f"cross mapping runtime: {t2-t1}")
+print(f"Conn_mats 1 mapping runtime: {t2-t1}")
+t1 = time()
+conn_mats = conn_matrices_V2(
+    sl_roi_map=sl_roi_map,
+    vox_sl_map=vx_sl_map,
+    atlas_data=atlas.get_fdata(),
+    mask_positions=
+)
+t2 = time()
+
+print(f"conn mats 2 runtime: {t2-t1}")
 
 print(conn_mats)

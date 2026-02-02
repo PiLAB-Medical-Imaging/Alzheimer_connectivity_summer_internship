@@ -7,9 +7,9 @@ from nibabel import Nifti1Image
 import matplotlib.pyplot as plt
 from nilearn import image
 from engagement import generate_VWSC_matrices, correlation_thresholding, ebc_computation
-from engagement import engagement_calculation, reshape_engagement_slices
+from engagement import engagement_calculation, reshape_engagement_slices, generate_VWSC_matrices_V2
 from engagement import fc_mat_gen, create_ROI_time_series, dynamic_engagement
-from utilities import connectivity_matrix_generation, visualise_square_mat, time_slicing
+from utilities import connectivity_matrix_generation, visualise_square_mat, time_slicing, diffusion_to_t1space
 import sparse
 import matplotlib.pyplot as plt
 """ atlas_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/registered_atlas.nii.gz"
@@ -104,7 +104,7 @@ plt.show()
 dilated_atlas = "/Users/sam/Desktop/sub-TAU001/dilated_atlas_TAU001.nii.gz"
 dilated_atlas = nib.load(dilated_atlas)
 #trk_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1_10x.trk"
-trk_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk"
+trk_file = "/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_tractogram.trk"
 trk = load_tractogram(trk_file, reference="same")
 
 """ cms, wm_pos = generate_VWSC_matrices(atlas_data=dilated_atlas.get_fdata(),
@@ -147,15 +147,46 @@ t2 = time.time()
 print(f"Time to generate all FC mats: {t2-t1} s")
 
 t1 = time.time()
-all_cms, wm_pos = generate_VWSC_matrices(
+
+trk = diffusion_to_t1space(
+    moving_file="/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_FA.nii.gz",
+    static_file="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w_brain_only.nii.gz",
+    trk_file=trk_file,
+    save=True
+)
+
+all_cms, wm_pos = generate_VWSC_matrices_V2(
         atlas_data=atlas_data,
         trk = trk, 
         white_matter_mask=wmm_path,
         segmentation=10)
 t2 = time.time()
 
-print(f"Time to generate mapping: {t2-t1} s")
+print(all_cms.nnz)
 
+fc_mat = fc_mat_gen(
+    timeseries=total_ts
+)
+fc_mat = correlation_thresholding(
+    fc_mat,
+    value_threshold=0.2
+)
+ebc_mat = ebc_computation(
+    fc_mat,
+    False
+)
+print(all_cms, all_cms.shape)
+eng = engagement_calculation(
+    EBC_matrix= ebc_mat,
+    SC_matrices=all_cms,
+)
+
+plt.hist(eng)
+plt.show()
+
+
+print(f"Time to generate mapping: {t2-t1} s")
+""" 
 t1 = time.time()
 all_eng = dynamic_engagement(sliced_timeseries,
                              all_cms)
@@ -179,7 +210,7 @@ print(reshaped_engagement.shape)
 
 
 
-
+ """
 
 
 

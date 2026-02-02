@@ -17,7 +17,8 @@ import matplotlib.pyplot as plt
 from utilities import connectivity_matrix_generation,mask_generator, mask_to_positions
 from utilities import voxel_to_streamline_map, voxel_to_streamline_map_V2  
 from utilities import create_ROI_time_series, fc_mat_gen, nifti_vs_img, is_sparse, sl_to_roi_map
-from utilities import conn_matrices
+from utilities import conn_matrices, conn_matrices_V2
+
 
 
 def save_engagement(engagement_values, 
@@ -78,7 +79,11 @@ def engagement_calculation(EBC_matrix,
         this is recommended for efficiency.
     """
     if method == "einsum":
-        result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
+        try:
+            result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
+        except ValueError as e:
+            print(f"Dimensions of SC_matrices: {SC_matrices.shape}"
+                  f"Dimensions of EBC_matrix: {EBC_matrix.shape}")
         denom = SC_matrices.sum(axis=(1, 2))# This line converts each slice of 
         #the SC_matrices array into a single number (the sum of all the values 
         #in that slice)
@@ -266,10 +271,107 @@ def generate_VWSC_matrices(atlas_data,
         print(f"The number of voxel CMs with at least one connection:"
               f"{non_zero_count} out of {len(wm_positions)}")
     
-    all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
+    all_connectivity_matrices = sparse.stack(
+        all_connectivity_matrices, 
+        axis = 0)
     return all_connectivity_matrices, wm_positions
 
 def generate_VWSC_matrices_V2(atlas_data, 
+                           trk, 
+                           v2f_mapping = None,
+                           white_matter_prob = None, 
+                           white_matter_mask = None, 
+                           verbose = False, 
+                           segmentation = 1):
+    """
+    Generate a structural connectivity matrix for every white matter voxel. 
+    It first generates a mapping of voxel to streamline. This identifies the 
+    subset of streamlines that pass through the voxel. Then, it generates a 
+    white matter mask based on provided probability maps. The positions of each 
+    white matter voxel are then extracted from the mask. For each voxel, a 
+    connectivity matrix is generated showing how strongly each region of 
+    interest is connected via the voxel. These are stored as sparse arrays and 
+    returned as a sparse array.
+    
+    :param atlas_data: Array like
+        The labels of the ROI. 
+    :param trk: Stateful_Tractogram
+        Tractogram containing all streamlines for a patient
+    :param white_matter_prob: str/Nifti image
+        Provides the probabilities for each voxel being white matter. Provide 
+        either white_matter_probs or white_matter_mask
+    :param white_matter_mask: tr/Nifti image
+        A white matter mask. Provide either white_matter_probs or 
+        white_matter_mask
+    :param verbose: If true, prints the number or failures. 
+    """
+    if white_matter_mask is None and white_matter_prob is None:
+        raise ValueError(f"Please provide either white_matter_mask" 
+                         f"or white_matter_probability file")
+    
+    if trk.space != Space.VOX:
+        trk.to_vox()
+    if trk.origin != Origin.TRACKVIS:
+        trk.to_corner()
+
+    if v2f_mapping is None:
+        v2f_mapping = voxel_to_streamline_map_V2(
+            trk.streamlines, 
+            vol_shape=trk.dimensions,
+            subsegment=segmentation)
+
+    non_empty = 0
+
+    for voxel in v2f_mapping.keys():
+        if len(v2f_mapping[voxel]) != 0:
+            non_empty += 1
+    if non_empty == 0:
+        raise ValueError("The mapping identified no " \
+                        "voxels containing streamlines")
+
+    # Generate a white matter mask if probability is provided:
+    if white_matter_mask is None:
+        wm_mask = mask_generator(white_matter_probability=white_matter_prob, 
+                                 smoothing=False)
+    else:
+        wm_mask = nib.load(white_matter_mask)
+    
+    # Generate all white matter positions
+    wm_positions = mask_to_positions(wm_mask)
+
+    # Improved Efficiency
+    sl_roi_map  = sl_to_roi_map(
+        trk.streamlines,
+        atlas_data
+    )
+
+    cn_matrices = conn_matrices(
+        sl_roi_map=sl_roi_map,
+        vox_sl_map=v2f_mapping,
+        atlas_data=atlas_data,
+        mask_positions=wm_positions
+    )
+
+    cms = conn
+
+
+    
+    roi_num = len(np.unique(atlas_data))
+    all_connectivity_matrices = []
+
+    for idx, voxel in enumerate(tqdm(wm_positions, "VW SC matrices")):
+        voxel = tuple(voxel)
+        try:
+            all_connectivity_matrices.append(cn_matrices[voxel])
+        except KeyError as e:
+            zero_matrix = np.zeros(shape=(roi_num, roi_num))
+            sparse_version = sparse.COO.from_numpy(zero_matrix)
+            all_connectivity_matrices.append(sparse_version)
+    
+    all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
+    return all_connectivity_matrices, wm_positions
+
+def generate_VWSC_matrices_V3(atlas_data, 
                            trk, 
                            v2f_mapping = None,
                            white_matter_prob = None, 
@@ -359,8 +461,6 @@ def generate_VWSC_matrices_V2(atlas_data,
     
     all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
     return all_connectivity_matrices, wm_positions
-
-
 def ebc_computation(numpy_matrix, inverted_values):
     """
     Simple wrapper to calculate the EBC matrix starting with a functional 
