@@ -194,6 +194,51 @@ def voxel_to_streamline_map(streamlines, vol_shape):
     # Convert sets → lists for downstream use
     return {k: list(v) for k, v in mapping.items()}
 
+def sl_to_roi_map(
+        streamlines,
+        atlas
+):
+    vol_shape = atlas.shape
+    mapping = defaultdict(lambda: defaultdict(list))
+    points = streamlines.get_data()
+    start_points = streamlines._offsets
+
+    for idx in range(len(start_points)):
+        start = start_points[idx]
+        end   = start_points[idx+1] if idx + 1 < len(start_points) else len(points)
+        sl_start = points[start].astype(np.int32)
+        sl_end   = points[end - 1].astype(np.int32)
+        vxl_coords_start = tuple(sl_start)
+        vxl_coords_end = tuple(sl_end)
+
+        if (not value_in_bounds(vxl_coords_start, vol_shape) or
+            not value_in_bounds(vxl_coords_end, vol_shape)) == False:
+            continue
+        start_roi = int(atlas[vxl_coords_start])
+        end_roi = int(atlas[vxl_coords_end])
+
+        if (start_roi == 0 or end_roi == 0):
+            continue
+
+        mapping[start_roi][end_roi].append(idx)
+
+    return mapping
+
+
+
+def value_in_bounds(
+        coords, 
+        dimensions
+):
+    if (
+    0 <= coords[0] < dimensions[0] and
+    0 <= coords[1] < dimensions[1] and
+    0 <= coords[2] < dimensions[2]   
+    ):
+        return  True
+    else:
+        False
+
 def voxel_to_streamline_map_V2(
         streamlines, 
         vol_shape, 
@@ -218,6 +263,8 @@ def voxel_to_streamline_map_V2(
 
     min_coord = 100000000
     max_coord = -1000000
+
+
     for idx, offset in enumerate(tqdm(subsegment_offsets, "Vox-SL")):
        # Force an integer value for the streamline index
         if idx >= len(subsegment_offsets)-1:
@@ -626,4 +673,9 @@ def trk_vs_filepath(trk_obj):
     else:
         raise ValueError(f"Expected either a stateful tractogram," 
                          f"or a path to a trk file")
+
+
+def trk2tck(input_file: str):
+    tract = load_tractogram(input_file, 'same')
+    save_tractogram(tract, input_file[:-3]+'tck')
 

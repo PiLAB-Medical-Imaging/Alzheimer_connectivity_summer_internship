@@ -7,51 +7,20 @@ from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
 from utilities import dilate_atlas_labels, atlas_masker, time_slicing
 from utilities import split_nifti_to_visualise
-
-
-""" atlas = "/Users/sam/Desktop/sub-TAU001/check_atlas_TAU001.nii.gz"
-atlas_img = nib.load(atlas)
-atlas = nib.load(atlas).get_fdata()
-
-brain_mask = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-brain_mask.nii.gz"
-brain_mask = nib.load(brain_mask).get_fdata()
-
-dilated_atlas = dilate_atlas_labels(atlas=atlas, 
-                    brain_mask=brain_mask, 
-                    dilation_width=2)
-
-out = nib.Nifti1Image(dilated_atlas, atlas_img.affine)
-out.to_filename("/Users/sam/Desktop/sub-TAU001/dilated_atlas_TAU001.nii.gz")
-
-
+from utilities import sl_to_roi_map
+from time import time
 trk = load_tractogram("/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk",
-                       reference="same") """
+                      reference="same")
+atlas = nib.load("/Users/sam/Desktop/sub-TAU001/dilated_atlas_TAU001.nii.gz")
+trk.to_vox()
+trk.to_corner()
 
+t1 = time()
+sl_roi_map = sl_to_roi_map(
+    trk.streamlines,
+    atlas = atlas.get_fdata()
+)
+t2 = time()
 
-""" original_mask = nib.load("/Users/sam/Desktop/sub-TAU001/check_atlas_TAU001.nii.gz")
-new_maskname = "/Users/sam/Desktop/sub-TAU001/submask_TAU001.nii.gz"
+print(f"Runtime: {t2-t1}")
 
-target_indices = [1, 7, 46]
-
-new_mask = atlas_masker(original_mask.get_fdata(), target_labels=target_indices)
-
-out = nib.Nifti1Image(new_mask, affine=original_mask.affine)
-out.to_filename(new_maskname)
-
- """
-""" bold_file = "/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_desc-preproc_bold.nii.gz"
-bold_img = nib.load(bold_file)
-sliced_bold = time_slicing(bold_img.get_fdata(), slice_length=8, sliding=True)
-for slice in sliced_bold:
-    print(slice.shape)
-
-print(len(sliced_bold)) """
-
-# Quickly visualise:
-split_nifti_to_visualise("/Users/sam/Desktop/sub-TAU001/region_bold.nii.gz")
-
-from regis.core import find_transform, apply_transform
-aal = "/Users/sam/Desktop/sub-TAU001/aal.nii.gz"
-mni = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
-transform = find_transform(aal, mni, only_affine=True)
-apply_transform(aal, transform, mni, output_path="/Users/sam/Desktop/sub-TAU001/aal_mni_registered.nii.gz", labels=True)

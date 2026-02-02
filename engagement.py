@@ -10,12 +10,13 @@ from networkx import edge_betweenness_centrality, Graph
 import networkx as nx
 from dipy.io.stateful_tractogram import Origin, Space
 from dipy.io.streamline import load_tractogram
+from dipy.tracking.streamline import select_by_rois
 from tqdm import tqdm
 from unravel.analysis import connectivity_matrix
 import matplotlib.pyplot as plt
 from utilities import connectivity_matrix_generation,mask_generator, mask_to_positions
 from utilities import voxel_to_streamline_map, voxel_to_streamline_map_V2  
-from utilities import create_ROI_time_series, fc_mat_gen, nifti_vs_img, is_sparse
+from utilities import create_ROI_time_series, fc_mat_gen, nifti_vs_img, is_sparse, sl_to_roi_map
 
 
 def save_engagement(engagement_values, 
@@ -267,6 +268,115 @@ def generate_VWSC_matrices(atlas_data,
     all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
     return all_connectivity_matrices, wm_positions
 
+
+def generate_VWSC_matrices_V2(atlas_data, 
+                           trk, 
+                           v2f_mapping = None,
+                           white_matter_prob = None, 
+                           white_matter_mask = None, 
+                           verbose = False, 
+                           segmentation = 1):
+    """
+    Generate a structural connectivity matrix for every white matter voxel. 
+    It first generates a mapping of voxel to streamline. This identifies the 
+    subset of streamlines that pass through the voxel. Then, it generates a 
+    white matter mask based on provided probability maps. The positions of each 
+    white matter voxel are then extracted from the mask. For each voxel, a 
+    connectivity matrix is generated showing how strongly each region of 
+    interest is connected via the voxel. These are stored as sparse arrays and 
+    returned as a sparse array.
+    
+    :param atlas_data: Array like
+        The labels of the ROI. 
+    :param trk: Stateful_Tractogram
+        Tractogram containing all streamlines for a patient
+    :param white_matter_prob: str/Nifti image
+        Provides the probabilities for each voxel being white matter. Provide 
+        either white_matter_probs or white_matter_mask
+    :param white_matter_mask: tr/Nifti image
+        A white matter mask. Provide either white_matter_probs or 
+        white_matter_mask
+    :param verbose: If true, prints the number or failures. 
+    """
+    if white_matter_mask is None and white_matter_prob is None:
+        raise ValueError(f"Please provide either white_matter_mask" 
+                         f"or white_matter_probability file")
+    
+    if trk.space != Space.VOX:
+        trk.to_vox()
+    if trk.origin != Origin.TRACKVIS:
+        trk.to_corner()
+
+    if v2f_mapping is None:
+        v2f_mapping = voxel_to_streamline_map_V2(
+            trk.streamlines, 
+            vol_shape=trk.dimensions,
+            subsegment=segmentation)
+
+    non_empty = 0
+    for voxel in v2f_mapping.keys():
+        if len(v2f_mapping[voxel]) != 0:
+            non_empty += 1
+    if non_empty == 0:
+        raise ValueError("The mapping identified no " \
+                        "voxels containing streamlines")
+
+    # Generate a white matter mask if probability is provided:
+    if white_matter_mask is None:
+        wm_mask = mask_generator(white_matter_probability=white_matter_prob, 
+                                 smoothing=False)
+    else:
+        wm_mask = nib.load(white_matter_mask)
+    
+    # Generate all white matter positions
+    wm_positions = mask_to_positions(wm_mask)
+
+    sl_roi_map = sl_to_roi_map(
+        trk.streamlines,
+        vol_shape=trk.dimensions
+    )
+
+    # Naive method:
+    all_connectivity_matrices = []
+
+
+    path_1_count = 0 
+    non_zero_count = 0
+    ROIs = len(np.unique(atlas_data))
+
+    no_streamlines = []
+    
+    for idx, voxel in enumerate(tqdm(wm_positions, "VW SC matrices")):
+
+        if tuple(voxel) not in v2f_mapping.keys():
+            conn_mat = np.zeros(shape=(ROIs, ROIs))
+            path_1_count +=1
+            no_streamlines.append(tuple(voxel))
+        else:
+            streamline_indices = v2f_mapping[tuple(voxel)]
+            conn_mat = connectivity_matrix(trk.streamlines[streamline_indices], 
+                                           atlas_data,inclusive=False)
+            
+        
+        conn_mat = np.delete(conn_mat, 0, 0)
+        conn_mat = np.delete(conn_mat, 0, 1)
+
+        if np.count_nonzero(conn_mat) > 0:
+                non_zero_count += 1
+
+        conn_mat = sparse.COO.from_numpy(conn_mat)
+        all_connectivity_matrices.append(conn_mat)
+
+    if verbose:
+        print(f"No. of voxels with no streamlines:"
+              f"{path_1_count} out of {len(wm_positions)}")
+        print(f"The number of voxel CMs with at least one connection:"
+              f"{non_zero_count} out of {len(wm_positions)}")
+    
+    all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
+    return all_connectivity_matrices, wm_positions
+
+
 def ebc_computation(numpy_matrix, inverted_values):
     """
     Simple wrapper to calculate the EBC matrix starting with a functional 
@@ -404,3 +514,27 @@ def reshape_engagement_slices(
         all_slices.append(slice)
 
     return np.stack(all_slices, axis=-1)
+
+def roi_to_roi_streamlines(
+        trk,
+        rois,
+        atlas):
+    
+    roi_roi_dict = {}
+
+    for idx, roi_1 in enumerate(rois):
+        for roi_2 in rois[idx:]:
+            if roi_1 == roi_2:
+                continue
+
+            subset_sl = select_by_rois(
+                streamlines=trk.streamlines,
+                affine=trk.affine,
+                rois=atlas,
+                include=[roi_1, roi_2],
+                mode="both_end"
+            )
+
+            roi_roi_dict[roi_1][roi_2] = list(subset_sl)
+    return roi_roi_dict
+

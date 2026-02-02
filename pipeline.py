@@ -20,7 +20,7 @@ from utilities import normalise, create_masked_T1, atlas_registration, mask_to_p
 from utilities import create_ROI_time_series, create_VOX_time_series, diffusion_to_t1space
 from utilities import trk_vs_filepath, dilate_atlas_labels
 from engagement import correlation_thresholding, ebc_computation
-from engagement import generate_VWSC_matrices, engagement_calculation
+from engagement import generate_VWSC_matrices_V2, engagement_calculation
 from engagement import save_connectivity_matrices,save_engagement
 from functionnectome import compute_connection_probability
 from functionnectome import vectorised_probability_maps, functionnectome
@@ -36,7 +36,7 @@ BOLD_TAG = "T1w_desc-preproc_bold.nii.gz"
 TARGET_ANAT_FILES = [CSFP_PATH, GMP_PATH, WMP_PATH, BRAIN_MASK, T1W_ANAT]
 
 TEST_FUNCTIONNECTOME  = False
-TEST_ENGAGEMENT = False
+TEST_ENGAGEMENT = True
 
 def functionnectome_pipeline(
         atlas_path, 
@@ -311,7 +311,7 @@ def engagement_pipeline(bold_data,
         raise ValueError("The two affines are incompatible!")
     
     if white_matter_mask is not None:
-         all_connectivity_matrices, wm_positions = generate_VWSC_matrices(
+         all_connectivity_matrices, wm_positions = generate_VWSC_matrices_V2(
                                             white_matter_mask=white_matter_mask,
                                             trk=trk,
                                             atlas_data=atlas_data,
@@ -319,7 +319,7 @@ def engagement_pipeline(bold_data,
                                             segmentation=10
                                             )
     else:
-        all_connectivity_matrices, wm_positions = generate_VWSC_matrices(
+        all_connectivity_matrices, wm_positions = generate_VWSC_matrices_V2(
                                             white_matter_prob=white_matter_prob,
                                             trk=trk,
                                             atlas_data=atlas_data,
@@ -327,7 +327,7 @@ def engagement_pipeline(bold_data,
                                             segmentation=10
                                             )
 
-    if np.count_nonzero(all_connectivity_matrices) == 0:
+    if all_connectivity_matrices.nnz == 0:
         raise ValueError("There are no connections " \
                         "within the connectivity matrices")
     
@@ -436,7 +436,16 @@ def find_bold_filepath(functional_folder):
             return file
     raise ValueError(f"Bold file not found in {functional_folder}\n"
                      f"Searched for {BOLD_TAG}")
-    
+
+def find_tractogram_file(tractography_folder, 
+                         subj_id, 
+                         session_num):
+    subj_file = subj_id+"_"+session_num+"_tractogram.trk"
+    trk_file = path.join(
+        tractography_folder,
+        subj_file)
+    return trk_file
+
 
 def the_grand_central_pipeline(
         fmri_prep_derivatives,
@@ -539,6 +548,23 @@ def the_grand_central_pipeline(
         atlas_img = dilated_atlas_img
         atlas_filepath = dilated_atlas_fp
 
+    trk_file = find_tractogram_file(
+        tractography_folder=tractography_folder,
+        subj_id=subj_id,
+        session_num=session_num
+    )
+    if path.exists(trk_file) == False:
+        raise FileNotFoundError(
+            f"Unable to find trk file at {trk_file}"
+        )
+    trk = load_tractogram(trk_file)
+    trk.to_vox()
+    trk.to_corner()
+    v2sl_map = voxel_to_streamline_map_V2(
+        streamlines=trk.streamlines,
+        vol_shape=trk.dimensions,
+        subsegment=10
+    )
         
 
 
