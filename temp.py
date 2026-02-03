@@ -24,8 +24,9 @@ comparison = eng_old_data-eng_new_data
 nnz = np.count_nonzero(comparison)
 print(nnz)
 
-plt.hist(eng_old_data.flatten(), color="g",)
-plt.hist(eng_new_data.flatten(), color="b")
+plt.hist(eng_old_data.flatten(), color="g", stacked=True)
+plt.hist(eng_new_data.flatten(), color="b", stacked=True)
+plt.loglog()
 plt.show()
 
 

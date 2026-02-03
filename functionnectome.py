@@ -112,18 +112,21 @@ def vectorised_probability_maps(
 
  
     # Extract the overall density map
-    overall_density_map = density_map(streamlines=trk.streamlines,
-                                      affine=np.eye(4),
-                                       vol_dims=trk.dimensions)
+    overall_density_map = density_map(
+        streamlines=trk.streamlines,
+        affine=np.eye(4),
+        vol_dims=trk.dimensions)
     
     if smoothing:
-        overall_density_map = gaussian_filter(overall_density_map, 1.0)
+        overall_density_map = gaussian_filter(
+            overall_density_map, 
+            1.0
+        )
     
     """ Iterate through the atlas regions and extract only the streamlines
         that go through each region. (116 iterations, will give a NxN 
         matrix for each ROI, where N is the number of white matter voxels) """
     if mode == "roi":
-        print("\tUsing the ROI mode")
         atlas_matrix = registered_atlas.get_fdata()
         roi_ids = np.unique(atlas_matrix) 
         # Stack the density maps up into a single array.
@@ -149,7 +152,10 @@ def vectorised_probability_maps(
                                             mask = mask,
                                             affine = np.eye(4))
             
-            trk_new = trk.from_sft(relevant_streamlines, trk)
+            trk_new = trk.from_sft(
+                relevant_streamlines, 
+                trk
+            )
 
             if len(trk_new.streamlines) == 0:
                 print(f"Warning: Region {roi} has 0 streamlines")
@@ -163,15 +169,13 @@ def vectorised_probability_maps(
                 
                 print(f"The origin is: {trk.origin}\n"
                     f"The space is: {trk.space}\n"
-                    f"Dimensions: {trk.dimensions}")
-
-            # Get a density map of the relevant streamlines
-            # Use the white matter mask here? 
+                    f"Dimensions: {trk.dimensions}"
+                )
             roi_density_map = density_map(
                 streamlines=trk_new.streamlines, 
                 affine=np.eye(4), 
-                vol_dims=trk.dimensions)
-
+                vol_dims=trk.dimensions
+            )
             if smoothing:
                 roi_density_map = gaussian_filter(roi_density_map, 1.0)
             # Output the density maps so that they can be visualised

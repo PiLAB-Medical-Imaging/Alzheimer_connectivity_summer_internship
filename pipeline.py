@@ -76,7 +76,6 @@ def functionnectome_pipeline(
     print(f"{task}. Generate density maps")
 
     if register_atlas:
-        
         if (anatomical_scan_atlas_space is None
                 or t1w_file is None):
             raise ValueError("Please provide both an " \
@@ -494,9 +493,9 @@ def the_grand_central_pipeline(
         session_num,
         atlas_filepath,
         output_folder,
+        funct_mode = "roi",
         atlas_template = None,
         diffusion_data = None,
-        verbose = True,
         dilate = True,
         overwrite = False):
     
@@ -751,6 +750,8 @@ def the_grand_central_pipeline(
             mni=False,
             save=True
         )
+    trk = realigned_trk
+
     v2sl_map = voxel_to_streamline_map_V2(
         streamlines=trk.streamlines,
         vol_shape=trk.dimensions,
@@ -781,9 +782,7 @@ def the_grand_central_pipeline(
         EBC_matrix=ebc_matrix_pos,
         SC_matrices=cms,
     )
-    plt.hist(pos_eng)
-    plt.loglog()
-    plt.show()
+
     neg_eng = engagement_calculation(
         EBC_matrix=ebc_neg,
         SC_matrices=cms,
@@ -813,23 +812,65 @@ def the_grand_central_pipeline(
         affine=wm_mask.affine
     )
 
+    # Functionnectome
     funct_fn = (subj_id 
                 +"_ses-" 
                 +str(session_num) 
-                +"functionnectome.gii.zii"
+                +"functionnectome.nii.gz"
     )
     funct_fp = path.join(
         destination_folder,
         funct_fn
     )
-    functionnectome_pipeline(
-        atlas_path=atlas_fp,
-        fMRI_path=bold_filepath,
-        tractogram=trk,
-        grey_matter_mask=gm_mask,
-        functionnectome_savepath=funct_fp
+    gm_mask_positions = mask_to_positions(
+        mask=gm_mask
     )
+    density_maps, overall_density_map = vectorised_probability_maps(
+        registered_atlas=atlas_img,
+        trk = trk,
+        mask_positions=gm_mask_positions,
+        brain_template=gm_mask,
+        v2f_mapping=v2sl_map
+    )
+    if np.count_nonzero(density_maps) == 0:
+        raise ValueError("All density maps are 0")
+    if np.count_nonzero(overall_density_map) == 0:
+        raise("All values in overall density are 0")
+    con_prob = compute_connection_probability(
+        overall_density_map=overall_density_map,
+        all_density_maps=density_maps
+    )
+    if np.count_nonzero(con_prob) == 0:
+        raise ValueError("All probabilities are 0")
+    bold_data = nib.load(bold_fp)
+    if funct_mode == "roi":
+        time_series = create_ROI_time_series(
+            atlas=atlas_img,
+            bold_data = bold_data,
+            bold_filepath=bold_fp
+        )
+    elif funct_mode == "vox":
+        time_series = create_VOX_time_series(
+            mask=gm_mask,
+            bold_data=bold_data,
+            bold_filepath=bold_fp
+        )
+    else:
+        raise ValueError("Please enter a valid mode")
+    fctome = functionnectome(
+        probability_maps=con_prob,
+        timeseries=time_series,
+        registered_atlas=atlas_img,
+        normalisation="hack"
+    )
+    fctome_img = nib.Nifti1Image(
+        dataobj=fctome,
+        affine=gm_mask.affine
+    )
+    fctome_img.to_filename(filename=funct_fp)
+  
 
+    
 
 if __name__ == "__main__":
 

@@ -97,8 +97,8 @@ def conn_matrices_V2(
             voxel_coord = idx
             start_coord = start - 1
             end_coord = end - 1 
-            if (start_coord >= N
-                or end_coord >= N):
+            if (start_coord >= conn_mat_sz
+                or end_coord >= conn_mat_sz):
                 raise ValueError(f"Start or end coord is out of bounds"
                                  f"Start: {start_coord}"
                                  f"End: {end_coord}"

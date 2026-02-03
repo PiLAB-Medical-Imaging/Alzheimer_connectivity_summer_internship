@@ -343,7 +343,7 @@ def generate_VWSC_matrices_ep_only(
         trk.streamlines,
         atlas_data
     )
-    all_connectivity_matrices, _ = conn_matrices_V2(
+    all_connectivity_matrices = conn_matrices_V2(
         sl_roi_map=sl_roi_map,
         vox_sl_map=v2f_mapping,
         atlas_data=atlas_data,
