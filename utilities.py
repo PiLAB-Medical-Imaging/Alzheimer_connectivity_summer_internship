@@ -25,6 +25,234 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import zscore
 
+def conn_matrices(
+        sl_roi_map, 
+        vox_sl_map,
+        atlas_data,
+        mask_positions = None
+):
+    unique_values = np.unique(atlas_data)
+    number_uniques = len(unique_values)
+    voxel_cm = {}
+
+    if mask_positions is None:
+        for voxel in tqdm(vox_sl_map.keys()):
+            voxel_sls = vox_sl_map[voxel]
+            temp_array = np.zeros(shape=(number_uniques,number_uniques))
+            for sl in voxel_sls:
+                start = sl_roi_map[sl][0]
+                end = sl_roi_map[sl][1]
+                temp_array[start,end] += 1
+            temp_array = temp_array + temp_array.T
+            conn_mat = sparse.COO.from_numpy(temp_array)
+            voxel_cm[voxel] = conn_mat
+    else:
+        for voxel in tqdm(vox_sl_map.keys()):
+            if voxel not in mask_positions:
+                continue
+            voxel_sls = vox_sl_map[voxel]
+            temp_array = np.zeros(shape=(number_uniques,number_uniques))
+            for sl in voxel_sls:
+                start = sl_roi_map[sl][0]
+                end = sl_roi_map[sl][1]
+                temp_array[start,end] += 1
+                temp_array[end,start] += 1
+            conn_mat = sparse.COO.from_numpy(temp_array)
+            voxel_cm[voxel] = conn_mat
+
+    return voxel_cm
+
+def conn_matrices_V2(
+        sl_roi_map, 
+        vox_sl_map,
+        atlas_data,
+        mask_positions
+):
+    if not (vox_sl_sanity_check(vox_sl_map)):
+        raise ValueError("Voxel mappings are duds.")
+    if not (sl_roi_map_sanity_check(sl_roi_map)):
+        raise ValueError("SL-ROI map is a dud.")
+
+    v_coord = []
+    rows = []
+    cols = []
+    values = []
+    conn_mat_sz =len(np.unique(atlas_data))-1
+    N = len(mask_positions)
+    for idx, voxel in enumerate(tqdm(mask_positions, "CM-GEN")):
+        voxel_tuple = tuple(voxel)
+        if voxel_tuple not in vox_sl_map.keys():
+            continue
+        for sl in vox_sl_map[voxel_tuple]:
+            if sl not in sl_roi_map.keys():
+                continue
+            start = sl_roi_map[sl][0]
+            end = sl_roi_map[sl][1]
+            if start == end:
+                continue
+            if (type(start) is not int
+                or type(end) is not int):
+                raise ValueError(f"Non int value: {start}\n"
+                                 f"{end}")
+            voxel_coord = idx
+            start_coord = start - 1
+            end_coord = end - 1 
+            if (start_coord >= N
+                or end_coord >= N):
+                raise ValueError(f"Start or end coord is out of bounds"
+                                 f"Start: {start_coord}"
+                                 f"End: {end_coord}"
+                                 f"Bound: {conn_mat_sz}")
+            if (voxel_coord < 0 or voxel_coord >= N):
+                raise ValueError(f"Voxel coordinate is out of"
+                                 f"bounds: {voxel_coord}")
+            v_coord.append(voxel_coord)
+            v_coord.append(voxel_coord)
+            rows.append(start_coord)
+            cols.append(end_coord)
+            values.append(1) 
+            rows.append(end_coord)
+            cols.append(start_coord)
+            values.append(1)
+
+    coords = np.vstack([v_coord, rows, cols])
+
+    all_cms = sparse.COO(
+        coords=coords,
+        data = values,
+        shape=(N,conn_mat_sz, conn_mat_sz),
+        has_duplicates=True
+    )
+
+    return all_cms
+   
+def complete_data_compiler(dfmri_fp, 
+                           bold_fp,
+                             data_filepath=None):
+    """
+    Docstring for complete_data_compiler
+    
+    :param dfmri_fp: Description
+    :param bold_fp: str
+        Filepath to the derivative folder where preprocessed fMRI data lives
+    :param data_filepath: Description
+    """
+
+    # First crawl through the dMRI folder and get every subject and session
+    #  pair for which there is data
+    dict_for_results = {}
+    for folder in os.listdir(dfmri_fp):
+        split_name = folder.split(sep = "_")
+        subj_number = split_name[1]
+        session = split_name[-1]
+        identifier = f"TAU{subj_number.zfill(3)}"
+        available_data = [session, True, False, False]
+
+        dict_for_results[identifier] = available_data
+    
+       
+    # Iterate through all the patients that we have dmri data for
+
+    for participant in dict_for_results:
+        session = dict_for_results[participant][0]
+        bold_path = path.join(bold_fp, 
+                              f"sub-{participant}", 
+                              session, "func", 
+                              f"sub-{participant}_{session}_task-rest_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz")
+        if os.path.exists(bold_path):
+            dict_for_results[participant][2]= True
+
+def create_masked_T1(t1_file, mask_file, file_path):
+    t1_img = nib.load(t1_file)
+    t1_data = t1_img.get_fdata()
+    mask_img = nib.load(mask_file)
+    mask_data = mask_img.get_fdata()
+    t1_data *= mask_data
+    out = nib.Nifti1Image(t1_data, t1_img.affine)
+    out.to_filename(file_path)
+    return out
+
+def create_ROI_time_series(
+        atlas, 
+        bold_data, 
+        discard_initial:int = 3,
+        bold_filepath= None, 
+        normalise:bool = True):
+    
+    aal_img = nifti_vs_img(atlas)
+
+    masker = NiftiLabelsMasker(labels_img=aal_img, standardize=normalise)
+
+    time_series = transform_masker(bold_data=bold_data, 
+                            masker = masker,
+                            bold_filepath=bold_filepath,
+                            discard_initial=discard_initial)
+    
+    return time_series
+
+def create_VOX_time_series(
+        mask,
+        bold_data, 
+        bold_filepath = None,
+        discard_initial:int = 3,
+        normalise:bool = True):
+    
+    masker = NiftiMasker(mask_img=mask,
+                         standardize=normalise)
+    
+    time_series = transform_masker(bold_data=bold_data, 
+                            masker = masker,
+                            bold_filepath=bold_filepath,
+                            discard_initial=discard_initial)
+    
+    return time_series
+
+def diffusion_to_t1space(moving_file, 
+                         static_file, 
+                         trk_file,
+                         mni= False, 
+                         smooth = False, 
+                         save = False):
+    # TODO this needs to be cleaned up.
+    # Moving file is in diffusion space
+    if mni:
+    # Ignore
+        static_file = 'C:/Users/nicol/Documents/Doctorat/Data/Atlas_Maps/FSL_HCP1065_FA_1mm.nii.gz'
+        mapping = find_transform(static_file, moving_file, diffeomorph=False)
+    else:
+    # T1 file
+        mapping = find_transform(static_file, moving_file, only_affine=True)
+
+    # For every tract you want to register
+    for r in ["1"]:
+    # Or hardcode the filename
+        trk = load_tractogram(trk_file, 'same')
+
+        stream_reg = transform_streamlines(trk.streamlines,
+                                       # np.linalg.inv(mapping.affine))
+                                       mapping.affine)
+
+        sft_reg = StatefulTractogram(
+            stream_reg, 
+            nib.load(static_file), 
+            Space.RASMM)
+
+    # trk_new = StatefulTractogram(streams, trk, Space.VOX,
+    #                                  origin=Origin.TRACKVIS)
+
+        if mni:
+            out_file = trk_file[:-4]+'_mni.trk'
+        else:
+            out_file = trk_file[:-4]+'_T1.trk'
+        if save is not None:
+            save_tractogram(sft_reg, save, bbox_valid_check=False)
+
+        if smooth:
+        # For visualization, not computing
+            smooth_streamlines(out_file, out_file=out_file[:-4]+'_smoothed.trk',
+                           iterations=50)
+        
+        return sft_reg
 
 def mask_generator(white_matter_probability,
                    grey_matter_probability=None, 
@@ -76,124 +304,31 @@ def mask_generator(white_matter_probability,
     else: 
         print(f"Invalid mask type specified: {mask_type}. Valid values are \"white\" and \"grey\"")
 
-def complete_data_compiler(dfmri_fp, 
-                           bold_fp,
-                             data_filepath=None):
-    """
-    Docstring for complete_data_compiler
+def mask_to_positions(mask):
+    if type(mask) == Nifti1Image:
+        wm_data = mask.get_fdata()
+    else: 
+        wm_data = mask
     
-    :param dfmri_fp: Description
-    :param bold_fp: str
-        Filepath to the derivative folder where preprocessed fMRI data lives
-    :param data_filepath: Description
-    """
-
-    # First crawl through the dMRI folder and get every subject and session
-    #  pair for which there is data
-    dict_for_results = {}
-    for folder in os.listdir(dfmri_fp):
-        split_name = folder.split(sep = "_")
-        subj_number = split_name[1]
-        session = split_name[-1]
-        identifier = f"TAU{subj_number.zfill(3)}"
-        available_data = [session, True, False, False]
-
-        dict_for_results[identifier] = available_data
+    wm_positions = np.array(np.nonzero(wm_data)).T
     
-       
-    # Iterate through all the patients that we have dmri data for
+    return wm_positions
 
-    for participant in dict_for_results:
-        session = dict_for_results[participant][0]
-        bold_path = path.join(bold_fp, 
-                              f"sub-{participant}", 
-                              session, "func", 
-                              f"sub-{participant}_{session}_task-rest_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz")
-        if os.path.exists(bold_path):
-            dict_for_results[participant][2]= True
-
-def diffusion_to_t1space(moving_file, 
-                         static_file, 
-                         trk_file,
-                         mni= False, 
-                         smooth = False, 
-                         save = False):
-    # TODO this needs to be cleaned up.
-    # Moving file is in diffusion space
-    if mni:
-    # Ignore
-        static_file = 'C:/Users/nicol/Documents/Doctorat/Data/Atlas_Maps/FSL_HCP1065_FA_1mm.nii.gz'
-        mapping = find_transform(static_file, moving_file, diffeomorph=False)
+def nifti_vs_img(object):
+    """
+    Checks input to insure it is either a nifti image, 
+    or a path to a nifti image
+    
+    :param object: the object provided
+    """
+    if type(object) is str:
+        img = nib.load(object)
+    elif type(object) is Nifti1Image:
+        img = object
     else:
-    # T1 file
-        mapping = find_transform(static_file, moving_file, only_affine=True)
-
-    # For every tract you want to register
-    for r in ["1"]:
-    # Or hardcode the filename
-        trk = load_tractogram(trk_file, 'same')
-
-        stream_reg = transform_streamlines(trk.streamlines,
-                                       # np.linalg.inv(mapping.affine))
-                                       mapping.affine)
-
-        sft_reg = StatefulTractogram(
-            stream_reg, 
-            nib.load(static_file), 
-            Space.RASMM)
-
-    # trk_new = StatefulTractogram(streams, trk, Space.VOX,
-    #                                  origin=Origin.TRACKVIS)
-
-        if mni:
-            out_file = trk_file[:-4]+'_mni.trk'
-        else:
-            out_file = trk_file[:-4]+'_T1.trk'
-        if save:
-            save_tractogram(sft_reg, out_file, bbox_valid_check=False)
-
-        if smooth:
-        # For visualization, not computing
-            smooth_streamlines(out_file, out_file=out_file[:-4]+'_smoothed.trk',
-                           iterations=50)
-        
-        return sft_reg
-            
-def voxel_to_streamline_map(streamlines, vol_shape):
-    mapping = defaultdict(set)
-
-    failure_count = 0
-
-    # Try to upsample the streamlines
-
-    min_coord = 100000000
-    max_coord = -1000000
-    for idx, streamline in enumerate(tqdm(streamlines, "Vox-SL")):
-        # Force an integer value for the streamline index
-        vox = np.round(streamline).astype(np.int32)
-
-        if vox.min() < min_coord:
-            min_coord = vox.min()
-        if vox.max() > max_coord:
-            max_coord = vox.max()
-               
-
-        # Remove points outside the shape
-        valid_vox = (
-                        (vox[:,0] >= 0) & (vox[:, 0] < vol_shape[0]) &
-                        (vox[:,1] >= 0) & (vox[:, 1] < vol_shape[1]) &
-                        (vox[:,2] >= 0) & (vox[:, 2] < vol_shape[2])
-        )
-        if np.sum(valid_vox) < 3:
-            failure_count += 1
-        vox = vox[valid_vox]
-
-        # One streamline should only be counted once per voxel
-        for v in map(tuple, np.unique(vox, axis=0)):
-            mapping[v].add(idx)
-            
-    # Convert sets → lists for downstream use
-    return {k: list(v) for k, v in mapping.items()}
+        raise TypeError(("Image should be provided as either a path "
+            "to an Nifti image, or Nifti image object."))
+    return img
 
 def sl_to_roi_map(
         streamlines,
@@ -223,53 +358,6 @@ def sl_to_roi_map(
 
     return mapping
 
-def conn_matrices(
-        sl_roi_map, 
-        vox_sl_map,
-        atlas_data,
-        mask_positions = None
-):
-    unique_values = np.unique(atlas_data)
-    number_uniques = len(unique_values)
-    voxel_cm = {}
-
-    if mask_positions is None:
-        for voxel in tqdm(vox_sl_map.keys()):
-            voxel_sls = vox_sl_map[voxel]
-            temp_array = np.zeros(shape=(number_uniques,number_uniques))
-            for sl in voxel_sls:
-                start = sl_roi_map[sl][0]
-                end = sl_roi_map[sl][1]
-                temp_array[start,end] += 1
-            temp_array = temp_array + temp_array.T
-            conn_mat = sparse.COO.from_numpy(temp_array)
-            voxel_cm[voxel] = conn_mat
-    else:
-        for voxel in tqdm(vox_sl_map.keys()):
-            if voxel not in mask_positions:
-                continue
-            voxel_sls = vox_sl_map[voxel]
-            temp_array = np.zeros(shape=(number_uniques,number_uniques))
-            for sl in voxel_sls:
-                start = sl_roi_map[sl][0]
-                end = sl_roi_map[sl][1]
-                temp_array[start,end] += 1
-                temp_array[end,start] += 1
-            conn_mat = sparse.COO.from_numpy(temp_array)
-            voxel_cm[voxel] = conn_mat
-
-    return voxel_cm
-
-def vox_sl_sanity_check(vox_sl):
-    sum = 0
-    for key in vox_sl.keys():
-        if len(vox_sl[key]) != 0:
-            sum += 1
-    if sum != 0:
-        return True
-    else:
-        return False
-
 def sl_roi_map_sanity_check(sl_roi_map):
     sum = 0
     for key in sl_roi_map.keys():
@@ -279,73 +367,6 @@ def sl_roi_map_sanity_check(sl_roi_map):
         return False
     else:
         return True
-
-def conn_matrices_V2(
-        sl_roi_map, 
-        vox_sl_map,
-        atlas_data,
-        mask_positions
-):
-    if not (vox_sl_sanity_check(vox_sl_map)):
-        raise ValueError("Voxel mappings are duds.")
-    if not (sl_roi_map_sanity_check(sl_roi_map)):
-        raise ValueError("SL-ROI map is a dud.")
-
-    v_coord = []
-    rows = []
-    cols = []
-    values = []
-    conn_mat_sz =len(np.unique(atlas_data))-1
-    N = len(mask_positions)
-    for idx, voxel in enumerate(mask_positions):
-        voxel_tuple = tuple(voxel)
-        if voxel_tuple not in vox_sl_map.keys():
-            continue
-        for sl in vox_sl_map[voxel_tuple]:
-            if sl not in sl_roi_map.keys():
-                continue
-            start = sl_roi_map[sl][0]
-            end = sl_roi_map[sl][1]
-            if start == end:
-                continue
-            if (type(start) is not int
-                or type(end) is not int):
-                raise ValueError(f"Non int value: {start}\n"
-                                 f"{end}")
-            voxel_coord = idx
-            start_coord = start - 1
-            end_coord = end - 1 
-            if (start_coord >= N
-                or end_coord >= N):
-                raise ValueError(f"Start or end coord is out of bounds"
-                                 f"Start: {start_coord}"
-                                 f"End: {end_coord}"
-                                 f"Bound: {conn_mat_sz}")
-            if (voxel_coord < 0 or voxel_coord >= N):
-                raise ValueError(f"Voxel coordinate is out of"
-                                 f"bounds: {voxel_coord}")
-            v_coord.append(voxel_coord)
-            v_coord.append(voxel_coord)
-            rows.append(start_coord)
-            cols.append(end_coord)
-            values.append(1) 
-            rows.append(end_coord)
-            cols.append(start_coord)
-            values.append(1)
-
-    coords = np.vstack([v_coord, rows, cols])
-
-    all_cms = sparse.COO(
-        coords=coords,
-        data = values,
-        shape=(N,conn_mat_sz, conn_mat_sz),
-        has_duplicates=True
-    )
-
-    return all_cms
-    
-    
-
 
 def value_in_bounds(
         coords, 
@@ -425,34 +446,54 @@ def voxel_to_streamline_map_V2(
     # Convert sets → lists for downstream use
     return {k: list(v) for k, v in mapping.items()}
 
-def mask_to_positions(mask):
-    if type(mask) == Nifti1Image:
-        wm_data = mask.get_fdata()
-    else: 
-        wm_data = mask
-    
-    wm_positions = np.array(np.nonzero(wm_data)).T
-    
-    return wm_positions
+def voxel_to_streamline_map(streamlines, vol_shape):
+    mapping = defaultdict(set)
+
+    failure_count = 0
+
+    # Try to upsample the streamlines
+
+    min_coord = 100000000
+    max_coord = -1000000
+    for idx, streamline in enumerate(tqdm(streamlines, "Vox-SL")):
+        # Force an integer value for the streamline index
+        vox = np.round(streamline).astype(np.int32)
+
+        if vox.min() < min_coord:
+            min_coord = vox.min()
+        if vox.max() > max_coord:
+            max_coord = vox.max()
+               
+
+        # Remove points outside the shape
+        valid_vox = (
+                        (vox[:,0] >= 0) & (vox[:, 0] < vol_shape[0]) &
+                        (vox[:,1] >= 0) & (vox[:, 1] < vol_shape[1]) &
+                        (vox[:,2] >= 0) & (vox[:, 2] < vol_shape[2])
+        )
+        if np.sum(valid_vox) < 3:
+            failure_count += 1
+        vox = vox[valid_vox]
+
+        # One streamline should only be counted once per voxel
+        for v in map(tuple, np.unique(vox, axis=0)):
+            mapping[v].add(idx)
+            
+    # Convert sets → lists for downstream use
+    return {k: list(v) for k, v in mapping.items()}
+
+def vox_sl_sanity_check(vox_sl):
+    sum = 0
+    for key in vox_sl.keys():
+        if len(vox_sl[key]) != 0:
+            sum += 1
+    if sum != 0:
+        return True
+    else:
+        return False
 
 def is_sparse(arr):
     return isinstance(arr, sparse.COO)
-
-def nifti_vs_img(object):
-    """
-    Checks input to insure it is either a nifti image, 
-    or a path to a nifti image
-    
-    :param object: the object provided
-    """
-    if type(object) is str:
-        img = nib.load(object)
-    elif type(object) is Nifti1Image:
-        img = object
-    else:
-        raise TypeError(("Image should be provided as either a path "
-            "to an Nifti image, or Nifti image object."))
-    return img
 
 def transform_masker(bold_data, 
                      masker,
@@ -468,41 +509,6 @@ def transform_masker(bold_data,
 
     return time_series[discard_initial:]
 
-def create_ROI_time_series(
-        atlas, 
-        bold_data, 
-        discard_initial:int = 3,
-        bold_filepath= None, 
-        normalise:bool = True):
-    
-    aal_img = nifti_vs_img(atlas)
-
-    masker = NiftiLabelsMasker(labels_img=aal_img, standardize=normalise)
-
-    time_series = transform_masker(bold_data=bold_data, 
-                            masker = masker,
-                            bold_filepath=bold_filepath,
-                            discard_initial=discard_initial)
-    
-    return time_series
-
-def create_VOX_time_series(
-        mask,
-        bold_data, 
-        bold_filepath = None,
-        discard_initial:int = 3,
-        normalise:bool = True):
-    
-    masker = NiftiMasker(mask_img=mask,
-                         standardize=normalise)
-    
-    time_series = transform_masker(bold_data=bold_data, 
-                            masker = masker,
-                            bold_filepath=bold_filepath,
-                            discard_initial=discard_initial)
-    
-    return time_series
-    
 def fc_mat_gen(
         timeseries, 
         method: str = "nilearn", 
@@ -764,16 +770,6 @@ def time_slicing(data, slice_length, sliding= False, axis:int = 3):
 
     return np.stack(slices)
 
-def create_masked_T1(t1_file, mask_file, file_path):
-    t1_img = nib.load(t1_file)
-    t1_data = t1_img.get_fdata()
-    mask_img = nib.load(mask_file)
-    mask_data = mask_img.get_fdata()
-    t1_data *= mask_data
-    out = nib.Nifti1Image(t1_data, t1_img.affine)
-    out.to_filename(file_path)
-    return out
-
 def split_nifti_to_visualise(original_fp:str):
     original = nib.load(original_fp)
     original_data = original.get_fdata()
@@ -795,7 +791,6 @@ def trk_vs_filepath(trk_obj):
         raise ValueError(f"Expected either a stateful tractogram," 
                          f"or a path to a trk file")
 
-
 def trk2tck(input_file: str):
     tract = load_tractogram(input_file, 'same')
     save_tractogram(tract, input_file[:-3]+'tck')
@@ -810,3 +805,22 @@ def simple_weighting(SC, FC):
    resultant = np.multiply(normed_SC, FC)
 
    return resultant
+
+def sparse_equality(sparse_1, sparse_2):
+    """
+   Simple function to check for equality between 
+   two sparse arrays
+    
+    :param sparse_1: sparse.COO array
+        First array to check
+    :param sparse_2: sparse.COO array
+        Second array to check
+    """
+    if sparse_1.shape != sparse_2.shape:
+        return False
+    if sparse_1.nnz != sparse_2.nnz:
+        return False
+    if (sparse_1-sparse_2).nnz !=0:
+        return False
+    else:
+        return True

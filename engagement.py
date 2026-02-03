@@ -172,7 +172,7 @@ def trk_report(trk, value):
     print(f"Axis 1 Max = {max_ax1}, Min = {min_ax1}")
     print(f"Axis 2 Max = {max_ax2}, Min = {min_ax2}")
 
-def generate_VWSC_matrices(atlas_data, 
+def generate_VWSC_matrices_entire_sl(atlas_data, 
                            trk, 
                            v2f_mapping = None,
                            white_matter_prob = None, 
@@ -276,12 +276,11 @@ def generate_VWSC_matrices(atlas_data,
         axis = 0)
     return all_connectivity_matrices, wm_positions
 
-def generate_VWSC_matrices_V3(atlas_data, 
+def generate_VWSC_matrices_ep_only(atlas_data, 
                            trk, 
                            v2f_mapping = None,
                            white_matter_prob = None, 
                            white_matter_mask = None, 
-                           verbose = False, 
                            segmentation = 1):
     """
     Generate a structural connectivity matrix for every white matter voxel. 
@@ -291,7 +290,7 @@ def generate_VWSC_matrices_V3(atlas_data,
     white matter voxel are then extracted from the mask. For each voxel, a 
     connectivity matrix is generated showing how strongly each region of 
     interest is connected via the voxel. These are stored as sparse arrays and 
-    returned as a sparse array.
+    returned as a sparse array.Endpoints only.
     
     :param atlas_data: Array like
         The labels of the ROI. 
@@ -305,7 +304,8 @@ def generate_VWSC_matrices_V3(atlas_data,
         white_matter_mask
     :param verbose: If true, prints the number or failures. 
     """
-    if white_matter_mask is None and white_matter_prob is None:
+    if (white_matter_mask is None 
+        and white_matter_prob is None):
         raise ValueError(f"Please provide either white_matter_mask" 
                          f"or white_matter_probability file")
     
@@ -313,7 +313,6 @@ def generate_VWSC_matrices_V3(atlas_data,
         trk.to_vox()
     if trk.origin != Origin.TRACKVIS:
         trk.to_corner()
-
     if v2f_mapping is None:
         v2f_mapping = voxel_to_streamline_map_V2(
             trk.streamlines, 
@@ -331,20 +330,16 @@ def generate_VWSC_matrices_V3(atlas_data,
 
     # Generate a white matter mask if probability is provided:
     if white_matter_mask is None:
-        wm_mask = mask_generator(white_matter_probability=white_matter_prob, 
-                                 smoothing=False)
+        wm_mask = mask_generator(
+            white_matter_probability=white_matter_prob, 
+            smoothing=False)
     else:
         wm_mask = nib.load(white_matter_mask)
-    
-    # Generate all white matter positions
     wm_positions = mask_to_positions(wm_mask)
-
-    # Improved Efficiency
     sl_roi_map  = sl_to_roi_map(
         trk.streamlines,
         atlas_data
     )
-
     all_connectivity_matrices = conn_matrices_V2(
         sl_roi_map=sl_roi_map,
         vox_sl_map=v2f_mapping,
@@ -368,16 +363,18 @@ def ebc_computation(numpy_matrix, inverted_values):
     g = nx.from_numpy_array(numpy_matrix, 
                             edge_attr = "weight")
     
-    ebc_dict= edge_betweenness_centrality(G=g, weight="weight", normalized=False)
+    ebc_dict= edge_betweenness_centrality(
+        G=g, 
+        weight="weight", 
+        normalized=False
+    )
     ebc_mat = np.zeros_like(numpy_matrix)
     for key in ebc_dict.keys():
         ebc_mat[key[0], key[1]] = ebc_dict[key]
         ebc_mat[key[1], key[0]] = ebc_dict[key]
-    
-
     return ebc_mat
 
-def value_threshold(matrix, value_threshold = 0.2):
+def matrix_value_thresholding(matrix, value_threshold = 0.2):
     """
     Produces a new matrix, retaining only values over a certain threshold. 
     Default is 0.2, which applies mainly to correlation matrices. 
@@ -385,7 +382,10 @@ def value_threshold(matrix, value_threshold = 0.2):
     :param matrix: Description
     :param value_threshold: Description
     """
-    filtered = np.where(matrix > value_threshold, matrix, 0)
+    if value_threshold >= 0: 
+        filtered = np.where(matrix > value_threshold, matrix, 0)
+    else:
+        filtered = np.where(matrix < value_threshold, matrix, 0)
     return filtered
 
 def correlation_thresholding(matrix, proportion=0.9, 
@@ -402,7 +402,9 @@ def correlation_thresholding(matrix, proportion=0.9,
 
     """
     if value_threshold is not None:
-        filtered = np.where(matrix > value_threshold, matrix, 0)
+        filtered = matrix_value_thresholding(
+            matrix,
+            value_threshold)
         if keep_diagonal:
             np.fill_diagonal(filtered, np.diag(matrix))
         else:
