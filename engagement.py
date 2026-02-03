@@ -103,10 +103,10 @@ def engagement_calculation(EBC_matrix,
                 if numerator == 0:
                     result.append(0)
                 else:
-                    raise ValueError(f"The denominator is 0 but the numerator is {numerator}")
+                    raise ValueError(f"The denominator is 0 "
+                                     f"but the numerator is {numerator}")
             denominators.append(denom)
             
-
         result = np.array(result)
 
         plt.hist(numerators)
@@ -252,15 +252,17 @@ def generate_VWSC_matrices_entire_sl(atlas_data,
             no_streamlines.append(tuple(voxel))
         else:
             streamline_indices = v2f_mapping[tuple(voxel)]
-            conn_mat = connectivity_matrix(trk.streamlines[streamline_indices], 
-                                           atlas_data,inclusive=False)
+            conn_mat = connectivity_matrix(
+                trk.streamlines[streamline_indices], 
+                atlas_data,inclusive=False
+            )
             
         
         conn_mat = np.delete(conn_mat, 0, 0)
         conn_mat = np.delete(conn_mat, 0, 1)
 
         if np.count_nonzero(conn_mat) > 0:
-                non_zero_count += 1
+            non_zero_count += 1
 
         conn_mat = sparse.COO.from_numpy(conn_mat)
         all_connectivity_matrices.append(conn_mat)
@@ -276,12 +278,13 @@ def generate_VWSC_matrices_entire_sl(atlas_data,
         axis = 0)
     return all_connectivity_matrices, wm_positions
 
-def generate_VWSC_matrices_ep_only(atlas_data, 
-                           trk, 
-                           v2f_mapping = None,
-                           white_matter_prob = None, 
-                           white_matter_mask = None, 
-                           segmentation = 1):
+def generate_VWSC_matrices_ep_only(
+        atlas_data, 
+        trk, 
+        v2f_mapping = None,
+        white_matter_prob = None, 
+        white_matter_mask = None, 
+        segmentation = 1):
     """
     Generate a structural connectivity matrix for every white matter voxel. 
     It first generates a mapping of voxel to streamline. This identifies the 
@@ -340,7 +343,7 @@ def generate_VWSC_matrices_ep_only(atlas_data,
         trk.streamlines,
         atlas_data
     )
-    all_connectivity_matrices = conn_matrices_V2(
+    all_connectivity_matrices, _ = conn_matrices_V2(
         sl_roi_map=sl_roi_map,
         vox_sl_map=v2f_mapping,
         atlas_data=atlas_data,
@@ -465,20 +468,33 @@ def dynamic_engagement(sliced_time_series, connectivity_matrices):
         connectivity_matrices = sparse.asnumpy(connectivity_matrices)
 
 
-    engagement = np.einsum("ijk,njk->ni", ebc_matrices, connectivity_matrices)
+    engagement = np.einsum(
+        "ijk,njk->ni", 
+        ebc_matrices, 
+        connectivity_matrices)
 
     return engagement
 
-def reshape_engagement(shape, 
-                       wm_positions, 
-                       engagement_vals):
+def reshape_engagement(
+        shape, 
+        wm_positions, 
+        engagement_vals
+):
+    if len(wm_positions) != len(engagement_vals):
+        raise ValueError("The wm_positions and engagement values" \
+        " are not the same size")
     
     brain_template = np.zeros(shape = shape)
-
-    for idx, position in enumerate((wm_positions, "Reshaping Engagement")):
-        #print(f"Position: {position}\nValue: {engagement_values[idx]}\n")
-        value = engagement_vals[idx]
-        brain_template[tuple(position)] = value
+    for idx, position in enumerate(wm_positions):
+        try:
+            value = engagement_vals[idx]
+            brain_template[tuple(position)] = value
+        except IndexError as e:
+            print(f"Index: {idx}, Position: {position}\n"
+                  f"Max allowed index: {len(engagement_vals)-1}\n"
+                  f"Length of wm mask: {len(wm_positions)}")
+            raise e
+            
 
     return brain_template
 
@@ -489,9 +505,11 @@ def reshape_engagement_slices(
     
     all_slices = []
     for i in tqdm(range(sliced_engagement.shape[1]), "Reshaping"):
-        slice =  reshape_engagement(shape=image_template.shape,
-                                    wm_positions=wm_positions,
-                                    engagement_vals=sliced_engagement[:, i])
+        slice =  reshape_engagement(
+            shape=image_template.shape,
+            wm_positions=wm_positions,
+            engagement_vals=sliced_engagement[:, i]
+        )
         all_slices.append(slice)
 
     return np.stack(all_slices, axis=-1)

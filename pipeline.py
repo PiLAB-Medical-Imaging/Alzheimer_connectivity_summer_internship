@@ -781,6 +781,9 @@ def the_grand_central_pipeline(
         EBC_matrix=ebc_matrix_pos,
         SC_matrices=cms,
     )
+    plt.hist(pos_eng)
+    plt.loglog()
+    plt.show()
     neg_eng = engagement_calculation(
         EBC_matrix=ebc_neg,
         SC_matrices=cms,
@@ -803,25 +806,29 @@ def the_grand_central_pipeline(
         affine=wm_mask.affine
     )
     save_engagement(
-        engagement_values=pos_eng,
+        engagement_values=neg_eng,
         wm_positions=wm_pos,
         dimensions=wm_mask.get_fdata().shape,
         save_path=neg_eng_fp,
         affine=wm_mask.affine
     )
 
-
-    
-    
-
-
-    
-
-
-
-
-
-
+    funct_fn = (subj_id 
+                +"_ses-" 
+                +str(session_num) 
+                +"functionnectome.gii.zii"
+    )
+    funct_fp = path.join(
+        destination_folder,
+        funct_fn
+    )
+    functionnectome_pipeline(
+        atlas_path=atlas_fp,
+        fMRI_path=bold_filepath,
+        tractogram=trk,
+        grey_matter_mask=gm_mask,
+        functionnectome_savepath=funct_fp
+    )
 
 
 if __name__ == "__main__":

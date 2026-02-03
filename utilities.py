@@ -84,7 +84,7 @@ def conn_matrices_V2(
         if voxel_tuple not in vox_sl_map.keys():
             continue
         for sl in vox_sl_map[voxel_tuple]:
-            if sl not in sl_roi_map.keys():
+            if sl not in sl_roi_map.keys():   
                 continue
             start = sl_roi_map[sl][0]
             end = sl_roi_map[sl][1]
