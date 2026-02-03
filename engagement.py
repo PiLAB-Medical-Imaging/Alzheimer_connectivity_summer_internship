@@ -352,7 +352,6 @@ def generate_VWSC_matrices_V2(atlas_data,
         mask_positions=wm_positions
     )
 
-    cms = conn
 
 
     
@@ -440,27 +439,15 @@ def generate_VWSC_matrices_V3(atlas_data,
         atlas_data
     )
 
-    cn_matrices = conn_matrices(
+    all_connectivity_matrices = conn_matrices_V2(
         sl_roi_map=sl_roi_map,
         vox_sl_map=v2f_mapping,
         atlas_data=atlas_data,
         mask_positions=wm_positions
     )
-    
-    roi_num = len(np.unique(atlas_data))
-    all_connectivity_matrices = []
-
-    for idx, voxel in enumerate(tqdm(wm_positions, "VW SC matrices")):
-        voxel = tuple(voxel)
-        try:
-            all_connectivity_matrices.append(cn_matrices[voxel])
-        except KeyError as e:
-            zero_matrix = np.zeros(shape=(roi_num, roi_num))
-            sparse_version = sparse.COO.from_numpy(zero_matrix)
-            all_connectivity_matrices.append(sparse_version)
-    
-    all_connectivity_matrices = sparse.stack(all_connectivity_matrices, axis = 0)
     return all_connectivity_matrices, wm_positions
+
+
 def ebc_computation(numpy_matrix, inverted_values):
     """
     Simple wrapper to calculate the EBC matrix starting with a functional 

@@ -260,16 +260,41 @@ def conn_matrices(
 
     return voxel_cm
 
-def conn_matrices_V2(sl_roi_map, 
+def vox_sl_sanity_check(vox_sl):
+    sum = 0
+    for key in vox_sl.keys():
+        if len(vox_sl[key]) != 0:
+            sum += 1
+    if sum != 0:
+        return True
+    else:
+        return False
+
+def sl_roi_map_sanity_check(sl_roi_map):
+    sum = 0
+    for key in sl_roi_map.keys():
+        if type(sl_roi_map[key]) != tuple:
+            sum += 1
+    if sum != 0:
+        return False
+    else:
+        return True
+
+def conn_matrices_V2(
+        sl_roi_map, 
         vox_sl_map,
         atlas_data,
         mask_positions
 ):
+    if not (vox_sl_sanity_check(vox_sl_map)):
+        raise ValueError("Voxel mappings are duds.")
+    if not (sl_roi_map_sanity_check(sl_roi_map)):
+        raise ValueError("SL-ROI map is a dud.")
+
     v_coord = []
     rows = []
     cols = []
     values = []
-
     conn_mat_sz =len(np.unique(atlas_data))-1
     N = len(mask_positions)
     for idx, voxel in enumerate(mask_positions):
@@ -277,18 +302,41 @@ def conn_matrices_V2(sl_roi_map,
         if voxel_tuple not in vox_sl_map.keys():
             continue
         for sl in vox_sl_map[voxel_tuple]:
-            v_coord.append(idx)
+            if sl not in sl_roi_map.keys():
+                continue
             start = sl_roi_map[sl][0]
             end = sl_roi_map[sl][1]
-            rows.append(start)
-            cols.append(end)
+            if start == end:
+                continue
+            if (type(start) is not int
+                or type(end) is not int):
+                raise ValueError(f"Non int value: {start}\n"
+                                 f"{end}")
+            voxel_coord = idx
+            start_coord = start - 1
+            end_coord = end - 1 
+            if (start_coord >= N
+                or end_coord >= N):
+                raise ValueError(f"Start or end coord is out of bounds"
+                                 f"Start: {start_coord}"
+                                 f"End: {end_coord}"
+                                 f"Bound: {conn_mat_sz}")
+            if (voxel_coord < 0 or voxel_coord >= N):
+                raise ValueError(f"Voxel coordinate is out of"
+                                 f"bounds: {voxel_coord}")
+            v_coord.append(voxel_coord)
+            v_coord.append(voxel_coord)
+            rows.append(start_coord)
+            cols.append(end_coord)
             values.append(1) 
-            rows.append(end)
-            cols.append(start)
+            rows.append(end_coord)
+            cols.append(start_coord)
             values.append(1)
-    
+
+    coords = np.vstack([v_coord, rows, cols])
+
     all_cms = sparse.COO(
-        coords=[v_coord,rows,cols],
+        coords=coords,
         data = values,
         shape=(N,conn_mat_sz, conn_mat_sz),
         has_duplicates=True
