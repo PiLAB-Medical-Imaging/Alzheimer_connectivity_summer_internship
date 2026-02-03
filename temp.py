@@ -8,8 +8,9 @@ from dipy.io.stateful_tractogram import StatefulTractogram
 from utilities import dilate_atlas_labels, atlas_masker, time_slicing
 from utilities import split_nifti_to_visualise, diffusion_to_t1space, mask_to_positions
 from utilities import sl_to_roi_map, voxel_to_streamline_map_V2, conn_matrices, conn_matrices_V2
-from engagement import generate_VWSC_matrices
+from engagement import generate_VWSC_matrices_entire_sl, generate_VWSC_matrices_ep_only
 from time import time
+import sparse
 trk = load_tractogram("/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1.trk",
                       reference="same")
 
@@ -43,7 +44,7 @@ t2 = time()
 print(f"Conn_mats 1 mapping runtime: {t2-t1}") """
 
 
-mask = "/Users/sam/Desktop/sub-TAU001/test_mask_red.nii.gz"
+mask = "/Users/sam/Desktop/sub-TAU001/sub-TAU001_space-T1w_label-WM_mask.nii.gz"
 mask_img = nib.load(mask)
 mask_pos = mask_to_positions(mask_img)
 
@@ -59,7 +60,17 @@ t2 = time()
 print(f"conn mats 2 runtime: {t2-t1}")
 
 t1 = time()
-cms_old_method = generate_VWSC_matrices(
+cms_old_method, wm_positions = generate_VWSC_matrices_entire_sl(
+    atlas_data=atlas.get_fdata(),
+    trk =trk,
+    v2f_mapping=vx_sl_map,
+    white_matter_mask=mask
+)
+t2 = time()
+print(f"Old method {t2-t1} s")
+
+t1 = time()
+cms_new_method, wm_positions = generate_VWSC_matrices_ep_only(
     atlas_data=atlas.get_fdata(),
     trk =trk,
     v2f_mapping=vx_sl_map,
@@ -67,9 +78,22 @@ cms_old_method = generate_VWSC_matrices(
 )
 t2 = time()
 
-print(f"Old method {t2-t1} s")
+print(f"New method {t2-t1} s")
 
-print(f"Old emthod\n"
-      f"{cms_old_method}\n"
-      f"New method\n"
-      f"{conn_mats}")
+print(f"New non-zeros {cms_new_method.nnz}\n"
+      f"Shape: {cms_new_method.shape}")
+
+def sparse_equality(sparse_1, sparse_2):
+    if sparse_1.shape != sparse_2.shape:
+        return False
+    if sparse_1.nnz != sparse_2.nnz:
+        return False
+    if (sparse_1-sparse_2).nnz !=0:
+        return False
+    else:
+        return True
+
+if  sparse_equality(cms_old_method, cms_new_method):
+    print("Sweet as bruh")
+else:
+    print("Not the same.")

@@ -21,9 +21,9 @@ from utilities import connectivity_matrix_generation, visualise_square_mat, nift
 from utilities import normalise, create_masked_T1, atlas_registration, mask_to_positions, voxel_to_streamline_map_V2
 from utilities import create_ROI_time_series, create_VOX_time_series, diffusion_to_t1space
 from utilities import trk_vs_filepath, dilate_atlas_labels
-from engagement import correlation_thresholding, ebc_computation
-from engagement import generate_VWSC_matrices_V2, engagement_calculation, generate_VWSC_matrices
-from engagement import save_connectivity_matrices,save_engagement
+from engagement import correlation_thresholding, ebc_computation, reshape_engagement
+from engagement import engagement_calculation, generate_VWSC_matrices_entire_sl
+from engagement import save_connectivity_matrices,save_engagement, generate_VWSC_matrices_ep_only
 from functionnectome import compute_connection_probability
 from functionnectome import vectorised_probability_maps, functionnectome
 import utilities
@@ -322,7 +322,7 @@ def engagement_pipeline(bold_data,
     
     if white_matter_mask is not None:
         t1 = time()
-        all_connectivity_matrices, wm_positions = generate_VWSC_matrices(
+        all_connectivity_matrices, wm_positions = generate_VWSC_matrices_entire_sl(
                                             white_matter_mask=white_matter_mask,
                                             trk=trk,
                                             atlas_data=atlas_data,
@@ -340,7 +340,7 @@ def engagement_pipeline(bold_data,
         t3 = time()
     else:
         t1 = time()
-        all_connectivity_matrices, wm_positions = generate_VWSC_matrices(
+        all_connectivity_matrices, wm_positions = generate_VWSC_matrices_entire_sl(
             white_matter_prob=white_matter_prob,
             trk=trk,
             atlas_data=atlas_data,
@@ -614,11 +614,7 @@ def the_grand_central_pipeline(
         reference="same")
     trk.to_vox()
     trk.to_corner()
-    """ v2sl_map = voxel_to_streamline_map_V2(
-        streamlines=trk.streamlines,
-        vol_shape=trk.dimensions,
-        subsegment=10
-    ) """
+
     # Whole brain FC and SC
     file_name = subj_id+"_"+str(session_num)+"fc_matrix.npy"
     fc_fp = path.join(destination_folder, file_name)
@@ -642,7 +638,53 @@ def the_grand_central_pipeline(
         np.save(
             file=fc_fp,
             arr=fc_mat)
-        
+
+    ebc_matrix_fn = "pos_ebc.npy"
+    ebc_matrix_fp = path.join(
+        destination_folder,
+        ebc_matrix_fn
+    )
+    if path.exists(ebc_matrix_fp):
+        ebc_matrix_pos = np.load(
+            file=ebc_matrix_fp
+        )
+    else:
+        fc_mat_thresholded = correlation_thresholding(
+            matrix=fc_mat,
+            value_threshold=0.2
+        )
+        ebc_matrix_pos = ebc_computation(
+            numpy_matrix=fc_mat_thresholded,
+            inverted_values=False
+        )
+        np.save(
+            file=ebc_matrix_fp,
+            arr=ebc_matrix_pos
+        )
+
+    ebc_matrix_fn = "neg_ebc.npy"
+    ebc_matrix_fp = path.join(
+        destination_folder,
+        ebc_matrix_fn
+    )
+    if path.exists(ebc_matrix_fp):
+        ebc_neg = np.load(
+            file=ebc_matrix_fp
+        )
+    else:
+        fc_mat_thresholded = correlation_thresholding(
+            matrix=fc_mat,
+            value_threshold=-0.2
+        )
+        ebc_neg = ebc_computation(
+            numpy_matrix=fc_mat_thresholded,
+            inverted_values=False
+        )
+        np.save(
+            file=ebc_matrix_fp,
+            arr=ebc_neg
+        )
+    
     sc_filename = subj_id+"_"+str(session_num)+"sc_matrix.npy"
     sc_fp = path.join(destination_folder, sc_filename)
     if path.exists(sc_fp):
@@ -671,7 +713,6 @@ def the_grand_central_pipeline(
         file=sw_fp,
         arr=sw_mat
     )
-
     # Generate/load a grey matter mask:
     gm_mask_filename = subj_id+"_"+str(session_num)+"gm_mask.nii.gz"
     gm_mask_fp = path.join(
@@ -691,13 +732,90 @@ def the_grand_central_pipeline(
         gm_mask.to_filename(gm_mask_fp)
 
     #Tractogram to the T1w space:
-    realigned_trk = diffusion_to_t1space(
-        moving_file=diffusion_data, 
-        static_file=anatomy_fps["preproc_T1w"],
-        trk_file=trk_file,
-        mni=False,
-        save=True
+    t1_space_fn = trk_file[:-4]+'_T1.trk'
+    t1_space_fp = path.join(
+        tractography_folder,
+        t1_space_fn
     )
+
+    if path.exists(t1_space_fp):
+        realigned_trk = load_tractogram(
+            t1_space_fp, 
+            "same"
+        )
+    else:
+        realigned_trk = diffusion_to_t1space(
+            moving_file=diffusion_data, 
+            static_file=anatomy_fps["preproc_T1w"],
+            trk_file=trk_file,
+            mni=False,
+            save=True
+        )
+    v2sl_map = voxel_to_streamline_map_V2(
+        streamlines=trk.streamlines,
+        vol_shape=trk.dimensions,
+        subsegment=10
+    )
+    # Engagement:
+    wm_mask_filename = subj_id+"_"+str(session_num)+"wm_mask.nii.gz"
+    wm_mask_fp = path.join(
+        anatomy_folder,
+        wm_mask_filename
+    )
+    if path.exists(wm_mask_fp):
+        wm_mask = nib.load(wm_mask_fp)
+    else:
+        wm_mask = mask_generator(
+            white_matter_probability=anatomy_fps["WM_probseg"],
+        )
+        wm_mask.to_filename(
+            filename=wm_mask_fp
+        )
+    cms, wm_pos = generate_VWSC_matrices_ep_only(
+        atlas_data=atlas_img.get_fdata(),
+        trk = trk,
+        v2f_mapping=v2sl_map,
+        white_matter_mask=wm_mask_fp
+    )
+    pos_eng = engagement_calculation(
+        EBC_matrix=ebc_matrix_pos,
+        SC_matrices=cms,
+    )
+    neg_eng = engagement_calculation(
+        EBC_matrix=ebc_neg,
+        SC_matrices=cms,
+    )
+    pos_eng_fn = "pos_eng.nii.gz"
+    neg_eng_fn = "neg_eng.nii.gz"
+    pos_eng_fp = path.join(
+        destination_folder, 
+        pos_eng_fn
+    )
+    neg_eng_fp = path.join(
+        destination_folder, 
+        neg_eng_fn
+    )
+    save_engagement(
+        engagement_values=pos_eng,
+        wm_positions=wm_pos,
+        dimensions=wm_mask.get_fdata().shape,
+        save_path=pos_eng_fp,
+        affine=wm_mask.affine
+    )
+    save_engagement(
+        engagement_values=pos_eng,
+        wm_positions=wm_pos,
+        dimensions=wm_mask.get_fdata().shape,
+        save_path=neg_eng_fp,
+        affine=wm_mask.affine
+    )
+
+
+    
+    
+
+
+    
 
 
 

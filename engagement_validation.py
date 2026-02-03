@@ -6,7 +6,7 @@ from dipy.io.stateful_tractogram import StatefulTractogram, Space, Origin
 from nibabel import Nifti1Image
 import matplotlib.pyplot as plt
 from nilearn import image
-from engagement import generate_VWSC_matrices, correlation_thresholding, ebc_computation
+from engagement import generate_VWSC_matrices_entire_sl, correlation_thresholding, ebc_computation
 from engagement import engagement_calculation, reshape_engagement_slices, generate_VWSC_matrices_V2
 from engagement import fc_mat_gen, create_ROI_time_series, dynamic_engagement
 from utilities import connectivity_matrix_generation, visualise_square_mat, time_slicing, diffusion_to_t1space
