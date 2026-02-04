@@ -59,7 +59,7 @@ if __name__ == "__main__":
         dmri_folder=dmri_folder,
         subj_line=subj_line,
         output_folder=output_folder,
-        id_val=id_val,
+        id_val=id_val+num,
         session=session
     )
 
