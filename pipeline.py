@@ -10,6 +10,7 @@ import seaborn as sns
 
 
 import nibabel as nib
+from nibabel import Nifti1Image
 from nilearn.plotting import plot_matrix, show
 from nilearn import image
 from dipy.io.streamline import load_tractogram
@@ -514,8 +515,7 @@ def register_atlases(
     )
     anatomy_fps = anatamoy_crawler(anatomy_folder)
     brain_only_fp = path.join(destination_folder,"brain_only_t1w.nii.gz")
-    save_path = anatomy_fps["preproc_T1w"][:-7]+"_registered_atlas.nii.gz"
-    save_path = path.join(destination_folder, "_registered_atlas.nii.gz")
+    save_path = path.join(destination_folder, "registered_atlas.nii.gz")
     brain_mask_img = nifti_vs_img(anatomy_fps["brain_mask"])
     brain_mask_data = brain_mask_img.get_fdata()
     t1w_img = nifti_vs_img(anatomy_fps["preproc_T1w"])
@@ -532,8 +532,34 @@ def register_atlases(
         save_path=save_path
         )
 
-
-
+def dilate_atlases(
+        brain_mask,
+        output_folder,
+        dilation_width
+):
+    atlas_path = path.join(
+        output_folder,
+        "registered_atlas.nii.gz"
+    )
+    brain_mask_img = nifti_vs_img(brain_mask)
+    atlas_data = nib.load(atlas_path)
+    dilated_mask = dilate_atlas_labels(
+        atlas=atlas_data,
+        brain_mask=brain_mask_img,
+        dilation_width=dilation_width
+    )
+    dilated_fn = "dilated_atlas.nii.gz"
+    dilated_fp = path.join(
+        output_folder,
+        dilated_fn
+    )
+    dilated_mask_img = Nifti1Image(
+        dataobj=dilated_mask,
+        affine=brain_mask_img.affine,
+    )
+    dilated_mask_img.to_filename(
+        filename=dilated_fp
+    )
 
 def the_grand_central_pipeline(
         fmri_prep_derivatives,
