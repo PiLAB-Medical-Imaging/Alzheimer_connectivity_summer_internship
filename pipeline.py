@@ -592,7 +592,7 @@ def run_engagement(
         session,
         T1_TRACT_NAME
     )
-    trk = load_tractogram(trk_file)
+    trk = load_tractogram(trk_file, "same")
     trk.to_vox()
     trk.to_center()
     v2sl_map = voxel_to_streamline_map_V2(
