@@ -616,6 +616,7 @@ def run_fc_matrix(
         fc_mat = np.load(fc_fp)
     else:
         atlas_filepath = path.join(
+            output_folder,
             subj_id,
             session,
             "registered_atlas.nii.gz"
