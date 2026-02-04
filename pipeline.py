@@ -637,7 +637,39 @@ def run_fc_matrix(
         np.save(
             file=fc_fp,
             arr=fc_mat)
+    return fc_mat
 
+def run_sc_matrix(
+        subj_id,
+        session,
+        output_folder,
+        tractogram_file
+):
+    sc_filename = subj_id+"_"+session+"_sc_matrix.npy"
+    sc_fp = path.join(
+        output_folder,
+        subj_id,
+        session,
+        sc_filename)
+    if path.exists(sc_fp):
+        sc_mat = np.load(sc_fp)
+    else:
+        atlas_fp = path.join(
+            output_folder,
+            subj_id,
+            session,
+            "registered_atlas.nii.gz"
+        )
+        atlas_img = nib.load(atlas_fp)
+        sc_mat = compute_connectivity_matrix(
+            trk_file=tractogram_file,
+            label_volume=atlas_img.get_fdata()
+        )
+        np.save(
+            file=sc_fp,
+            arr=sc_mat
+        )
+    return sc_fp
 
 
 
