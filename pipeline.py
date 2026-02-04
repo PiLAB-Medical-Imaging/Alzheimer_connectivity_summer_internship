@@ -13,7 +13,7 @@ import nibabel as nib
 from nibabel import Nifti1Image
 from nilearn.plotting import plot_matrix, show
 from nilearn import image
-from dipy.io.streamline import load_tractogram
+from dipy.io.streamline import load_tractogram, save_tractogram
 
 from dipy.io.stateful_tractogram import StatefulTractogram
 from regis.core import find_transform, apply_transform
@@ -541,8 +541,36 @@ def dilate_atlases(
         filename=dilated_fp
     )
 
-def tractogram():
-    pass
+def tractogram_registration(
+        tractogram_file,
+        dmri_folder,
+        subj_line,
+        output_folder      
+):
+    moving_file = path.join(
+        dmri_folder,
+        subj_line,
+        "dMRI",
+        "microstructure",
+        "dti",
+        subj_line + "_FA.nii.gz"
+    )
+    brain_only_fp = path.join(output_folder,"brain_only_t1w.nii.gz")
+    new_trk = diffusion_to_t1space(
+        moving_file=moving_file,
+        static_file=brain_only_fp,
+        trk_file=tractogram_file
+    )
+    registered_trk_fn = "T1-space_tracts.trk"
+    registered_trk_fp = path.join(
+        output_folder,
+        registered_trk_fn
+    )
+    save_tractogram(
+        sft = new_trk,
+        filename=registered_trk_fp
+    )
+    
 
 def the_grand_central_pipeline(
         fmri_prep_derivatives,
@@ -617,7 +645,6 @@ def the_grand_central_pipeline(
                 output_path=corrected_atlas_path,
                 labels=True
             )
-
         atlas_registration(
             atlas_path=corrected_atlas_path,
             template_file=atlas_template,
@@ -807,6 +834,8 @@ def the_grand_central_pipeline(
             save=True
         )
     trk = realigned_trk
+    trk.to_vox()
+    trk.to_corner()
 
     v2sl_map = voxel_to_streamline_map_V2(
         streamlines=trk.streamlines,
@@ -852,7 +881,6 @@ def the_grand_central_pipeline(
         white_matter_mask=wm_mask_fp
     )
     print(cms.nnz)
-    raise ValueError("Breakpoint")
     pos_eng = engagement_calculation(
         EBC_matrix=ebc_matrix_pos,
         SC_matrices=cms,

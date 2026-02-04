@@ -2,7 +2,7 @@ import sys
 import os
 from os import path
 from pipeline import register_atlases, find_anat_func_folder, anatamoy_crawler,dilate_atlases
-
+import pipeline as ppl
 if __name__ == "__main__":
     fmri_prep_derivatives_folder = sys.argv[1]
     tractography_folder = sys.argv[2]
@@ -10,6 +10,7 @@ if __name__ == "__main__":
     template_file = sys.argv[4]
     atlas_fp = sys.argv[5]
     output_folder = sys.argv[6]
+    dmri_folder = sys.argv[7]
     print(f"Sanity check\nLength of arguments {len(sys.argv)}")
     print(f"{fmri_prep_derivatives_folder}\n"
           f"{subj_line}\n"
@@ -38,17 +39,28 @@ if __name__ == "__main__":
         session_num=session
     )
     anatomy_fps = anatamoy_crawler(anatomy_folder)
+    tractogram_file = path.join(
+        tractography_folder,
+        subj_line + "_tractogram.trk"
+    )
     """register_atlases(
         template_file=template_file,
         atlas_fp=atlas_fp,
         output_folder=output_folder,
         anatomy_fps=anatomy_fps
     )"""
-    dilate_atlases(
+    """dilate_atlases(
         brain_mask=anatomy_fps["brain_mask"],
         output_folder=destination_folder,
         dilation_width=2
+    )"""
+    ppl.tractogram_registration(
+        tractogram_file=tractogram_file,
+        dmri_folder=dmri_folder,
+        subj_line=subj_line,
+        output_folder=output_folder
     )
+
 
 
     
