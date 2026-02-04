@@ -85,10 +85,10 @@ if __name__ == "__main__":
     ppl.run_engagement(
         subj_id=id_val+num,
         session=session,
-        output_folder=output_folder
+        output_folder=output_folder,
+        anatamy_fps=anatomy_fps
     )
 
 
 
     
-
