@@ -38,19 +38,18 @@ if __name__ == "__main__":
         session_num=session
     )
     anatomy_fps = anatamoy_crawler(anatomy_folder)
-
-    register_atlases(
-        fmri_prep_derivatives=fmri_prep_derivatives_folder,
-        subject_line=subj_line,
+    """register_atlases(
         template_file=template_file,
         atlas_fp=atlas_fp,
-        output_folder=output_folder
-    )
+        output_folder=output_folder,
+        anatomy_fps=anatomy_fps
+    )"""
     dilate_atlases(
         brain_mask=anatomy_fps["brain_mask"],
         output_folder=destination_folder,
         dilation_width=2
     )
+
 
     
 

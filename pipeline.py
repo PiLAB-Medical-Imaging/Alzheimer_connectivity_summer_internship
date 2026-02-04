@@ -487,33 +487,11 @@ def find_tractogram_file(tractography_folder,
     return trk_file
 
 def register_atlases(
-        fmri_prep_derivatives,
-        subject_line,
         atlas_fp, 
         template_file,
-        output_folder):
+        destination_folder,
+        anatomy_fps):
     
-    subj_info = subject_line.split("_")
-    id_val = subj_info[0]
-    num = subj_info[1]
-    num = num.zfill(3)
-    session = subj_info[2]
-
-    destination_folder = path.join(
-        output_folder,
-        id_val+num,
-        session
-    )
-    os.makedirs(
-        destination_folder, 
-        exist_ok=True
-    )
-    anatomy_folder, functional_folder = find_anat_func_folder(
-        fmri_prep_derivatives=fmri_prep_derivatives,
-        subj_id=id_val+num,
-        session_num=session
-    )
-    anatomy_fps = anatamoy_crawler(anatomy_folder)
     brain_only_fp = path.join(destination_folder,"brain_only_t1w.nii.gz")
     save_path = path.join(destination_folder, "registered_atlas.nii.gz")
     brain_mask_img = nifti_vs_img(anatomy_fps["brain_mask"])
@@ -545,7 +523,7 @@ def dilate_atlases(
     atlas_data = nib.load(atlas_path)
     dilated_mask = dilate_atlas_labels(
         atlas=atlas_data,
-        brain_mask=brain_mask_img,
+        brain_mask=brain_mask_img.get_fdata(),
         dilation_width=dilation_width
     )
     dilated_fn = "dilated_atlas.nii.gz"
@@ -560,6 +538,9 @@ def dilate_atlases(
     dilated_mask_img.to_filename(
         filename=dilated_fp
     )
+
+def tractogram():
+    pass
 
 def the_grand_central_pipeline(
         fmri_prep_derivatives,
