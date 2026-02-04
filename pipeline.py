@@ -37,6 +37,7 @@ BRAIN_MASK = "brain_mask.nii.gz"
 T1W_ANAT = "preproc_T1w.nii.gz"
 MNI_REFERENCE = "MNI152_T1_1mm_brain.nii.gz"
 BOLD_TAG = "T1w_desc-preproc_bold.nii.gz"
+T1_TRACT_NAME = "T1-space_tracts.trk"
 
 TARGET_ANAT_FILES = [CSFP_PATH, GMP_PATH, WMP_PATH, BRAIN_MASK, T1W_ANAT]
 
@@ -578,7 +579,27 @@ def tractogram_registration(
         sft = new_trk,
         filename=registered_trk_fp
     )
-    
+
+def run_engagement(
+        subj_id,
+        session,
+        output_folder, 
+        subsegment = 10  
+):
+    trk_file = path.join(
+        output_folder,
+        subj_id,
+        session_num,
+        T1_TRACT_NAME
+    )
+    trk = load_tractogram(trk_file)
+    trk.to_vox()
+    trk.to_center()
+    v2sl_map = voxel_to_streamline_map_V2(
+        streamlines=trk.streamlines,
+        vol_shape=trk.dimensions,
+        subsegment=subsegment
+    ) 
 
 def the_grand_central_pipeline(
         fmri_prep_derivatives,
