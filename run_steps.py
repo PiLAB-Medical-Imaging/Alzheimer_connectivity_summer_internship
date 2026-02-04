@@ -43,6 +43,9 @@ if __name__ == "__main__":
         tractography_folder,
         subj_line + "_tractogram.trk"
     )
+    bold_filepath = ppl.find_bold_filepath(
+        functional_folder=functional_folder
+    )
     """register_atlases(
         template_file=template_file,
         atlas_fp=atlas_fp,
@@ -62,6 +65,12 @@ if __name__ == "__main__":
         id_val=id_val+num,
         session=session
     )"""
+    ppl.run_fc_matrix(
+        subj_id=id_val+num,
+        session=session,
+        output_folder=output_folder,
+        bold_fp=bold_filepath
+    )
     ppl.run_engagement(
         subj_id=id_val+num,
         session=session,

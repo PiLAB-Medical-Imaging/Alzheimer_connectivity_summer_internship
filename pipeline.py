@@ -601,6 +601,44 @@ def run_engagement(
         subsegment=subsegment
     )
 
+def run_fc_matrix(
+        subj_id,
+        session,
+        output_folder,
+        bold_fp
+):
+    file_name = subj_id+"_"+session+"_fc_matrix.npy"
+    fc_fp = path.join(output_folder,
+                      subj_id,
+                      session,
+                      file_name)
+    if path.exists(fc_fp):
+        fc_mat = np.load(fc_fp)
+    else:
+        atlas_filepath = path.join(
+            subj_id,
+            session,
+            "registered_atlas.nii.gz"
+        )
+        bold_data = nib.load(bold_fp)
+        roi_ts = create_ROI_time_series(
+            atlas=atlas_filepath,
+            bold_data=bold_data,
+            bold_filepath=bold_fp,
+            discard_initial=3,
+            normalise=True
+        )
+        fc_mat = utilities.fc_mat_gen(
+            timeseries=roi_ts,
+            method = "nilearn",
+            kind="correlation"
+        )
+        np.save(
+            file=fc_fp,
+            arr=fc_mat)
+
+
+
 
 def the_grand_central_pipeline(
         fmri_prep_derivatives,
