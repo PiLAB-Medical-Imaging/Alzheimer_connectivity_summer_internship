@@ -545,6 +545,8 @@ def tractogram_registration(
         tractogram_file,
         dmri_folder,
         subj_line,
+        id_val,
+        session
         output_folder      
 ):
     moving_file = path.join(
@@ -555,7 +557,11 @@ def tractogram_registration(
         "dti",
         subj_line + "_FA.nii.gz"
     )
-    brain_only_fp = path.join(output_folder,"brain_only_t1w.nii.gz")
+    brain_only_fp = path.join(
+        output_folder,
+        id_val,
+        session,
+        "brain_only_t1w.nii.gz")
     new_trk = diffusion_to_t1space(
         moving_file=moving_file,
         static_file=brain_only_fp,
