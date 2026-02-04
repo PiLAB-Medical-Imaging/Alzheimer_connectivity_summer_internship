@@ -8,8 +8,12 @@ if __name__ == "__main__":
     template_file = sys.argv[3]
     output_folder = sys.argv[4]
     atlas_fp = sys.argv[5]
-    output_folder = sys.argv[6]
 
+    print(f"{fmri_prep_derivatives_folder}\n"
+          f"{subj_line}\n"
+          f"{template_file}\n"
+          f"{output_folder}\n"
+          f"")
 
     register_atlases(
         fmri_prep_derivatives=fmri_prep_derivatives_folder,
