@@ -54,14 +54,20 @@ if __name__ == "__main__":
         output_folder=destination_folder,
         dilation_width=2
     )"""
-    ppl.tractogram_registration(
+    """ppl.tractogram_registration(
         tractogram_file=tractogram_file,
         dmri_folder=dmri_folder,
         subj_line=subj_line,
         output_folder=output_folder,
         id_val=id_val+num,
         session=session
+    )"""
+    ppl.run_engagement(
+        subj_id=id_val+num,
+        session=session,
+        output_folder=output_folder
     )
+
 
 
 
