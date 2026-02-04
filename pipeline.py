@@ -546,7 +546,7 @@ def tractogram_registration(
         dmri_folder,
         subj_line,
         id_val,
-        session
+        session,
         output_folder      
 ):
     moving_file = path.join(
