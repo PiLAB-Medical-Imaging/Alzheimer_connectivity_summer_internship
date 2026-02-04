@@ -13,7 +13,6 @@ if __name__ == "__main__":
 
     register_atlases(
         fmri_prep_derivatives=fmri_prep_derivatives_folder,
-        tractography_folder=tractography_folder,
         subject_line=subj_line,
         template_file=template_file,
         atlas_fp=atlas_fp,
