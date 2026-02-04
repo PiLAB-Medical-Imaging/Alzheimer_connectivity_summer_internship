@@ -41,6 +41,7 @@ T1_TRACT_NAME = "T1-space_tracts.trk"
 REG_ATLAS_NAME = "registered_atlas.nii.gz"
 POS_EBC = "pos_ebc.npy"
 NEG_EBC = "neg_ebc.npy"
+ENG_FN = "engagement.nii.gz"
 
 TARGET_ANAT_FILES = [CSFP_PATH, GMP_PATH, WMP_PATH, BRAIN_MASK, T1W_ANAT]
 
@@ -588,7 +589,8 @@ def run_engagement(
         session,
         output_folder, 
         anatamy_fps,
-        subsegment = 10  
+        subsegment = 10, 
+        ebc = None  
 ):
     trk_file = path.join(
         output_folder,
@@ -610,12 +612,38 @@ def run_engagement(
         session,
         REG_ATLAS_NAME
     )
-    atlas_data = nib.load(atlas_filepath).get_fdata()
+    atlas_img = nib.load(atlas_filepath)
+    atlas_data = atlas_img.get_fdata()
     vox_cms, wm_positions = generate_VWSC_matrices_ep_only(
         atlas_data=atlas_data,
         trk = trk,
         v2f_mapping=v2sl_map,
         white_matter_prob=anatamy_fps[WMP_PATH[:-7]]
+    )
+    if ebc is None:
+        ebc_fp = path.join(
+            output_folder,
+            subj_id,
+            session,
+            POS_EBC
+        )
+        ebc = np.load(ebc_fp)
+    eng = engagement_calculation(
+        EBC_matrix=ebc,
+        SC_matrices=vox_cms,
+    )
+    eng_fp = path.join(
+        output_folder,
+        subj_id,
+        session,
+        ENG_FN
+    )
+    save_engagement(
+        engagement_values=eng,
+        wm_positions=wm_positions,
+        dimensions=atlas_data.shape,
+        affine=atlas_img.affine,
+        save_path=eng_fp
     )
 
 
