@@ -6,8 +6,8 @@ if __name__ == "__main__":
     tractography_folder = sys.argv[2]
     subj_line = sys.argv[3]
     template_file = sys.argv[4]
-    output_folder = sys.argv[5]
-    atlas_fp = sys.argv[6]
+    atlas_fp = sys.argv[5]
+    output_folder = sys.argv[6]
     print(f"Sanity check\nLength of arguments {len(sys.argv)}")
     print(f"{fmri_prep_derivatives_folder}\n"
           f"{subj_line}\n"
