@@ -485,6 +485,14 @@ def find_tractogram_file(tractography_folder,
         subj_file)
     return trk_file
 
+def file_structure_engagement(
+        fmri_prep_derivatives,
+        tractography_folder,
+        subj_id, 
+        session_num,
+        atlas_filepath, 
+):
+    
 
 def the_grand_central_pipeline(
         fmri_prep_derivatives,
@@ -510,11 +518,10 @@ def the_grand_central_pipeline(
         subj_id,
         "ses-"+ str(session_num)
     )
-
-    if not path.exists(destination_folder):
-        os.makedirs(
-            destination_folder, 
-            exist_ok=True)
+    os.makedirs(
+        destination_folder, 
+        exist_ok=True
+    )
     
 
     anatomy_fps = anatamoy_crawler(anatomy_folder)
@@ -757,6 +764,7 @@ def the_grand_central_pipeline(
         vol_shape=trk.dimensions,
         subsegment=10
     )
+    print(f"Printing key length:{len(v2sl_map.keys())}")
     # Engagement:
     wm_mask_filename = subj_id+"_"+str(session_num)+"wm_mask.nii.gz"
     wm_mask_fp = path.join(
@@ -772,17 +780,36 @@ def the_grand_central_pipeline(
         wm_mask.to_filename(
             filename=wm_mask_fp
         )
+
+    if not np.allclose(
+            trk.affine, 
+            atlas_img.affine, 
+            rtol=1e-3
+    ):
+        raise ValueError("Trk and atlas do not have same affine")
+    if not np.allclose(
+            wm_mask.affine, 
+            atlas_img.affine, 
+            rtol=1e-3
+    ):
+        raise ValueError("Trk and atlas do not have same affine")
+    
+    
+
     cms, wm_pos = generate_VWSC_matrices_ep_only(
         atlas_data=atlas_img.get_fdata(),
         trk = trk,
         v2f_mapping=v2sl_map,
         white_matter_mask=wm_mask_fp
     )
+    print(cms.nnz)
+    raise ValueError("Breakpoint")
     pos_eng = engagement_calculation(
         EBC_matrix=ebc_matrix_pos,
         SC_matrices=cms,
     )
-
+    if pos_eng.nnz < 10000:
+        raise ValueError("Value Leak has occurred")
     neg_eng = engagement_calculation(
         EBC_matrix=ebc_neg,
         SC_matrices=cms,
@@ -813,177 +840,88 @@ def the_grand_central_pipeline(
     )
 
     # Functionnectome
-    funct_fn = (subj_id 
-                +"_ses-" 
-                +str(session_num) 
-                +"functionnectome.nii.gz"
-    )
-    funct_fp = path.join(
-        destination_folder,
-        funct_fn
-    )
-    gm_mask_positions = mask_to_positions(
-        mask=gm_mask
-    )
-    density_maps, overall_density_map = vectorised_probability_maps(
-        registered_atlas=atlas_img,
-        trk = trk,
-        mask_positions=gm_mask_positions,
-        brain_template=gm_mask,
-        v2f_mapping=v2sl_map
-    )
-    if np.count_nonzero(density_maps) == 0:
-        raise ValueError("All density maps are 0")
-    if np.count_nonzero(overall_density_map) == 0:
-        raise("All values in overall density are 0")
-    con_prob = compute_connection_probability(
-        overall_density_map=overall_density_map,
-        all_density_maps=density_maps
-    )
-    if np.count_nonzero(con_prob) == 0:
-        raise ValueError("All probabilities are 0")
-    bold_data = nib.load(bold_fp)
-    if funct_mode == "roi":
-        time_series = create_ROI_time_series(
-            atlas=atlas_img,
-            bold_data = bold_data,
-            bold_filepath=bold_fp
+    if TEST_FUNCTIONNECTOME:
+        funct_fn = (subj_id 
+                    +"_ses-" 
+                    +str(session_num) 
+                    +"functionnectome.nii.gz"
         )
-    elif funct_mode == "vox":
-        time_series = create_VOX_time_series(
-            mask=gm_mask,
-            bold_data=bold_data,
-            bold_filepath=bold_fp
+        funct_fp = path.join(
+            destination_folder,
+            funct_fn
         )
-    else:
-        raise ValueError("Please enter a valid mode")
-    fctome = functionnectome(
-        probability_maps=con_prob,
-        timeseries=time_series,
-        registered_atlas=atlas_img,
-        normalisation="hack"
-    )
-    fctome_img = nib.Nifti1Image(
-        dataobj=fctome,
-        affine=gm_mask.affine
-    )
-    fctome_img.to_filename(filename=funct_fp)
-  
-
+        gm_mask_positions = mask_to_positions(
+            mask=gm_mask
+        )
+        density_maps, overall_density_map = vectorised_probability_maps(
+            registered_atlas=atlas_img,
+            trk = trk,
+            mask_positions=gm_mask_positions,
+            brain_template=gm_mask,
+            v2f_mapping=v2sl_map
+        )
+        if np.count_nonzero(density_maps) == 0:
+            raise ValueError("All density maps are 0")
+        if np.count_nonzero(overall_density_map) == 0:
+            raise("All values in overall density are 0")
+        con_prob = compute_connection_probability(
+            overall_density_map=overall_density_map,
+            all_density_maps=density_maps
+        )
+        if np.count_nonzero(con_prob) == 0:
+            raise ValueError("All probabilities are 0")
+        bold_data = nib.load(bold_fp)
+        if funct_mode == "roi":
+            time_series = create_ROI_time_series(
+                atlas=atlas_img,
+                bold_data = bold_data,
+                bold_filepath=bold_fp
+            )
+        elif funct_mode == "vox":
+            time_series = create_VOX_time_series(
+                mask=gm_mask,
+                bold_data=bold_data,
+                bold_filepath=bold_fp
+            )
+        else:
+            raise ValueError("Please enter a valid mode")
+        fctome = functionnectome(
+            probability_maps=con_prob,
+            timeseries=time_series,
+            registered_atlas=atlas_img,
+            normalisation="hack"
+        )
+        fctome_img = nib.Nifti1Image(
+            dataobj=fctome,
+            affine=gm_mask.affine
+        )
+        fctome_img.to_filename(filename=funct_fp)
     
 
+        
+
 if __name__ == "__main__":
-
-    if TEST_ENGAGEMENT:
-        bold_filepath = ("/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-"
-            "TAU001_ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz")
-        atlas_filepath = ("/Users/sam/Desktop/sub-TAU001/dilated_atlas_"
-            "TAU001.nii.gz")
-        tractogram_file = ("/Users/sam/Desktop/sub-TAU001/"
-                            "TAU_1_ses-2_tractogram.trk")
-        gm_prob = ("/Users/sam/Desktop/sub-TAU001/anat/"
-            "sub-TAU001_label-GM_probseg.nii.gz"), 
-        wm_mask = ("/Users/sam/Desktop/sub-TAU001/test_mask_red.nii.gz")
-        wm_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
-            "WM_probseg.nii.gz")
-        csf_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
-            "CSF_probseg.nii.gz")
-        engagement_save_path = ("/Users/sam/Desktop/sub-TAU001/anat/02_"
-            "threshold_engagement_10x.nii.gz")
-        
-
-        diffusion_space = "/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_FA.nii.gz"
-        t1_space = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-" \
-                    "preproc_T1w_brain_only.nii.gz"
-        
-
-        realigned_trk = diffusion_to_t1space(
-            moving_file=diffusion_space, 
-            static_file=t1_space,
-            trk_file=tractogram_file,
-            mni=False,
-            save=True)
-
-        engagement_pipeline(
-            bold_data=bold_filepath,
-            atlas=atlas_filepath,
-            white_matter_mask=wm_mask,
-            white_matter_prob=wm_prob,
-            tractogram_file=realigned_trk,
-            save_engagement_filepath=engagement_save_path, 
-            verbose=False, 
-            plotting=False, 
-            confound_removal=True, 
-            save_connectomes=True)
-
-        
-    if TEST_FUNCTIONNECTOME:
-        atlas_path = "/Users/sam/Desktop/sub-TAU001/aal.nii.gz"
-        atlas_filepath = ("/Users/sam/Desktop/sub-TAU001/dilated_atlas_"
-            "TAU001.nii.gz")
-        fMRI_path = ("/Users/sam/Desktop/sub-TAU001/ses-2/func/sub-TAU001_"
-            "ses-2_task-rest_space-T1w_desc-preproc_bold.nii.gz")
-        reference_file = ("/Users/sam/Desktop/sub-TAU001/anat/sub-"
-            "TAU001_desc-preproc_T1w.nii.gz")
-        save_registered_atlas = ("/Users/sam/Desktop/sub-TAU001/sub-TAU001_"
-            "desc-registered_atlas_space-T1w.nii.gz")
-        tractogram_filepath = "/Users/sam/Desktop/sub-TAU001/test_tract.trk"
-        wm_mask_filepath = ("/Users/sam/Desktop/sub-TAU001/sub-TAU001_space-"
-            "T1w_label-WM_mask.nii.gz")
-        brain_mask_path = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_"
-            "desc-brain_mask.nii.gz")
-        moving_file = ("/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_"
-            "brain.nii.gz")
-        density_map_path = "/Users/sam/Desktop/sub-TAU001"
-        functionnectome_savepath = ("/Users/sam/Desktop/sub-TAU001/"
-            "functionnectome_streamlinecheck.nii.gz")
-        gm_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
-            "GM_probseg.nii.gz")
-        t1w_filepath = ("/Users/sam/Desktop/sub-TAU001/anat/sub-"
-            "TAU001_desc-preproc_T1w_brain_only.nii.gz")
-        wm_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
-            "WM_probseg.nii.gz")
-        csf_prob = ("/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-"
-            "CSF_probseg.nii.gz")
-
-
-        print("Testing the pipeline")
-
-        gm_mask = mask_generator(
-            white_matter_probability=wm_prob,
-            grey_matter_probability=gm_prob,
-            csf_probability=csf_prob)
-
-
-        functionnectome_pipeline(
-            atlas_path=atlas_filepath,
-            fMRI_path=fMRI_path,
-            tractogram=tractogram_filepath,
-            grey_matter_mask=gm_mask,
-            functionnectome_savepath=functionnectome_savepath)
-        
-    else:
-       tractography_folder = ("/Users/sam/Documents/sams_pc/University/"
-                            "2025_Univ/Belgium/data_temp/TestFileStructure/"
-                            "high_sl_tract")
-       
-       derivatives = ("/Users/sam/Documents/sams_pc/University/2025_Univ/"
-                    "Belgium/data_temp/TestFileStructure/derivatives")
-       atlas_fp = "/Users/sam/Desktop/sub-TAU001/aal.nii.gz"
-       subj = "TAU001"
-       session_num = 2
-       mni_template = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
-       output_folder = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs"
-       the_grand_central_pipeline(
-           fmri_prep_derivatives=derivatives,
-           tractography_folder=tractography_folder,
-           atlas_filepath=atlas_fp,
-           subj_id=subj,
-           session_num=session_num,
-           atlas_template=mni_template,
-           output_folder=output_folder,
-           diffusion_data="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/TAU_1_ses-2_FA.nii.gz"
-       )
+    tractography_folder = ("/Users/sam/Documents/sams_pc/University/"
+                        "2025_Univ/Belgium/data_temp/TestFileStructure/"
+                        "high_sl_tract")
+    
+    derivatives = ("/Users/sam/Documents/sams_pc/University/2025_Univ/"
+                "Belgium/data_temp/TestFileStructure/derivatives")
+    atlas_fp = "/Users/sam/Desktop/sub-TAU001/aal.nii.gz"
+    subj = "TAU001"
+    session_num = 2
+    mni_template = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
+    output_folder = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs"
+    the_grand_central_pipeline(
+        fmri_prep_derivatives=derivatives,
+        tractography_folder=tractography_folder,
+        atlas_filepath=atlas_fp,
+        subj_id=subj,
+        session_num=session_num,
+        atlas_template=mni_template,
+        output_folder=output_folder,
+        diffusion_data="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/TAU_1_ses-2_FA.nii.gz"
+    )
 
 
 

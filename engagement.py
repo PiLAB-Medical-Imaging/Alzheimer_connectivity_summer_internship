@@ -343,6 +343,7 @@ def generate_VWSC_matrices_ep_only(
         trk.streamlines,
         atlas_data
     )
+    print(len(sl_roi_map.keys()))
     all_connectivity_matrices = conn_matrices_V2(
         sl_roi_map=sl_roi_map,
         vox_sl_map=v2f_mapping,

@@ -7,7 +7,7 @@ from nibabel import Nifti1Image
 import matplotlib.pyplot as plt
 from nilearn import image
 from engagement import generate_VWSC_matrices_entire_sl, correlation_thresholding, ebc_computation
-from engagement import engagement_calculation, reshape_engagement_slices, generate_VWSC_matrices_V2
+from engagement import engagement_calculation, reshape_engagement_slices, generate_VWSC_matrices_ep_only
 from engagement import fc_mat_gen, create_ROI_time_series, dynamic_engagement
 from utilities import connectivity_matrix_generation, visualise_square_mat, time_slicing, diffusion_to_t1space
 import sparse
@@ -124,6 +124,7 @@ bold_img_data = bold_img_data[:, :, :, 3:]
 atlas_img = nib.load(atlas)
 atlas_data = atlas_img.get_fdata()
 wmm_path = "/Users/sam/Desktop/sub-TAU001/test_mask_red.nii.gz"
+wm_prob = "/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_label-WM_probseg.nii.gz"
 #thresh_mat = correlation_thresholding(fc, value_threshold= 0.2)
 
 # Time series
@@ -134,34 +135,29 @@ total_ts = create_ROI_time_series(atlas=atlas_img,
                               bold_filepath=bold_data_path)
 t2 = time.time()
 
-print(f"Time series generation: {t2-t1} s")
-t1 = time.time()
-sliced_timeseries = time_slicing(total_ts, 10, True, axis=0)
-t2 = time.time()
-print(f"Time slicing generation: {t2-t1} s")
-
-t1 = time.time()
-for slice in sliced_timeseries:
-    fc_mat_gen(slice)
-t2 = time.time()
-print(f"Time to generate all FC mats: {t2-t1} s")
-
-t1 = time.time()
-
 trk = diffusion_to_t1space(
     moving_file="/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_FA.nii.gz",
     static_file="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w_brain_only.nii.gz",
     trk_file=trk_file,
     save=True
 )
-
-all_cms, wm_pos = generate_VWSC_matrices_V2(
+t1 = time.time()
+all_cms, wm_pos = generate_VWSC_matrices_ep_only(
         atlas_data=atlas_data,
         trk = trk, 
-        white_matter_mask=wmm_path,
+        white_matter_prob=wm_prob,
         segmentation=10)
 t2 = time.time()
 
+print(all_cms.nnz)
+
+t1 = time.time()
+all_cms, wm_pos = generate_VWSC_matrices_entire_sl(
+        atlas_data=atlas_data,
+        trk = trk, 
+        white_matter_prob=wm_prob,
+        segmentation=10)
+t2 = time.time()
 print(all_cms.nnz)
 
 fc_mat = fc_mat_gen(

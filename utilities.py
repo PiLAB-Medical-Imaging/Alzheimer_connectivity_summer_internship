@@ -3,11 +3,9 @@ import os.path as path
 from collections import defaultdict
 
 import numpy as np
-from scipy.ndimage import gaussian_filter, binary_fill_holes, label
+from scipy.ndimage import gaussian_filter
 from scipy.ndimage import distance_transform_edt
 import nibabel as nib
-from nilearn.image import resample_to_img
-from nibabel.processing import resample_from_to
 from nibabel.nifti1 import Nifti1Image
 from nilearn.maskers import NiftiLabelsMasker, NiftiMasker
 from nilearn.interfaces.fmriprep import load_confounds_strategy
@@ -114,7 +112,6 @@ def conn_matrices_V2(
             rows.append(end_coord)
             cols.append(start_coord)
             values.append(1)
-
     coords = np.vstack([v_coord, rows, cols])
 
     all_cms = sparse.COO(
@@ -245,7 +242,10 @@ def diffusion_to_t1space(moving_file,
         else:
             out_file = trk_file[:-4]+'_T1.trk'
         if save is not None:
-            save_tractogram(sft_reg, save, bbox_valid_check=False)
+            save_tractogram(
+                sft = trk,
+                filename=out_file
+            )
 
         if smooth:
         # For visualization, not computing
