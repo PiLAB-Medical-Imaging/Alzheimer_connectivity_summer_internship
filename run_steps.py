@@ -71,18 +71,18 @@ if __name__ == "__main__":
         output_folder=output_folder,
         bold_fp=bold_filepath
     )"""
-    """ppl.run_engagement(
-        subj_id=id_val+num,
-        session=session,
-        output_folder=output_folder
-    )"""
     """ppl.run_sc_matrix(
         subj_id=id_val+num,
         session=session,
         output_folder=output_folder,
         tractogram_file=tractogram_file
     )"""
-    ppl.run_EBC(
+    """ppl.run_EBC(
+        subj_id=id_val+num,
+        session=session,
+        output_folder=output_folder
+    )"""
+    ppl.run_engagement(
         subj_id=id_val+num,
         session=session,
         output_folder=output_folder
