@@ -82,11 +82,26 @@ if __name__ == "__main__":
         session=session,
         output_folder=output_folder
     )"""
-    ppl.run_engagement(
+    """ppl.run_engagement(
         subj_id=id_val+num,
         session=session,
         output_folder=output_folder,
         anatamy_fps=anatomy_fps
+    )"""
+    ppl.run_dynamic_engagement(
+        subj_id=id_val+num,
+        session=session,
+        output_folder=output_folder,
+        anatamy_fps=anatomy_fps,
+        bold_fp=bold_filepath
+    )
+    ppl.run_functionnectome(
+        subj_id=id_val+num,
+        session=session,
+        output_folder=output_folder,
+        anatamy_fps=anatomy_fps,
+        bold_fp=bold_filepath,
+        tractogram_file=tractogram_file
     )
 
 

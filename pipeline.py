@@ -21,10 +21,10 @@ from regis.core import find_transform, apply_transform
 from utilities import connectivity_matrix_generation, visualise_square_mat, nifti_vs_img,mask_generator
 from utilities import normalise, create_masked_T1, atlas_registration, mask_to_positions, voxel_to_streamline_map_V2
 from utilities import create_ROI_time_series, create_VOX_time_series, diffusion_to_t1space
-from utilities import trk_vs_filepath, dilate_atlas_labels
+from utilities import trk_vs_filepath, dilate_atlas_labels, time_slicing
 from engagement import correlation_thresholding, ebc_computation, reshape_engagement
-from engagement import engagement_calculation, generate_VWSC_matrices_entire_sl
-from engagement import save_connectivity_matrices,save_engagement, generate_VWSC_matrices_ep_only
+from engagement import engagement_calculation, generate_VWSC_matrices_entire_sl, dynamic_engagement
+from engagement import save_connectivity_matrices,save_engagement, generate_VWSC_matrices_ep_only, reshape_engagement_slices
 from functionnectome import compute_connection_probability
 from functionnectome import vectorised_probability_maps, functionnectome
 import utilities
@@ -42,6 +42,8 @@ REG_ATLAS_NAME = "registered_atlas.nii.gz"
 POS_EBC = "pos_ebc.npy"
 NEG_EBC = "neg_ebc.npy"
 ENG_FN = "engagement.nii.gz"
+DYN_ENG_FN = "dyn-engagement.nii.gz"
+FUNCTIONNECTOME_FN = "functionnectome.nii.gz"
 
 TARGET_ANAT_FILES = [CSFP_PATH, GMP_PATH, WMP_PATH, BRAIN_MASK, T1W_ANAT]
 
@@ -158,7 +160,7 @@ def functionnectome_pipeline(
         )
     elif mode == "vox":
         time_series = create_VOX_time_series(
-            mask=gm_mask,
+            mask=grey_matter_mask,
             bold_data=bold_img,
             bold_filepath=fMRI_path
         )
@@ -335,7 +337,7 @@ def engagement_pipeline(bold_data,
                                             v2f_mapping=v2f_map
                                             )
         t2 = time()
-        test_1, test_2 = generate_VWSC_matrices_V2(
+        test_1, test_2 = generate_VWSC_matrices_ep_only(
             white_matter_mask=white_matter_mask,
             trk=trk,
             atlas_data=atlas_data,
@@ -353,7 +355,7 @@ def engagement_pipeline(bold_data,
             v2f_mapping=v2f_map
         )
         t2 = time()
-        test_1, test_2 = generate_VWSC_matrices_V2(
+        test_1, test_2 = generate_VWSC_matrices_ep_only(
             white_matter_prob=white_matter_prob,
             trk=trk,
             atlas_data=atlas_data,
@@ -646,6 +648,112 @@ def run_engagement(
         save_path=eng_fp
     )
 
+def run_dynamic_engagement(subj_id,
+        session,
+        output_folder, 
+        anatamy_fps,
+        bold_fp,
+        subsegment = 10, 
+        ebc = None 
+):
+    trk_file = path.join(
+        output_folder,
+        subj_id,
+        session,
+        T1_TRACT_NAME
+    )
+    trk = load_tractogram(trk_file, "same")
+    trk.to_vox()
+    trk.to_center()
+    v2sl_map = voxel_to_streamline_map_V2(
+        streamlines=trk.streamlines,
+        vol_shape=trk.dimensions,
+        subsegment=subsegment
+    )
+    atlas_filepath = path.join(
+        output_folder,
+        subj_id,
+        session,
+        REG_ATLAS_NAME
+    )
+    atlas_img = nib.load(atlas_filepath)
+    atlas_data = atlas_img.get_fdata()
+    vox_cms, wm_positions = generate_VWSC_matrices_ep_only(
+        atlas_data=atlas_data,
+        trk = trk,
+        v2f_mapping=v2sl_map,
+        white_matter_prob=anatamy_fps[WMP_PATH[:-7]]
+    )
+    bold_img = nib.load(bold_fp)
+    bold_data = bold_img.get_fdata()
+    ts = create_ROI_time_series(
+        atlas=atlas_filepath,
+        bold_data=bold_data,
+        bold_filepath=bold_fp
+    )
+    sliced_ts = time_slicing(
+        data=ts,
+        slice_length=16,
+        sliding=True
+    )
+    dyn_eng = dynamic_engagement(
+        sliced_time_series=sliced_ts,
+        connectivity_matrices=vox_cms        
+    )
+    reshaped = reshape_engagement_slices(
+        sliced_engagement=dyn_eng,
+        image_template=atlas_img,
+        wm_positions=wm_positions
+    )
+    out = Nifti1Image(
+        dataobj=reshaped,
+        affine=atlas_img.affine,
+    )
+    dyn_eng_fp = path.join(
+        output_folder,
+        subj_id,
+        session,
+        DYN_ENG_FN
+    )
+    out.to_filename(
+        filename=dyn_eng_fp
+    )
+
+
+def run_functionnectome(
+        subj_id,
+        session,
+        output_folder, 
+        anatamy_fps,
+        tractogram_file,
+        bold_fp
+):
+    atlas_fp = path.join(
+        output_folder,
+        subj_id,
+        session,
+        REG_ATLAS_NAME
+    )
+    trk = trk_vs_filepath(tractogram_file)
+    gm_mask = mask_generator(
+        white_matter_probability=anatamy_fps[WMP_PATH[:-7]],
+        grey_matter_probability=anatamy_fps[GMP_PATH[:-7]],
+        csf_probability=anatamy_fps[CSFP_PATH[:-7]],
+        mask_type="grey"
+    )
+    fctom_fp = path.join(
+        output_folder,
+        subj_id,
+        session,
+        FUNCTIONNECTOME_FN
+    )
+    functionnectome_pipeline(
+        atlas_path=atlas_fp,
+        fMRI_path=bold_fp,
+        tractogram=trk,
+        grey_matter_mask=gm_mask,
+        functionnectome_savepath=fctom_fp
+    )
 
 
 def run_fc_matrix(
@@ -786,8 +894,6 @@ def run_EBC(
             file=ebc_matrix_fp,
             arr=ebc_neg
         )
-
-
 
 def the_grand_central_pipeline(
         fmri_prep_derivatives,
