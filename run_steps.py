@@ -58,7 +58,9 @@ if __name__ == "__main__":
         tractogram_file=tractogram_file,
         dmri_folder=dmri_folder,
         subj_line=subj_line,
-        output_folder=output_folder
+        output_folder=output_folder,
+        id_val=id_val,
+        session=session
     )
 
 
