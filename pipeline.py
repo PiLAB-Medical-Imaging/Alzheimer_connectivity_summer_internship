@@ -671,6 +671,75 @@ def run_sc_matrix(
         )
     return sc_fp
 
+def run_EBC(
+        subj_id,
+        session,
+        output_folder,
+        fc_mat = None  
+):
+    destination_folder = path.join(
+        output_folder,
+        subj_id,
+        session
+    )
+    if fc_mat is None:
+        fc_location = path.join(
+            destination_folder,
+            subj_id+"_"+session+"_fc_matrix.npy"
+        )
+        try:
+            fc_mat = np.load(fc_location)
+        except FileNotFoundError as e:
+            print("Please provide a fc_matrix "
+            "or place one in the default location")
+            raise e
+    
+    ebc_matrix_fn = "pos_ebc.npy"
+    ebc_matrix_fp = path.join(
+        destination_folder,
+        ebc_matrix_fn
+    )
+    if path.exists(ebc_matrix_fp):
+        ebc_matrix_pos = np.load(
+            file=ebc_matrix_fp
+        )
+    else:
+        fc_mat_thresholded = correlation_thresholding(
+            matrix=fc_mat,
+            value_threshold=0.2
+        )
+        ebc_matrix_pos = ebc_computation(
+            numpy_matrix=fc_mat_thresholded,
+            inverted_values=False
+        )
+        np.save(
+            file=ebc_matrix_fp,
+            arr=ebc_matrix_pos
+        )
+
+    ebc_matrix_fn = "neg_ebc.npy"
+    ebc_matrix_fp = path.join(
+        destination_folder,
+        ebc_matrix_fn
+    )
+    if path.exists(ebc_matrix_fp):
+        ebc_neg = np.load(
+            file=ebc_matrix_fp
+        )
+    else:
+        fc_mat_thresholded = correlation_thresholding(
+            matrix=fc_mat,
+            value_threshold=-0.2
+        )
+        ebc_neg = ebc_computation(
+            numpy_matrix=fc_mat_thresholded,
+            inverted_values=False
+        )
+        np.save(
+            file=ebc_matrix_fp,
+            arr=ebc_neg
+        )
+    
 
 
 def the_grand_central_pipeline(
