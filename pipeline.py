@@ -570,6 +570,8 @@ def tractogram_registration(
     registered_trk_fn = "T1-space_tracts.trk"
     registered_trk_fp = path.join(
         output_folder,
+        id_val,
+        session,
         registered_trk_fn
     )
     save_tractogram(
