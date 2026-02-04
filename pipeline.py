@@ -485,14 +485,55 @@ def find_tractogram_file(tractography_folder,
         subj_file)
     return trk_file
 
-def file_structure_engagement(
+def register_atlases(
         fmri_prep_derivatives,
-        tractography_folder,
-        subj_id, 
-        session_num,
-        atlas_filepath, 
-):
+        subject_line,
+        atlas_fp, 
+        template_file,
+        output_folder):
     
+    subj_info = subject_line.split("_")
+    id_val = subj_info[0]
+    num = subj_info[1]
+    num = num.zfill(3)
+    session = subj_info[2]
+
+    destination_folder = path.join(
+        output_folder,
+        id_val+num,
+        session
+    )
+    os.makedirs(
+        destination_folder, 
+        exist_ok=True
+    )
+    anatomy_folder, functional_folder = find_anat_func_folder(
+        fmri_prep_derivatives=fmri_prep_derivatives,
+        subj_id=id_val+num,
+        session_num=session
+    )
+    anatomy_fps = anatamoy_crawler(anatomy_folder)
+    brain_only_fp = path.join(destination_folder,"brain_only_t1w.nii.gz")
+    save_path = anatomy_fps["preproc_T1w"][:-7]+"_registered_atlas.nii.gz"
+    save_path = path.join(destination_folder, "_registered_atlas.nii.gz")
+    brain_mask_img = nifti_vs_img(anatomy_fps["brain_mask"])
+    brain_mask_data = brain_mask_img.get_fdata()
+    t1w_img = nifti_vs_img(anatomy_fps["preproc_T1w"])
+    brain_only_t1w_data = t1w_img.get_fdata()*brain_mask_data
+    out = nib.Nifti1Image(
+        brain_only_t1w_data,
+        affine=t1w_img.affine
+    )
+    out.to_filename(brain_only_fp)
+    atlas_registration(
+        atlas_path=atlas_fp,
+        template_file=template_file,
+        reference_file=brain_only_fp,
+        save_path=save_path
+        )
+
+
+
 
 def the_grand_central_pipeline(
         fmri_prep_derivatives,
@@ -523,7 +564,6 @@ def the_grand_central_pipeline(
         exist_ok=True
     )
     
-
     anatomy_fps = anatamoy_crawler(anatomy_folder)
     bold_fp = find_bold_filepath(functional_folder)
 
