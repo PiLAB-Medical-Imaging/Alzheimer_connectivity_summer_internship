@@ -46,48 +46,48 @@ if __name__ == "__main__":
     bold_filepath = ppl.find_bold_filepath(
         functional_folder=functional_folder
     )
-    """register_atlases(
+    register_atlases(
         template_file=template_file,
         atlas_fp=atlas_fp,
         output_folder=output_folder,
         anatomy_fps=anatomy_fps
-    )"""
-    """dilate_atlases(
+    )
+    dilate_atlases(
         brain_mask=anatomy_fps["brain_mask"],
         output_folder=destination_folder,
         dilation_width=2
-    )"""
-    """ppl.tractogram_registration(
+    )
+    ppl.tractogram_registration(
         tractogram_file=tractogram_file,
         dmri_folder=dmri_folder,
         subj_line=subj_line,
         output_folder=output_folder,
         id_val=id_val+num,
         session=session
-    )"""
-    """ppl.run_fc_matrix(
+    )
+    ppl.run_fc_matrix(
         subj_id=id_val+num,
         session=session,
         output_folder=output_folder,
         bold_fp=bold_filepath
-    )"""
-    """ppl.run_sc_matrix(
+    )
+    ppl.run_sc_matrix(
         subj_id=id_val+num,
         session=session,
         output_folder=output_folder,
         tractogram_file=tractogram_file
-    )"""
-    """ppl.run_EBC(
+    )
+    ppl.run_EBC(
         subj_id=id_val+num,
         session=session,
         output_folder=output_folder
-    )"""
-    """ppl.run_engagement(
+    )
+    ppl.run_engagement(
         subj_id=id_val+num,
         session=session,
         output_folder=output_folder,
         anatamy_fps=anatomy_fps
-    )"""
+    )
     ppl.run_dynamic_engagement(
         subj_id=id_val+num,
         session=session,
