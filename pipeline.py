@@ -38,6 +38,9 @@ T1W_ANAT = "preproc_T1w.nii.gz"
 MNI_REFERENCE = "MNI152_T1_1mm_brain.nii.gz"
 BOLD_TAG = "T1w_desc-preproc_bold.nii.gz"
 T1_TRACT_NAME = "T1-space_tracts.trk"
+REG_ATLAS_NAME = "registered_atlas.nii.gz"
+POS_EBC = "pos_ebc.npy"
+NEG_EBC = "neg_ebc.npy"
 
 TARGET_ANAT_FILES = [CSFP_PATH, GMP_PATH, WMP_PATH, BRAIN_MASK, T1W_ANAT]
 
@@ -494,7 +497,7 @@ def register_atlases(
         anatomy_fps):
     
     brain_only_fp = path.join(destination_folder,"brain_only_t1w.nii.gz")
-    save_path = path.join(destination_folder, "registered_atlas.nii.gz")
+    save_path = path.join(destination_folder, REG_ATLAS_NAME)
     brain_mask_img = nifti_vs_img(anatomy_fps["brain_mask"])
     brain_mask_data = brain_mask_img.get_fdata()
     t1w_img = nifti_vs_img(anatomy_fps["preproc_T1w"])
@@ -518,7 +521,7 @@ def dilate_atlases(
 ):
     atlas_path = path.join(
         output_folder,
-        "registered_atlas.nii.gz"
+        REG_ATLAS_NAME
     )
     brain_mask_img = nifti_vs_img(brain_mask)
     atlas_data = nib.load(atlas_path).get_fdata()
@@ -584,6 +587,7 @@ def run_engagement(
         subj_id,
         session,
         output_folder, 
+        anatamy_fps,
         subsegment = 10  
 ):
     trk_file = path.join(
@@ -600,6 +604,21 @@ def run_engagement(
         vol_shape=trk.dimensions,
         subsegment=subsegment
     )
+    atlas_filepath = path.join(
+        output_folder,
+        subj_id,
+        session,
+        REG_ATLAS_NAME
+    )
+    atlas_data = nib.load(atlas_filepath).get_fdata()
+    vox_cms, wm_positions = generate_VWSC_matrices_ep_only(
+        atlas_data=atlas_data,
+        trk = trk,
+        v2f_mapping=v2sl_map,
+        white_matter_prob=anatamy_fps[WMP_PATH[:-7]]
+    )
+
+
 
 def run_fc_matrix(
         subj_id,
@@ -619,7 +638,7 @@ def run_fc_matrix(
             output_folder,
             subj_id,
             session,
-            "registered_atlas.nii.gz"
+            REG_ATLAS_NAME
         )
         bold_data = nib.load(bold_fp)
         roi_ts = create_ROI_time_series(
@@ -658,7 +677,7 @@ def run_sc_matrix(
             output_folder,
             subj_id,
             session,
-            "registered_atlas.nii.gz"
+            REG_ATLAS_NAME
         )
         atlas_img = nib.load(atlas_fp)
         sc_mat = compute_connectivity_matrix(
@@ -694,7 +713,7 @@ def run_EBC(
             "or place one in the default location")
             raise e
     
-    ebc_matrix_fn = "pos_ebc.npy"
+    ebc_matrix_fn = POS_EBC
     ebc_matrix_fp = path.join(
         destination_folder,
         ebc_matrix_fn
@@ -717,7 +736,7 @@ def run_EBC(
             arr=ebc_matrix_pos
         )
 
-    ebc_matrix_fn = "neg_ebc.npy"
+    ebc_matrix_fn = NEG_EBC
     ebc_matrix_fp = path.join(
         destination_folder,
         ebc_matrix_fn
@@ -739,7 +758,7 @@ def run_EBC(
             file=ebc_matrix_fp,
             arr=ebc_neg
         )
-    
+
 
 
 def the_grand_central_pipeline(
@@ -891,7 +910,7 @@ def the_grand_central_pipeline(
             file=fc_fp,
             arr=fc_mat)
 
-    ebc_matrix_fn = "pos_ebc.npy"
+    ebc_matrix_fn = POS_EBC
     ebc_matrix_fp = path.join(
         destination_folder,
         ebc_matrix_fn
@@ -914,7 +933,7 @@ def the_grand_central_pipeline(
             arr=ebc_matrix_pos
         )
 
-    ebc_matrix_fn = "neg_ebc.npy"
+    ebc_matrix_fn = NEG_EBC
     ebc_matrix_fp = path.join(
         destination_folder,
         ebc_matrix_fn
