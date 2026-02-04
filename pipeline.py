@@ -522,7 +522,7 @@ def dilate_atlases(
     brain_mask_img = nifti_vs_img(brain_mask)
     atlas_data = nib.load(atlas_path)
 
-    print(f"Shape:{brain_mask_img.get_fdata()}")
+    print(f"Shape:{brain_mask_img.get_fdata().shape}")
     dilated_mask = dilate_atlas_labels(
         atlas=atlas_data,
         brain_mask=brain_mask_img.get_fdata(),
