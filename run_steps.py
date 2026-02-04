@@ -2,12 +2,12 @@ import sys
 from pipeline import register_atlases
 
 if __name__ == "__main__":
-    fmri_prep_derivatives_folder = sys.argv[0]
-    tractography_folder = sys.argv[1]
-    subj_line = sys.argv[2]
-    template_file = sys.argv[3]
-    output_folder = sys.argv[4]
-    atlas_fp = sys.argv[5]
+    fmri_prep_derivatives_folder = sys.argv[1]
+    tractography_folder = sys.argv[2]
+    subj_line = sys.argv[3]
+    template_file = sys.argv[4]
+    output_folder = sys.argv[5]
+    atlas_fp = sys.argv[6]
     print(f"Sanity check\nLength of arguments {len(sys.argv)}")
     print(f"{fmri_prep_derivatives_folder}\n"
           f"{subj_line}\n"
