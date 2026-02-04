@@ -589,7 +589,7 @@ def run_engagement(
     trk_file = path.join(
         output_folder,
         subj_id,
-        session_num,
+        session,
         T1_TRACT_NAME
     )
     trk = load_tractogram(trk_file)
@@ -599,7 +599,8 @@ def run_engagement(
         streamlines=trk.streamlines,
         vol_shape=trk.dimensions,
         subsegment=subsegment
-    ) 
+    )
+
 
 def the_grand_central_pipeline(
         fmri_prep_derivatives,
