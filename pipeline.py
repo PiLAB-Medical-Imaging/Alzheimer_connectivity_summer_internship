@@ -27,7 +27,7 @@ from engagement import engagement_calculation, generate_VWSC_matrices_entire_sl,
 from engagement import save_connectivity_matrices,save_engagement, generate_VWSC_matrices_ep_only, reshape_engagement_slices
 from functionnectome import compute_connection_probability
 from functionnectome import vectorised_probability_maps, functionnectome
-import utilities
+import utilities 
 from structural_connectivity import compute_connectivity_matrix
 
 CSFP_PATH = "CSF_probseg.nii.gz"
@@ -45,6 +45,7 @@ NEG_EBC = "neg_ebc.npy"
 ENG_FN = "engagement.nii.gz"
 DYN_ENG_FN = "dyn-engagement.nii.gz"
 FUNCTIONNECTOME_FN = "functionnectome.nii.gz"
+SIMPLE_WEIGHTING = "simple_weighting.npy"
 
 TARGET_ANAT_FILES = [CSFP_PATH, GMP_PATH, WMP_PATH, BRAIN_MASK, T1W_ANAT]
 
@@ -736,8 +737,6 @@ def run_dynamic_engagement(subj_id,
         filename=dyn_eng_fp
     )
 
-def run_simple_weighting():
-    pass
 
 def run_functionnectome(
         subj_id,
@@ -773,7 +772,6 @@ def run_functionnectome(
         grey_matter_mask=gm_mask,
         functionnectome_savepath=fctom_fp
     )
-
 
 def run_fc_matrix(
         subj_id,
@@ -844,6 +842,37 @@ def run_sc_matrix(
             arr=sc_mat
         )
     return sc_fp
+
+def run_simple_weighting(
+        subj_id,
+        session,
+        output_folder,):
+    sc_filename = subj_id+"_"+session+"_sc_matrix.npy"
+    sc_fp = path.join(
+        output_folder,
+        subj_id,
+        session,
+        sc_filename)
+    sc_mat = np.load(sc_fp)
+    file_name = subj_id+"_"+session+"_fc_matrix.npy"
+    fc_fp = path.join(output_folder,
+                      subj_id,
+                      session,
+                      file_name)
+    fc_mat = np.load(fc_fp)
+
+    sw_mat = utilities.simple_weighting(
+        SC = sc_mat,
+        FC=fc_mat
+    )
+
+    sw_name = subj_id + "_" + session + "_" + SIMPLE_WEIGHTING
+    np.save(
+        file=sw_name,
+        arr=sw_mat
+    )
+
+    
 
 def run_EBC(
         subj_id,
