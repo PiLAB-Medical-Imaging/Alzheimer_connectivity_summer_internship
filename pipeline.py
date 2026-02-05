@@ -39,6 +39,7 @@ MNI_REFERENCE = "MNI152_T1_1mm_brain.nii.gz"
 BOLD_TAG = "T1w_desc-preproc_bold.nii.gz"
 T1_TRACT_NAME = "T1-space_tracts.trk"
 REG_ATLAS_NAME = "registered_atlas.nii.gz"
+BRAIN_ONLY = "brain_only_t1w.nii.gz"
 POS_EBC = "pos_ebc.npy"
 NEG_EBC = "neg_ebc.npy"
 ENG_FN = "engagement.nii.gz"
@@ -501,8 +502,13 @@ def register_atlases(
         session,
         anatomy_fps):
     
-    brain_only_fp = path.join(output_folder,"brain_only_t1w.nii.gz")
-    save_path =     atlas_filepath = path.join(
+    brain_only_fp = path.join(
+        output_folder,
+        subj_id,
+        session,
+        BRAIN_ONLY
+    )
+    save_path =  path.join(
         output_folder,
         subj_id,
         session,
@@ -726,6 +732,8 @@ def run_dynamic_engagement(subj_id,
         filename=dyn_eng_fp
     )
 
+def run_simple_weighting():
+    pass
 
 def run_functionnectome(
         subj_id,
