@@ -496,11 +496,11 @@ def find_tractogram_file(tractography_folder,
 def register_atlases(
         atlas_fp, 
         template_file,
-        destination_folder,
+        output_folder,
         anatomy_fps):
     
-    brain_only_fp = path.join(destination_folder,"brain_only_t1w.nii.gz")
-    save_path = path.join(destination_folder, REG_ATLAS_NAME)
+    brain_only_fp = path.join(output_folder,"brain_only_t1w.nii.gz")
+    save_path = path.join(output_folder, REG_ATLAS_NAME)
     brain_mask_img = nifti_vs_img(anatomy_fps["brain_mask"])
     brain_mask_data = brain_mask_img.get_fdata()
     t1w_img = nifti_vs_img(anatomy_fps["preproc_T1w"])

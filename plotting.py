@@ -5,7 +5,7 @@ import numpy as np
 from regis.core import find_transform, apply_transform
 
 
-eng_file = ("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/"
+""" eng_file = ("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/"
             "data_temp/TestFileStructure/Outputs/TAU001/ses-2/pos_eng.nii.gz")
 mni_template = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
 patient_t1w = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w_brain_only.nii.gz"
@@ -26,7 +26,7 @@ display = plot_glass_brain(
 )
 plotting.show()
 display.close()
-
+ """
 # Load the weighted matrix. 
 sw_file = ("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/"
         "data_temp/TestFileStructure/Outputs/TAU001/ses-2/"
@@ -58,6 +58,6 @@ coords_array = np.array(
 view = view_connectome(
     adjacency_matrix=weight_matrix,
     node_coords=coords_array,
-
+    edge_threshold=0.1
 )
 view.open_in_browser()
