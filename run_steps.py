@@ -57,8 +57,10 @@ if __name__ == "__main__":
     )
     """
     dilate_atlases(
-        brain_mask=anatomy_fps["brain_mask"],
-        output_folder=destination_folder,
+        output_folder=output_folder,
+        subj_id=id_val+num,
+        session=session,
+        anatomy_fps=anatomy_fps,
         dilation_width=2
     )
     ppl.tractogram_registration(
