@@ -54,6 +54,7 @@ if __name__ == "__main__":
         subj_id=id_val+num,
         session=session
     )
+    """
     dilate_atlases(
         brain_mask=anatomy_fps["brain_mask"],
         output_folder=destination_folder,
@@ -104,7 +105,7 @@ if __name__ == "__main__":
         anatamy_fps=anatomy_fps,
         bold_fp=bold_filepath,
         tractogram_file=tractogram_file
-    )
+    )"""
 
 
 

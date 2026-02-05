@@ -107,7 +107,7 @@ plt.show()
 dilated_atlas = "/Users/sam/Desktop/sub-TAU001/dilated_atlas_TAU001.nii.gz"
 dilated_atlas = nib.load(dilated_atlas)
 #trk_file = "/Users/sam/Desktop/TAU_1_ses-2_tractogram_T1_10x.trk"
-trk_file = "/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_tractogram.trk"
+trk_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/high_sl_tract/TAU_1_ses-2_tractogram.trk"
 trk = load_tractogram(trk_file, reference="same")
 
 """ cms, wm_pos = generate_VWSC_matrices(atlas_data=dilated_atlas.get_fdata(),
@@ -148,7 +148,7 @@ trk = diffusion_to_t1space(
 sift_2w = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/high_sl_tract/sift2/tau001-weights.txt"
 sift_2mu = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/high_sl_tract/sift2/tau001-mu.txt"
 brain_mask = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/anat/sub-TAU001_desc-brain_mask.nii.gz"
-t1 = time.time()
+""" t1 = time.time()
 all_cms, wm_pos = generate_VWSC_matrices_ep_only(
         atlas_data=atlas_data,
         trk = trk, 
@@ -156,23 +156,23 @@ all_cms, wm_pos = generate_VWSC_matrices_ep_only(
         segmentation=10)
 
 t2 = time.time()
-print(f"End points: {t2-t1}")
+print(f"End points: {t2-t1}") """
 t1 = time.time()
 all_cms_all_sl_sift, wm_pos = generate_VWSC_matrices_entire_sl(
         atlas_data=atlas_data,
         trk = trk, 
-        white_matter_mask=brain_mask,
+        white_matter_prob=wm_prob,
         segmentation=10)
 t2 = time.time()
 print(f"All sl points: {t2-t1}")
 print(all_cms_all_sl_sift.nnz)
 
-if sparse_equality(all_cms,all_cms_all_sl_sift):
+""" if sparse_equality(all_cms,all_cms_all_sl_sift):
     print("They are the same")
 else:
     print("Different")
 
-
+ """
 fc_mat = fc_mat_gen(
     timeseries=total_ts
 )
@@ -184,7 +184,7 @@ ebc_mat = ebc_computation(
     fc_mat,
     False
 )
-print(all_cms, all_cms.shape)
+#print(all_cms, all_cms.shape)
 eng = engagement_calculation(
     EBC_matrix= ebc_mat,
     SC_matrices=all_cms_all_sl_sift,
@@ -199,12 +199,10 @@ save_engagement(
     wm_positions = wm_pos,
     dimensions=trk.dimensions,
     affine = trk.affine,
-    save_path="/Users/sam/Desktop/tau100_eng_250_all_voxels.nii.gz"
+    save_path="/Users/sam/Desktop/tau100_eng_300_full_sl.nii.gz"
 )
 
 
-
-print(f"Time to generate mapping: {t2-t1} s")
 """ 
 t1 = time.time()
 all_eng = dynamic_engagement(sliced_timeseries,
