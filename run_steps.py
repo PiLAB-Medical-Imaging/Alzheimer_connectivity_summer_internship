@@ -50,7 +50,9 @@ if __name__ == "__main__":
         template_file=template_file,
         atlas_fp=atlas_fp,
         output_folder=output_folder,
-        anatomy_fps=anatomy_fps
+        anatomy_fps=anatomy_fps,
+        subj_id=id_val+num,
+        session=session
     )
     dilate_atlases(
         brain_mask=anatomy_fps["brain_mask"],

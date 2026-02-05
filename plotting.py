@@ -20,13 +20,17 @@ transformed_eng = apply_transform(
     static_file=mni_template,
     output_path=eng_file[:-7] + "_mni_space.nii.gz"
 )
+"""
 
+transformed_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/pos_eng_mni_space.nii.gz"
+transformed_img = nib.load(transformed_file)
 display = plot_glass_brain(
-    stat_map_img=transformed_eng
+    stat_map_img=transformed_img,
+    display_mode="mosaic"
 )
 plotting.show()
 display.close()
- """
+"""
 # Load the weighted matrix. 
 sw_file = ("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/"
         "data_temp/TestFileStructure/Outputs/TAU001/ses-2/"
@@ -61,3 +65,4 @@ view = view_connectome(
     edge_threshold=0.1
 )
 view.open_in_browser()
+"""
