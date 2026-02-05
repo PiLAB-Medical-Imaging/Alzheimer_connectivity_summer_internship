@@ -10,8 +10,11 @@ from engagement import generate_VWSC_matrices_entire_sl, correlation_thresholdin
 from engagement import engagement_calculation, reshape_engagement_slices, generate_VWSC_matrices_ep_only
 from engagement import fc_mat_gen, create_ROI_time_series, dynamic_engagement
 from utilities import connectivity_matrix_generation, visualise_square_mat, time_slicing, diffusion_to_t1space
+from utilities import sparse_equality
 import sparse
 import matplotlib.pyplot as plt
+from engagement import save_engagement
+
 """ atlas_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/registered_atlas.nii.gz"
 fMRI_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/fake_fMRI.nii.gz"
 reference_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/basic_brain.nii.gz"
@@ -141,24 +144,34 @@ trk = diffusion_to_t1space(
     trk_file=trk_file,
     save=True
 )
+
+sift_2w = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/high_sl_tract/sift2/tau001-weights.txt"
+sift_2mu = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/high_sl_tract/sift2/tau001-mu.txt"
+brain_mask = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/anat/sub-TAU001_desc-brain_mask.nii.gz"
 t1 = time.time()
 all_cms, wm_pos = generate_VWSC_matrices_ep_only(
         atlas_data=atlas_data,
         trk = trk, 
-        white_matter_prob=wm_prob,
+        white_matter_mask=brain_mask,
         segmentation=10)
+
 t2 = time.time()
-
-print(all_cms.nnz)
-
+print(f"End points: {t2-t1}")
 t1 = time.time()
-all_cms, wm_pos = generate_VWSC_matrices_entire_sl(
+all_cms_all_sl_sift, wm_pos = generate_VWSC_matrices_entire_sl(
         atlas_data=atlas_data,
         trk = trk, 
-        white_matter_prob=wm_prob,
+        white_matter_mask=brain_mask,
         segmentation=10)
 t2 = time.time()
-print(all_cms.nnz)
+print(f"All sl points: {t2-t1}")
+print(all_cms_all_sl_sift.nnz)
+
+if sparse_equality(all_cms,all_cms_all_sl_sift):
+    print("They are the same")
+else:
+    print("Different")
+
 
 fc_mat = fc_mat_gen(
     timeseries=total_ts
@@ -174,11 +187,21 @@ ebc_mat = ebc_computation(
 print(all_cms, all_cms.shape)
 eng = engagement_calculation(
     EBC_matrix= ebc_mat,
-    SC_matrices=all_cms,
+    SC_matrices=all_cms_all_sl_sift,
 )
 
 plt.hist(eng)
+plt.loglog()
 plt.show()
+
+save_engagement(
+    engagement_values=eng,
+    wm_positions = wm_pos,
+    dimensions=trk.dimensions,
+    affine = trk.affine,
+    save_path="/Users/sam/Desktop/tau100_eng_250_all_voxels.nii.gz"
+)
+
 
 
 print(f"Time to generate mapping: {t2-t1} s")

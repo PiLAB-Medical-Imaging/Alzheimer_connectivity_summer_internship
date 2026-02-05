@@ -1,7 +1,7 @@
 import os
 import os.path as path
 from collections import defaultdict
-
+from itertools import combinations
 import numpy as np
 from scipy.ndimage import gaussian_filter
 from scipy.ndimage import distance_transform_edt
@@ -64,12 +64,20 @@ def conn_matrices_V2(
         sl_roi_map, 
         vox_sl_map,
         atlas_data,
-        mask_positions
+        mask_positions,
+        sift_2_weights = None,
+        sift_2_mu = None
 ):
     if not (vox_sl_sanity_check(vox_sl_map)):
         raise ValueError("Voxel mappings are duds.")
     if not (sl_roi_map_sanity_check(sl_roi_map)):
         raise ValueError("SL-ROI map is a dud.")
+    
+    if sift_2_weights is not None:
+        w, mu = load_sift2_weights(
+            weights_file=sift_2_weights,
+            mu_file=sift_2_mu
+        )
 
     v_coord = []
     rows = []
@@ -84,35 +92,49 @@ def conn_matrices_V2(
         for sl in vox_sl_map[voxel_tuple]:
             if sl not in sl_roi_map.keys():   
                 continue
-            start = sl_roi_map[sl][0]
-            end = sl_roi_map[sl][1]
-            if start == end:
-                continue
-            if (type(start) is not int
-                or type(end) is not int):
-                raise ValueError(f"Non int value: {start}\n"
-                                 f"{end}")
-            voxel_coord = idx
-            start_coord = start - 1
-            end_coord = end - 1 
-            if (start_coord >= conn_mat_sz
-                or end_coord >= conn_mat_sz):
-                raise ValueError(f"Start or end coord is out of bounds"
-                                 f"Start: {start_coord}"
-                                 f"End: {end_coord}"
-                                 f"Bound: {conn_mat_sz}")
-            if (voxel_coord < 0 or voxel_coord >= N):
-                raise ValueError(f"Voxel coordinate is out of"
-                                 f"bounds: {voxel_coord}")
-            v_coord.append(voxel_coord)
-            v_coord.append(voxel_coord)
-            rows.append(start_coord)
-            cols.append(end_coord)
-            values.append(1) 
-            rows.append(end_coord)
-            cols.append(start_coord)
-            values.append(1)
+            for roi_pair in sl_roi_map[sl]:
+                start = roi_pair[0]
+                end = roi_pair[1]
+                if start == end:
+                    continue
+                """if (type(start) is not int
+                    or type(end) is not int):
+                    raise ValueError(f"Non int value: {start}"
+                                    f"{end}\n"
+                                    f"Type: {type(start)}") """
+                voxel_coord = idx
+                start_coord = start - 1
+                end_coord = end - 1 
+                if (start_coord >= conn_mat_sz 
+                        or start_coord < 0
+                        or end_coord >= conn_mat_sz
+                        or end_coord < 0):
+                    raise ValueError(f"Start or end coord is out of bounds"
+                                    f"Start: {start_coord}\n"
+                                    f"End: {end_coord}\n"
+                                    f"Bound: {conn_mat_sz}")
+                if (voxel_coord < 0 or voxel_coord >= N):
+                    raise ValueError(f"Voxel coordinate is out of"
+                                    f"bounds: {voxel_coord}")
+                v_coord.append(voxel_coord)
+                v_coord.append(voxel_coord)
+                rows.append(start_coord)
+                cols.append(end_coord)
+                rows.append(end_coord)
+                cols.append(start_coord)
+                if sift_2_weights is not None:
+                    new_value = w[sl]*mu
+                    values.append(new_value)
+                    values.append(new_value)
+                else:
+                    values.append(1) 
+                    values.append(1)
+
     coords = np.vstack([v_coord, rows, cols])
+    print(f"Check the coords:\n"
+          f"Shape {coords.shape}\n"
+          f"Max: {coords.max()}\n"
+          f"Min: {coords.min()}")
 
     all_cms = sparse.COO(
         coords=coords,
@@ -122,6 +144,7 @@ def conn_matrices_V2(
     )
 
     return all_cms
+
    
 def complete_data_compiler(dfmri_fp, 
                            bold_fp,
@@ -332,36 +355,51 @@ def nifti_vs_img(object):
 
 def sl_to_roi_map(
         streamlines,
-        atlas
+        atlas, 
+        only_endpoints = True
 ):
     vol_shape = atlas.shape
     mapping = defaultdict(lambda: defaultdict(list))
     points = streamlines.get_data()
     start_points = streamlines._offsets
-
-    for idx in range(len(start_points)):
-        start = start_points[idx]
-        end   = start_points[idx+1] if idx + 1 < len(start_points) else len(points)
-        sl_start = points[start].astype(np.int32)
-        sl_end   = points[end - 1].astype(np.int32)
-        vxl_coords_start = tuple(sl_start)
-        vxl_coords_end = tuple(sl_end)
-        if (not value_in_bounds(vxl_coords_start, vol_shape) or
-            not value_in_bounds(vxl_coords_end, vol_shape)):
-            continue
-        start_roi = int(atlas[vxl_coords_start])
-        end_roi = int(atlas[vxl_coords_end])
-        if (start_roi == 0 or end_roi == 0):
-            continue
-        #mapping[start_roi][end_roi].append(idx)
-        mapping[idx] = tuple([start_roi, end_roi])
-
+    if only_endpoints:
+        for idx in range(len(start_points)):
+            start = start_points[idx]
+            end   = start_points[idx+1] if idx + 1 < len(start_points) else len(points)
+            sl_start = points[start].astype(np.int32)
+            sl_end   = points[end - 1].astype(np.int32)
+            vxl_coords_start = tuple(sl_start)
+            vxl_coords_end = tuple(sl_end)
+            if (not value_in_bounds(vxl_coords_start, vol_shape) or
+                not value_in_bounds(vxl_coords_end, vol_shape)):
+                continue
+            start_roi = int(atlas[vxl_coords_start])
+            end_roi = int(atlas[vxl_coords_end])
+            if (start_roi == 0 or end_roi == 0):
+                continue
+            #mapping[start_roi][end_roi].append(idx)
+            mapping[idx] = [tuple([start_roi, end_roi])]
+    else:
+        for idx in range(len(start_points)):
+            start = start_points[idx]
+            end   = start_points[idx+1] if idx + 1 < len(start_points) else len(points)
+            paired_rois = []
+            sl = points[start:end].astype(np.int32)
+            x, y, z = sl.T
+            crossed_labels = np.unique(atlas[x,y,z]).astype(np.int32)
+            if crossed_labels.min() < 0:
+                raise ValueError(f"Less than 0 value has appeared")
+            for comb in combinations(crossed_labels, r=2):
+                if 0 in comb:
+                    continue
+                paired_rois.append(comb)
+            mapping[idx] = paired_rois
     return mapping
 
 def sl_roi_map_sanity_check(sl_roi_map):
     sum = 0
     for key in sl_roi_map.keys():
-        if type(sl_roi_map[key]) != tuple:
+        if type(sl_roi_map[key]) != list:
             sum += 1
     if sum != 0:
         return False
@@ -643,6 +681,7 @@ def dilate_atlas_labels(atlas, brain_mask, dilation_width):
     """
 
     # Mask unlabeled voxels inside the brain
+
     unlabeled = np.where(atlas == 0, 1, 0)
     unlabeled *= brain_mask.astype('int32')
 
@@ -805,6 +844,24 @@ def simple_weighting(SC, FC):
    resultant = np.multiply(normed_SC, FC)
 
    return resultant
+
+def load_sift2_weights(weights_file: str, mu_file: str):
+
+    text = []
+
+    f = open(weights_file, "r")
+    for x in f:
+        text.append(x)
+    f.close()
+    
+    f = open(mu_file, "r")
+    for x in f:
+        mu=float(x)
+    f.close()
+
+    w = np.array([float(i) for i in text[1].split(' ')], dtype='float32')
+    
+    return w,mu
 
 def sparse_equality(sparse_1, sparse_2):
     """

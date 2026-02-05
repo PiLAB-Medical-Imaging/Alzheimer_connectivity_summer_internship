@@ -1319,6 +1319,17 @@ if __name__ == "__main__":
     session_num = 2
     mni_template = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
     output_folder = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs"
+    brain_only_fp="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w_brain_only.nii.gz"
+    tractogram_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/high_sl_tract/TAU_1_ses-2_tractogram.trk"
+    moving_file = "/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_FA.nii.gz"
+    new_trk = diffusion_to_t1space(
+        moving_file=moving_file,
+        static_file=brain_only_fp,
+        trk_file=tractogram_file
+    )
+
+
+
     the_grand_central_pipeline(
         fmri_prep_derivatives=derivatives,
         tractography_folder=tractography_folder,

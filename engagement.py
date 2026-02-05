@@ -172,13 +172,15 @@ def trk_report(trk, value):
     print(f"Axis 1 Max = {max_ax1}, Min = {min_ax1}")
     print(f"Axis 2 Max = {max_ax2}, Min = {min_ax2}")
 
-def generate_VWSC_matrices_entire_sl(atlas_data, 
-                           trk, 
-                           v2f_mapping = None,
-                           white_matter_prob = None, 
-                           white_matter_mask = None, 
-                           verbose = False, 
-                           segmentation = 1):
+def generate_VWSC_matrices_entire_sl(
+        atlas_data, 
+        trk, 
+        v2f_mapping = None,
+        white_matter_prob = None, 
+        white_matter_mask = None, 
+        segmentation = 1,   
+        sift2_weights = None,
+        sift2_mu = None):
     """
     Generate a structural connectivity matrix for every white matter voxel. 
     It first generates a mapping of voxel to streamline. This identifies the 
@@ -230,53 +232,22 @@ def generate_VWSC_matrices_entire_sl(atlas_data,
                                  smoothing=False)
     else:
         wm_mask = nib.load(white_matter_mask)
-    
-    # Generate all white matter positions
     wm_positions = mask_to_positions(wm_mask)
-
-    # Naive method:
-    all_connectivity_matrices = []
-
-
-    path_1_count = 0 
-    non_zero_count = 0
-    ROIs = len(np.unique(atlas_data))
-
-    no_streamlines = []
-    
-    for idx, voxel in enumerate(tqdm(wm_positions, "VW SC matrices")):
-
-        if tuple(voxel) not in v2f_mapping.keys():
-            conn_mat = np.zeros(shape=(ROIs, ROIs))
-            path_1_count +=1
-            no_streamlines.append(tuple(voxel))
-        else:
-            streamline_indices = v2f_mapping[tuple(voxel)]
-            conn_mat = connectivity_matrix(
-                trk.streamlines[streamline_indices], 
-                atlas_data,inclusive=False
-            )
-            
-        
-        conn_mat = np.delete(conn_mat, 0, 0)
-        conn_mat = np.delete(conn_mat, 0, 1)
-
-        if np.count_nonzero(conn_mat) > 0:
-            non_zero_count += 1
-
-        conn_mat = sparse.COO.from_numpy(conn_mat)
-        all_connectivity_matrices.append(conn_mat)
-
-    if verbose:
-        print(f"No. of voxels with no streamlines:"
-              f"{path_1_count} out of {len(wm_positions)}")
-        print(f"The number of voxel CMs with at least one connection:"
-              f"{non_zero_count} out of {len(wm_positions)}")
-    
-    all_connectivity_matrices = sparse.stack(
-        all_connectivity_matrices, 
-        axis = 0)
+    sl_roi_map  = sl_to_roi_map(
+        trk.streamlines,
+        atlas_data,
+        only_endpoints=False
+    )
+    all_connectivity_matrices = conn_matrices_V2(
+        sl_roi_map=sl_roi_map,
+        vox_sl_map=v2f_mapping,
+        atlas_data=atlas_data,
+        mask_positions=wm_positions,
+        sift_2_weights=sift2_weights,
+        sift_2_mu=sift2_mu
+    )
     return all_connectivity_matrices, wm_positions
+
 
 def generate_VWSC_matrices_ep_only(
         atlas_data, 
@@ -284,6 +255,8 @@ def generate_VWSC_matrices_ep_only(
         v2f_mapping = None,
         white_matter_prob = None, 
         white_matter_mask = None, 
+        sift2_weights = None,
+        sift2_mu = None,
         segmentation = 1):
     """
     Generate a structural connectivity matrix for every white matter voxel. 
@@ -343,12 +316,13 @@ def generate_VWSC_matrices_ep_only(
         trk.streamlines,
         atlas_data
     )
-    print(len(sl_roi_map.keys()))
     all_connectivity_matrices = conn_matrices_V2(
         sl_roi_map=sl_roi_map,
         vox_sl_map=v2f_mapping,
         atlas_data=atlas_data,
-        mask_positions=wm_positions
+        mask_positions=wm_positions,
+        sift_2_weights=sift2_weights,
+        sift_2_mu=sift2_mu
     )
     return all_connectivity_matrices, wm_positions
 
@@ -455,7 +429,6 @@ def save_connectivity_matrices(all_connectivity_mats, save_path):
             arr=all_connectivity_mats)
 
 def dynamic_engagement(sliced_time_series, connectivity_matrices):
-   
     ebc_matrices = []
 
     for slice in tqdm(sliced_time_series, "Slicewise EBC"):

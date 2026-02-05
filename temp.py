@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import nibabel as nib
-from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import distance_transform_edt, gaussian_filter
 from regis.core import find_transform, apply_transform
 from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
@@ -11,9 +11,10 @@ from utilities import split_nifti_to_visualise, diffusion_to_t1space, mask_to_po
 from utilities import sl_to_roi_map, voxel_to_streamline_map_V2, conn_matrices, conn_matrices_V2
 from engagement import generate_VWSC_matrices_entire_sl, generate_VWSC_matrices_ep_only
 from time import time
+from nibabel import Nifti1Image
 import sparse
 
-engagement_old = nib.load("/Users/sam/Desktop/sub-TAU001/anat/02_threshold_engagement_10x.nii.gz")
+""" engagement_old = nib.load("/Users/sam/Desktop/sub-TAU001/anat/02_threshold_engagement_10x.nii.gz")
 engagement_new = nib.load("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/pos_eng.nii.gz")
 
 eng_old_data = engagement_old.get_fdata()
@@ -43,4 +44,20 @@ def report(array):
           f"Nans: {nans}")
     
 report(eng_old_data)
-report(eng_new_data)
+report(eng_new_data) """
+
+engagement = "/Users/sam/Desktop/tau100_eng_250_all_sl.nii.gz"
+eng_img = nib.load(engagement)
+eng_data = eng_img.get_fdata()
+mask = np.where(eng_data > 0, 1, 0)
+filtered = gaussian_filter(
+    input=eng_data,
+    sigma = 2.0
+)
+filtered = filtered*mask
+filtered_img = Nifti1Image(filtered, affine=eng_img.affine)
+filtered_img.to_filename(engagement[:-7]+"_filtered.nii.gz")
+
+
+
+
