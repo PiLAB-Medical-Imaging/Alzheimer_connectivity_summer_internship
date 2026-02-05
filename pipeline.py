@@ -531,15 +531,19 @@ def register_atlases(
         )
 
 def dilate_atlases(
-        brain_mask,
         output_folder,
+        subj_id,
+        session,
+        anatomy_fps,
         dilation_width
 ):
     atlas_path = path.join(
         output_folder,
+        subj_id,
+        session,
         REG_ATLAS_NAME
     )
-    brain_mask_img = nifti_vs_img(brain_mask)
+    brain_mask_img = nifti_vs_img(anatomy_fps[BRAIN_MASK[:-7]])
     atlas_data = nib.load(atlas_path).get_fdata()
 
     print(f"Shape:{brain_mask_img.get_fdata().shape}")
