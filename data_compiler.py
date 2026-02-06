@@ -82,7 +82,8 @@ def data_crawler(
                 sw_metrics = sw_analysis(
                     sw_matrix=sw_mat
                 )
-                subj_data[SW_METRIC_NAME] = sw_metrics
+                for key in sw_metrics:
+                    subj_data[key] = sw_metrics[key]
             else:
                 print(f"Warning: Simple weighting matrix was not found at"
                       f"{sw_fp}" )
