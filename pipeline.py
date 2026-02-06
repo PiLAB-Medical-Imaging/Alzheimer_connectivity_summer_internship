@@ -548,7 +548,8 @@ def dilate_atlases(
     brain_mask_img = nifti_vs_img(anatomy_fps[BRAIN_MASK[:-7]])
     atlas_data = nib.load(atlas_path).get_fdata()
 
-    print(f"Shape:{brain_mask_img.get_fdata().shape}")
+    print(f"Shape brain mask:{brain_mask_img.get_fdata().shape}")
+    print(f"Shape atlas mask:{atlas_data.shape}")
     dilated_mask = dilate_atlas_labels(
         atlas=atlas_data,
         brain_mask=brain_mask_img.get_fdata(),
@@ -816,8 +817,7 @@ def run_fc_matrix(
 def run_sc_matrix(
         subj_id,
         session,
-        output_folder,
-        tractogram_file
+        output_folder
 ):
     sc_filename = subj_id+"_"+session+"_sc_matrix.npy"
     sc_fp = path.join(
@@ -831,6 +831,12 @@ def run_sc_matrix(
         subj_id,
         session,
         REG_ATLAS_NAME
+    )
+    tractogram_file = path.join(
+        output_folder,
+        subj_id,
+        session,
+        T1_TRACT_NAME
     )
     atlas_img = nib.load(atlas_fp)
     sc_mat = compute_connectivity_matrix(
