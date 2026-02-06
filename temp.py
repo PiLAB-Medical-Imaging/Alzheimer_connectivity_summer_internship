@@ -73,30 +73,15 @@ mni_template = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
 # Register the atlas: 
 import utilities as utl
 
-
-bm_data = nib.load(brain_mask).get_fdata()
-t1w =  nib.load(t1w)
-t1w_data =t1w.get_fdata()
-brain_only_t1w = t1w_data*bm_data
+atlas_img = nib.load(atlas)
+atlas_data = atlas_img.get_fdata()
+print(np.unique(atlas_data.astype("int32")))
+print(len(np.unique(atlas_data.astype("int32"))))
+atlas_data = np.round(atlas_data)
+print(np.unique(atlas_data))
+print(len(np.unique(atlas_data)))
 out = nib.Nifti1Image(
-    brain_only_t1w,
-    affine=t1w.affine
+    atlas_data,
+    affine = atlas_img.affine
 )
-fn = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/sub-TAU056_ses-0_desc-preproc_T1w_brain_only.nii.gz"
-out.to_filename(fn)
-
-
-utl.atlas_registration(
-    atlas_path=atlas,
-    template_file=mni_template,
-    reference_file=fn,
-    save_path="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/sub-TAU056_reg_atlas.nii.gz"
-)
-
- 
-
-registered_atlas = nib.load("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/sub-TAU056_reg_atlas.nii.gz")
-at_data = registered_atlas.get_fdata()
-print(at_data.shape)
-print(np.unique(at_data).shape)
-print(np.unique(at_data))
+out.to_filename(atlas)

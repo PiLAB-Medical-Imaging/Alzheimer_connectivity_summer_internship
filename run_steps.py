@@ -32,7 +32,6 @@ if __name__ == "__main__":
         destination_folder, 
         exist_ok=True
     )
-
     anatomy_folder, functional_folder = find_anat_func_folder(
         fmri_prep_derivatives=fmri_prep_derivatives_folder,
         subj_id=id_val+num,
@@ -94,7 +93,8 @@ if __name__ == "__main__":
         subj_id=id_val+num,
         session=session,
         output_folder=output_folder,
-        anatamy_fps=anatomy_fps
+        tractography_folder=tractography_folder,
+        anatamy_fps=anatomy_fps,
     )
     """
     ppl.run_dynamic_engagement(
