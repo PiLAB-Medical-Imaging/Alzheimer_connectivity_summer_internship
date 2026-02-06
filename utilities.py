@@ -643,7 +643,7 @@ def atlas_registration(atlas_path,
             moving_file= template_file,
             static_file= reference_file,
             level_iters=[1000, 100, 10],
-            diffeomorph=True
+            diffeomorph=False
             )
         
         registered_atlas = apply_transform(
