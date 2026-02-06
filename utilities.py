@@ -836,9 +836,10 @@ def trk2tck(input_file: str):
 
 def simple_weighting(SC, FC):
    """Simple element wise multiplcation of structural and functional connectivity"""
-
-   # Start with a simple normalised structural connectivity matrix each entry is normalised to a 0-1 value, with 1 corresponding to the strongest connection
-   normed_SC = SC/np.max(SC)
+   denom = np.max(SC)
+   if denom == 0:
+       raise ValueError("Denominator is 0. Structural Connectivity matrix is all zero")
+   normed_SC = SC/denom
 
    # Simple element wise weighting
    resultant = np.multiply(normed_SC, FC)

@@ -46,6 +46,7 @@ ENG_FN = "engagement.nii.gz"
 DYN_ENG_FN = "dyn-engagement.nii.gz"
 FUNCTIONNECTOME_FN = "functionnectome.nii.gz"
 SIMPLE_WEIGHTING = "simple_weighting.npy"
+DILATED_FN = "dilated_atlas.nii.gz"
 
 TARGET_ANAT_FILES = [CSFP_PATH, GMP_PATH, WMP_PATH, BRAIN_MASK, T1W_ANAT]
 
@@ -553,10 +554,12 @@ def dilate_atlases(
         brain_mask=brain_mask_img.get_fdata(),
         dilation_width=dilation_width
     )
-    dilated_fn = "dilated_atlas.nii.gz"
+
     dilated_fp = path.join(
         output_folder,
-        dilated_fn
+        subj_id,
+        session,
+        DILATED_FN
     )
     dilated_mask_img = Nifti1Image(
         dataobj=dilated_mask,
@@ -592,12 +595,11 @@ def tractogram_registration(
         static_file=brain_only_fp,
         trk_file=tractogram_file
     )
-    registered_trk_fn = "T1-space_tracts.trk"
     registered_trk_fp = path.join(
         output_folder,
         id_val,
         session,
-        registered_trk_fn
+        T1_TRACT_NAME
     )
     save_tractogram(
         sft = new_trk,
@@ -837,10 +839,13 @@ def run_sc_matrix(
             trk_file=tractogram_file,
             label_volume=atlas_img.get_fdata()
         )
+        if np.count_nonzero(sc_fp) == 0:
+            raise ValueError("There are no values in the SC matrix")
         np.save(
             file=sc_fp,
             arr=sc_mat
         )
+
     return sc_fp
 
 def run_simple_weighting(
