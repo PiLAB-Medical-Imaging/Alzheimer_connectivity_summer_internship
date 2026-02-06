@@ -525,12 +525,19 @@ def register_atlases(
         affine=t1w_img.affine
     )
     out.to_filename(brain_only_fp)
-    atlas_registration(
+    registered_atlas = atlas_registration(
         atlas_path=atlas_fp,
         template_file=template_file,
         reference_file=brain_only_fp,
         save_path=save_path
-        )
+    )
+    if type(registered_atlas) is None:
+        raise ValueError("The atlas registered is None")
+    original_atlas = nib.load(atlas_fp)
+    original_atlas_data = original_atlas.get_fdata()
+    if (len(np.unique(registered_atlas.get_fdata())) 
+            != len(np.unique(original_atlas_data))):
+        raise ValueError("The registration removed some labels")
 
 def dilate_atlases(
         output_folder,
@@ -548,6 +555,11 @@ def dilate_atlases(
     brain_mask_img = nifti_vs_img(anatomy_fps[BRAIN_MASK[:-7]])
     atlas_data = nib.load(atlas_path).get_fdata()
 
+
+    print(f"Filepaths: \n"
+          f"{atlas_path}\n"
+          f"{anatomy_fps[BRAIN_MASK[:-7]]}"
+    )
     print(f"Shape brain mask:{brain_mask_img.get_fdata().shape}")
     print(f"Shape atlas mask:{atlas_data.shape}")
     dilated_mask = dilate_atlas_labels(
@@ -604,7 +616,8 @@ def tractogram_registration(
     )
     save_tractogram(
         sft = new_trk,
-        filename=registered_trk_fp
+        filename=registered_trk_fp,
+        bbox_valid_check=False
     )
 
 def run_engagement(
@@ -740,7 +753,6 @@ def run_dynamic_engagement(subj_id,
         filename=dyn_eng_fp
     )
 
-
 def run_functionnectome(
         subj_id,
         session,
@@ -869,6 +881,13 @@ def run_simple_weighting(
                       session,
                       file_name)
     fc_mat = np.load(fc_fp)
+
+    if sc_mat.shape != fc_mat.shape:
+        print(f"The simple weighting did not work due to shape mismatch\n"
+                             f"SC shape: {sc_mat.shape}\n"
+                             f"FC shape: {fc_mat.shape}")
+        return False
+
 
     sw_mat = utilities.simple_weighting(
         SC = sc_mat,
