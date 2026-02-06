@@ -872,8 +872,14 @@ def run_simple_weighting(
     )
 
     sw_name = subj_id + "_" + session + "_" + SIMPLE_WEIGHTING
+    sw_path = path.join(
+        output_folder,
+        subj_id,
+        session,
+        sw_name
+    )
     np.save(
-        file=sw_name,
+        file=sw_path,
         arr=sw_mat
     )
 
