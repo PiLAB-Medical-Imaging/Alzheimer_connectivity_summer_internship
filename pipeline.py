@@ -825,26 +825,24 @@ def run_sc_matrix(
         subj_id,
         session,
         sc_filename)
-    if path.exists(sc_fp):
-        sc_mat = np.load(sc_fp)
-    else:
-        atlas_fp = path.join(
-            output_folder,
-            subj_id,
-            session,
-            REG_ATLAS_NAME
-        )
-        atlas_img = nib.load(atlas_fp)
-        sc_mat = compute_connectivity_matrix(
-            trk_file=tractogram_file,
-            label_volume=atlas_img.get_fdata()
-        )
-        if np.count_nonzero(sc_fp) == 0:
-            raise ValueError("There are no values in the SC matrix")
-        np.save(
-            file=sc_fp,
-            arr=sc_mat
-        )
+    
+    atlas_fp = path.join(
+        output_folder,
+        subj_id,
+        session,
+        REG_ATLAS_NAME
+    )
+    atlas_img = nib.load(atlas_fp)
+    sc_mat = compute_connectivity_matrix(
+        trk_file=tractogram_file,
+        label_volume=atlas_img.get_fdata()
+    )
+    if np.count_nonzero(sc_fp) == 0:
+        raise ValueError("There are no values in the SC matrix")
+    np.save(
+        file=sc_fp,
+        arr=sc_mat
+    )
 
     return sc_fp
 
@@ -883,7 +881,6 @@ def run_simple_weighting(
         arr=sw_mat
     )
 
-    
 
 def run_EBC(
         subj_id,
