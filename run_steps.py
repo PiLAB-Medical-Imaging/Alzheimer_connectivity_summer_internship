@@ -80,8 +80,7 @@ if __name__ == "__main__":
     ppl.run_sc_matrix(
         subj_id=id_val+num,
         session=session,
-        output_folder=output_folder,
-        tractogram_file=tractogram_file
+        output_folder=output_folder
     )
     ppl.run_simple_weighting(
         subj_id=id_val+num,
