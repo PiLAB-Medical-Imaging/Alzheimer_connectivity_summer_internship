@@ -46,7 +46,6 @@ if __name__ == "__main__":
     bold_filepath = ppl.find_bold_filepath(
         functional_folder=functional_folder
     )
-    """
     register_atlases(
         template_file=template_file,
         atlas_fp=atlas_fp,
@@ -55,7 +54,6 @@ if __name__ == "__main__":
         subj_id=id_val+num,
         session=session
     )
-    """
     dilate_atlases(
         output_folder=output_folder,
         subj_id=id_val+num,
