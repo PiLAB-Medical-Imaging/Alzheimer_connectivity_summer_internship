@@ -630,7 +630,10 @@ def atlas_registration(atlas_path,
     """
     # First, match the atlas to the patient (this will be a slow step so try 
     # and cache it). Save it somewhere and then just check that filepath.
-    img = nifti_vs_img(atlas_path)
+    atl_img = nifti_vs_img(atlas_path)
+    template_img = nifti_vs_img(template_file)
+    if not np.allclose(atl_img.affine, template_img.affine,rtol=1e-3):
+        raise ValueError(f"The template file and the atlas are not aligned")
 
     if  save_path is not None and path.exists(save_path):
         out = nib.load(save_path)
@@ -640,7 +643,7 @@ def atlas_registration(atlas_path,
             moving_file= template_file,
             static_file= reference_file,
             level_iters=[1000, 100, 10],
-            diffeomorph=False
+            diffeomorph=True
             )
         
         registered_atlas = apply_transform(

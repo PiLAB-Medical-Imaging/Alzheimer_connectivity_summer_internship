@@ -21,7 +21,7 @@ from regis.core import find_transform, apply_transform
 from utilities import connectivity_matrix_generation, visualise_square_mat, nifti_vs_img,mask_generator
 from utilities import normalise, create_masked_T1, atlas_registration, mask_to_positions, voxel_to_streamline_map_V2
 from utilities import create_ROI_time_series, create_VOX_time_series, diffusion_to_t1space
-from utilities import trk_vs_filepath, dilate_atlas_labels, time_slicing
+from utilities import trk_vs_filepath, dilate_atlas_labels, time_slicing, load_sift2_weights
 from engagement import correlation_thresholding, ebc_computation, reshape_engagement
 from engagement import engagement_calculation, generate_VWSC_matrices_entire_sl, dynamic_engagement
 from engagement import save_connectivity_matrices,save_engagement, generate_VWSC_matrices_ep_only, reshape_engagement_slices
@@ -535,6 +535,8 @@ def register_atlases(
         raise ValueError("The atlas registered is None")
     original_atlas = nib.load(atlas_fp)
     original_atlas_data = original_atlas.get_fdata()
+    print(f"The original atlas:\n{np.unique(original_atlas_data)}\n"
+          f"The new atlas: \n{np.unique(registered_atlas.get_fdata())}")
     if (len(np.unique(registered_atlas.get_fdata())) 
             != len(np.unique(original_atlas_data))):
         raise ValueError("The registration removed some labels")
@@ -567,7 +569,6 @@ def dilate_atlases(
         brain_mask=brain_mask_img.get_fdata(),
         dilation_width=dilation_width
     )
-
     dilated_fp = path.join(
         output_folder,
         subj_id,
@@ -625,6 +626,7 @@ def run_engagement(
         session,
         output_folder, 
         anatamy_fps,
+        tractography_folder,
         subsegment = 10, 
         ebc = None  
 ):
@@ -650,11 +652,26 @@ def run_engagement(
     )
     atlas_img = nib.load(atlas_filepath)
     atlas_data = atlas_img.get_fdata()
-    vox_cms, wm_positions = generate_VWSC_matrices_ep_only(
+    sift_fp = path.join(
+        tractography_folder,
+        "sift2"
+    )
+    sift_weights = path.join(
+        sift_fp,
+        subj_id+ "_" + session + "_sift_weights.txt"
+    )
+    sift_mu = path.join(
+        sift_fp,
+        subj_id+ "_" + session + "_mu.txt"
+    )
+    vox_cms, wm_positions = generate_VWSC_matrices_entire_sl(
         atlas_data=atlas_data,
         trk = trk,
         v2f_mapping=v2sl_map,
-        white_matter_prob=anatamy_fps[WMP_PATH[:-7]]
+        white_matter_prob=anatamy_fps[WMP_PATH[:-7]],
+        segmentation=10,
+        sift2_weights=sift_weights,
+        sift2_mu=sift_mu
     )
     if ebc is None:
         ebc_fp = path.join(

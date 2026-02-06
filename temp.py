@@ -46,6 +46,8 @@ def report(array):
 report(eng_old_data)
 report(eng_new_data) """
 
+
+""" 
 engagement = "/Users/sam/Desktop/tau100_eng_250_all_sl.nii.gz"
 eng_img = nib.load(engagement)
 eng_data = eng_img.get_fdata()
@@ -60,4 +62,41 @@ filtered_img.to_filename(engagement[:-7]+"_filtered.nii.gz")
 
 
 
+ """
 
+
+t1w = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/sub-TAU056_ses-0_desc-preproc_T1w.nii.gz"
+brain_mask = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/sub-TAU056_ses-0_desc-brain_mask.nii.gz"
+trk_diffusion = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/TAU_56_ses-0_tractogram.trk"
+atlas = "/Users/sam/Desktop/aal_mni_correct.nii.gz"
+mni_template = "/Users/sam/Desktop/sub-TAU001/MNI152_T1_1mm_brain.nii.gz"
+# Register the atlas: 
+import utilities as utl
+
+
+bm_data = nib.load(brain_mask).get_fdata()
+t1w =  nib.load(t1w)
+t1w_data =t1w.get_fdata()
+brain_only_t1w = t1w_data*bm_data
+out = nib.Nifti1Image(
+    brain_only_t1w,
+    affine=t1w.affine
+)
+fn = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/sub-TAU056_ses-0_desc-preproc_T1w_brain_only.nii.gz"
+out.to_filename(fn)
+
+
+utl.atlas_registration(
+    atlas_path=atlas,
+    template_file=mni_template,
+    reference_file=fn,
+    save_path="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/sub-TAU056_reg_atlas.nii.gz"
+)
+
+ 
+
+registered_atlas = nib.load("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/sub-TAU056_reg_atlas.nii.gz")
+at_data = registered_atlas.get_fdata()
+print(at_data.shape)
+print(np.unique(at_data).shape)
+print(np.unique(at_data))
