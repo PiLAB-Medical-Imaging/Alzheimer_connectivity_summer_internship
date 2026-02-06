@@ -623,6 +623,7 @@ def tractogram_registration(
 
 def run_engagement(
         subj_id,
+        subj_line,
         session,
         output_folder, 
         anatamy_fps,
@@ -648,7 +649,7 @@ def run_engagement(
         output_folder,
         subj_id,
         session,
-        REG_ATLAS_NAME
+        DILATED_FN
     )
     atlas_img = nib.load(atlas_filepath)
     atlas_data = atlas_img.get_fdata()
@@ -658,11 +659,11 @@ def run_engagement(
     )
     sift_weights = path.join(
         sift_fp,
-        subj_id+ "_" + session + "_sift_weights.txt"
+        subj_line + "_sift_weights.txt"
     )
     sift_mu = path.join(
         sift_fp,
-        subj_id+ "_" + session + "_mu.txt"
+        subj_line + "_mu.txt"
     )
     vox_cms, wm_positions = generate_VWSC_matrices_entire_sl(
         atlas_data=atlas_data,

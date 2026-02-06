@@ -1,5 +1,6 @@
 from os import makedirs, listdir
 from os.path import join, exists
+import sys
 
 import nibabel as nib
 import numpy as np
@@ -51,17 +52,18 @@ def data_crawler(
     """
     data = []
     for subject in listdir(outputs_folder):
-        subj_data = {}
+        
         subject_folder = join(
             outputs_folder,
-            subject_folder
+            subject
         )
         for session in listdir(subject_folder):
+            subj_data = {"subj": subject}
             session_folder = join(
                 subject_folder,
                 session
             )
-            subj_data[session] = {}
+            subj_data[session] = session
             eng_path = join(
                 session_folder,
                 ENGAGEMENT_NAME
@@ -69,17 +71,26 @@ def data_crawler(
             mean_eng = avg_engagement(
                 engagement=eng_path
             )
-            subj_data[session][ENG_MEAN_NAME] = mean_eng
+            subj_data[ENG_MEAN_NAME] = mean_eng
             
             sw_fp = join(
                 session_folder,
-                SIMPLE_WEIGHTING_NAME
+                subject + "_" + session + "_" + SIMPLE_WEIGHTING_NAME
             )
-            sw_mat = np.load(sw_fp)
-            sw_metrics = sw_analysis(
-                sw_matrix=sw_mat
-            )
-            subj_data[session][SW_METRIC_NAME] = sw_metrics
+            if exists(sw_fp):
+                sw_mat = np.load(sw_fp)
+                sw_metrics = sw_analysis(
+                    sw_matrix=sw_mat
+                )
+                subj_data[SW_METRIC_NAME] = sw_metrics
+            else:
+                print(f"Warning: Simple weighting matrix was not found at"
+                      f"{sw_fp}" )
+
+        data.append(subj_data)
 
 
 
+if __name__ == "__main__":
+    output_folder = sys.argv[1]
+    scan_data = data_crawler(output_folder)

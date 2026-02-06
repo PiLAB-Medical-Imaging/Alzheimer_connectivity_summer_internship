@@ -91,6 +91,7 @@ if __name__ == "__main__":
     )
     ppl.run_engagement(
         subj_id=id_val+num,
+        subj_line=subj_line,
         session=session,
         output_folder=output_folder,
         tractography_folder=tractography_folder,
