@@ -5,6 +5,7 @@ import sys
 import nibabel as nib
 import numpy as np
 import networkx as nx
+import pandas as pd
 
 from utilities import nifti_vs_img
 from graph_metrics import graph_level_metrics
@@ -87,8 +88,9 @@ def data_crawler(
             else:
                 print(f"Warning: Simple weighting matrix was not found at"
                       f"{sw_fp}" )
+            data.append(subj_data)
 
-        data.append(subj_data)
+    df = pd.DataFrame(data)
 
 
 
