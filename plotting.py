@@ -25,8 +25,7 @@ transformed_eng = apply_transform(
 transformed_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/pos_eng_mni_space.nii.gz"
 transformed_img = nib.load(transformed_file)
 display = plot_glass_brain(
-    stat_map_img=transformed_img,
-    display_mode="mosaic"
+    stat_map_img=transformed_img
 )
 plotting.show()
 display.close()

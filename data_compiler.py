@@ -93,7 +93,6 @@ def data_crawler(
     df = pd.DataFrame(data)
 
 
-
 if __name__ == "__main__":
     output_folder = sys.argv[1]
     scan_data = data_crawler(output_folder)
