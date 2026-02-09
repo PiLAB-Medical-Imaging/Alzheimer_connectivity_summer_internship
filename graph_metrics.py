@@ -6,12 +6,6 @@ import networkx as nx
 
 #### Graph level analysis ####
 def graph_level_metrics(graph):
-    print("Before Calculation")
-    print(type(graph))
-    print("Nodes:", graph.number_of_nodes())
-    print("Edges:", graph.number_of_edges())
-    print("Density:", nx.density(graph))
-
     n_isolates = len(list(nx.isolates(graph)))
 
     graph.remove_nodes_from(list(nx.isolates(graph)))
@@ -29,11 +23,7 @@ def graph_level_metrics(graph):
     density = nx.density(graph)
 
     n = graph.number_of_nodes()
-    m = graph.number_of_edges()
-    print("after Calculation")
-    print("N:", n, "M:", m, "density:", density)
-    
-    
+    m = graph.number_of_edges()   
     return {
         "m_connectivity": avg_node_connectivity,
         "density": density,

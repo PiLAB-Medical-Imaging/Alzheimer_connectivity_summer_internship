@@ -174,7 +174,8 @@ def subnet_analysis(
         values = network_extraction_V2(
             atlas_filepath=atlas_fp,
             matrix_filepath=matrix_path,
-            definitions_filepath=network_definitions
+            definitions_filepath=network_definitions,
+            atlas="AAL116"
         )
         return values
     else:
