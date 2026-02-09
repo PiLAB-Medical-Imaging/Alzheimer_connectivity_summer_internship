@@ -6,6 +6,9 @@ import networkx as nx
 
 #### Graph level analysis ####
 def graph_level_metrics(graph):
+    if isinstance(graph, np.ndarray):
+        graph = nx.from_numpy_array(graph)
+
     n_isolates = len(list(nx.isolates(graph)))
 
     graph.remove_nodes_from(list(nx.isolates(graph)))
