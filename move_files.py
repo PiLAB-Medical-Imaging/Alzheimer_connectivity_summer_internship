@@ -10,6 +10,10 @@ def move_files(
         destination, 
         file_name
 ):
+    os.makedirs(
+        name=destination, 
+        exist_ok=True
+    )
     for subject in os.listdir(outputs_folder):
         print(f'Analysing {subject}')
         subject_folder = join(
@@ -26,10 +30,6 @@ def move_files(
                 session_folder,
                 file_name
             )
-            os.makedirs(
-                name=destination, 
-                exist_ok=True
-            )
             new_name = join(
                 destination, 
                 subject + "_" + session + "_" + file_name
@@ -40,9 +40,10 @@ def move_files(
                     destination = new_name
                 )
 
-if __name__ == "__name__":
+if __name__ == "__main__":
     outputs_folder = sys.argv[1]
     destination = sys.argv[2]
+    print("goose")
     move_files(
         outputs_folder=outputs_folder,
         destination=destination, 
