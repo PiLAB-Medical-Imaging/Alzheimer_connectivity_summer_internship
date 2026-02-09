@@ -14,6 +14,7 @@ from utilities import sparse_equality
 import sparse
 import matplotlib.pyplot as plt
 from engagement import save_engagement
+from utilities import load_sift2_weights
 
 """ atlas_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/registered_atlas.nii.gz"
 fMRI_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/FunctValidation/fake_fMRI.nii.gz"
@@ -158,11 +159,14 @@ all_cms, wm_pos = generate_VWSC_matrices_ep_only(
 t2 = time.time()
 print(f"End points: {t2-t1}") """
 t1 = time.time()
+
 all_cms_all_sl_sift, wm_pos = generate_VWSC_matrices_entire_sl(
         atlas_data=atlas_data,
         trk = trk, 
         white_matter_prob=wm_prob,
-        segmentation=10)
+        segmentation=10,
+        sift2_weights=sift_2w,
+        sift2_mu=sift_2mu)
 t2 = time.time()
 print(f"All sl points: {t2-t1}")
 print(all_cms_all_sl_sift.nnz)
