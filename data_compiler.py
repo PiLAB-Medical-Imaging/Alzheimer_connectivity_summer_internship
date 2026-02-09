@@ -39,7 +39,8 @@ def sw_analysis(sw_matrix):
     return metrics
 
 def data_crawler(
-        outputs_folder: str
+        outputs_folder: str,
+        save_path: str
 ):
     """
     A crawler that navigates through the outputs folder and performs
@@ -91,8 +92,15 @@ def data_crawler(
             data.append(subj_data)
 
     df = pd.DataFrame(data)
-
+    save_location = join(
+        save_path, 
+        "compiled_data.csv"
+    )
+    df.to_csv(
+        path_or_buf=save_location
+    )
 
 if __name__ == "__main__":
     output_folder = sys.argv[1]
-    scan_data = data_crawler(output_folder)
+    save_folder = sys.argv[2]
+    scan_data = data_crawler(output_folder, save_folder)
