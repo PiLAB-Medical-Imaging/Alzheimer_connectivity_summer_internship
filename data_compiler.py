@@ -178,8 +178,7 @@ def subnet_analysis(
         )
         return values
     else:
-        print(f"Matrix not found: {matrix_path}")
-        raise ValueError(f"Matrix not found: {matrix_path}")
+        return None
 
 
        
@@ -270,6 +269,8 @@ def data_crawler(
                 matrix_name=matrix_name,
                 network_definitions=network_definitions
             )
+            if subj_results is None:
+                continue
             for key in subj_results:
                 subj_data[key] = subj_results[key]
 
