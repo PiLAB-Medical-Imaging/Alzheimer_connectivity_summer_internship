@@ -97,9 +97,6 @@ def define_network(
     target_mask = np.zeros_like(atlas)
     target_mask[np.isin(atlas, target_indices)] = atlas[np.isin(atlas, target_indices)]
 
-    #out=nib.Nifti1Image(target_mask, atlas_img.affine , atlas_img.header)
-    #out.to_filename(network_path) # This creates amd saves a visualisation of the subjects brain network.
-
     # Next - look at the subset of the connectivity matrix and work with that.
     subset_matrix = conn_matrix[np.ix_(target_indices, target_indices)]
 
@@ -132,6 +129,24 @@ def network_extraction(
 
     return return_networks
 
+def network_extraction_V2(
+        atlas_filepath, 
+        matrix_filepath, 
+        definitions_filepath, 
+        atlas
+    ):
+    return_networks = {}
+    for network in NETWORKS:
+        print(network)
+        selected_network = define_network(
+            matrix_filepath,
+            atlas_filepath,
+            definitions_filepath,
+            atlas,
+            network
+        )
+
+    return return_networks
 
 ####### Out dated - these are functions that only work with the AAL atlas #######
 def reorder_matrix(matrix, labels, indices=[]):

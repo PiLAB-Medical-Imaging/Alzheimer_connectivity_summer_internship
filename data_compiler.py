@@ -109,7 +109,6 @@ def matrix_subsetting(
     atlas_img=nib.load(subject_atlas_path)
     atlas = atlas_img.get_fdata().astype(float)
     # Load all network to brain network mappings
-    print(f"Loading all indices for {network_name}")
     network_mappings = load_all_indices(definitions_filepath)
     # Define network indices
     try:
@@ -143,7 +142,6 @@ def network_extraction_V2(
     """
     all_values = {}
     for network in NETWORKS:
-        print(network)
         selected_network = matrix_subsetting(
             matrix_filepath,
             atlas_filepath,
@@ -218,8 +216,9 @@ def data_crawler(
     """
     print("Commencing Compilation!")
     data = []
-    for subject in listdir(outputs_folder):
-        print(f'Analysing {subject}')
+    total = len(listdir(outputs_folder))
+    for i, subject in enumerate(listdir(outputs_folder)):
+        print(f'Analysing {i} of total: {subject}')
         subject_folder = join(
             outputs_folder,
             subject
