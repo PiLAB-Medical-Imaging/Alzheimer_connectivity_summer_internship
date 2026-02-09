@@ -54,12 +54,13 @@ def data_crawler(
     """
     data = []
     for subject in listdir(outputs_folder):
-        
+        print(f'Analysing {subject}')
         subject_folder = join(
             outputs_folder,
             subject
         )
         for session in listdir(subject_folder):
+            print(f"\t{session}")
             subj_data = {"subj": subject}
             session_folder = join(
                 subject_folder,
@@ -75,6 +76,7 @@ def data_crawler(
                     engagement=eng_path
                 )
             else:
+                print(f"\tEngagement {eng_path} not found")
                 mean_eng = None
             subj_data[ENG_MEAN_NAME] = mean_eng
             

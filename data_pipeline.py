@@ -13,13 +13,32 @@ def load_dataset(filepath):
     dataset = pd.read_excel(filepath)
     return dataset
 
-def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_path, label_path, definitions_filepath, session_number):
+def dataset_pipeline(
+        dMRI_data_path, 
+        fMRI_data_path, 
+        subj_id, out_path, 
+        atlas_path, 
+        label_path, 
+        definitions_filepath, 
+        session_number
+    ):
     # Create the out_path if it doesnt already exist
-    out_path = os.path.join(out_path, "analyses")
-    os.makedirs(out_path, exist_ok=True)
-    out_path = os.path.join(out_path, f"{subj_id}")
-    os.makedirs(out_path, exist_ok=True)
-
+    out_path = os.path.join(
+        out_path, 
+        "analyses"
+    )
+    os.makedirs(
+        out_path,
+        exist_ok=True
+    )
+    out_path = os.path.join(
+        out_path, 
+        f"{subj_id}"
+    )
+    os.makedirs(
+        out_path, 
+        exist_ok=True
+    )
     # Generate connectivity matrices and the combined representations (remaining is the fMRI computation)
     ####################################################################################################
     # Define a save path for the three matrices and metrics
@@ -30,42 +49,59 @@ def dataset_pipeline(dMRI_data_path, fMRI_data_path, subj_id, out_path, atlas_pa
     os.makedirs(FC_save_path, exist_ok=True)
     os.makedirs(JR_save_path, exist_ok=True)
 
-
     # Generate and save the structural matrix
-    SC = sc.generate_connectivity_matrix(dMRI_data_path, out_path, subj_id, atlas_path, label_path)
+    SC = sc.generate_connectivity_matrix(
+        dMRI_data_path, 
+        out_path, 
+        subj_id,
+        atlas_path, 
+        label_path
+    )
     SC_filepath = os.path.join(SC_save_path, "SC_matrix.npy")
     np.save(SC_filepath, SC)
-
-    
     # Generate and save the functional matrix
     #FC = np.random.rand(len(SC),len(SC)) # This is just until I have the data for fMRI processed
     FC = process_fMRI(fMRI_data_path, subj_id, session_number)
-
-
-
     FC_filepath = os.path.join(FC_save_path, "FC_matrix.npy")
     np.save(FC_filepath, FC)
 
 
     # Generate and save the joint matrices
-
     # Safety check for dimensions
     if SC.shape != FC.shape:
         print(f"The size of the structral and functional connectivity matrices are not compatible for {subj_id}")
         raise ValueError
 
-    JR =  jr.create_combined_matrices(SC_filepath, FC_filepath, subj_id, out_path)
-    JR_filepath = os.path.join(JR_save_path, "JR_matrix.npy")
-    np.save(JR_filepath, JR)
-
+    JR =  jr.create_combined_matrices(
+        SC_filepath, 
+        FC_filepath, 
+        subj_id, 
+        out_path
+    )
+    JR_filepath = os.path.join(
+        JR_save_path, 
+        "JR_matrix.npy"
+    )
+    np.save(
+        JR_filepath, 
+        JR
+    )
     # for each type of representation, compute networks. Output each to a different subfolder
-    dMRI_network_path = os.path.join(SC_save_path, "networks")
-    os.makedirs(dMRI_network_path, exist_ok=True)
-    structural_networks = ne.network_extraction(out_path, 
-                                                SC_filepath, 
-                                                subj_id, 
-                                                definitions_filepath, 
-                                                "AAL116")
+    dMRI_network_path = os.path.join(
+        SC_save_path, 
+        "networks"
+        )
+    os.makedirs(
+        dMRI_network_path, 
+        exist_ok=True
+    )
+    structural_networks = ne.network_extraction(
+        out_path, 
+        SC_filepath, 
+        subj_id, 
+        definitions_filepath, 
+        "AAL116"
+    )
     process_dictionary2save(structural_networks, dMRI_network_path)
 
     fMRI_network_path = os.path.join(FC_save_path, "networks")

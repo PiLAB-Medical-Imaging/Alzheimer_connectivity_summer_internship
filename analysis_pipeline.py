@@ -107,9 +107,12 @@ def dict2DF(dictionary_version):
     return df_version
 
 
-def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
+def compare_to_behavioural_data(
+        behavioural_data_fp, 
+        network_data_fp):
     """
-    Builds a dataset that combines the behavioural metrics with the network metrics.
+    Builds a dataset that combines the 
+    behavioural metrics with the network metrics.
     
     :param behavioural_data_fp: str
         filepath containing the behavioural data. 
@@ -121,20 +124,27 @@ def compare_to_behavioural_data(behavioural_data_fp, network_data_fp):
     with open(behavioural_data_fp, "rb") as f:
         result = chardet.detect(f.read())
 
-    behavioural_data = pd.read_csv(behavioural_data_fp,sep=";", decimal=",", encoding="latin-1")
-    network_data = pd.read_csv(network_data_fp, sep=";", decimal=",")
-
+    behavioural_data = pd.read_csv(
+        behavioural_data_fp,sep=";", 
+        decimal=",", 
+        encoding="latin-1"
+    )
+    network_data = pd.read_csv(
+        network_data_fp, 
+        sep=";", 
+        decimal=","
+    )
     print("behavioural keys: ")
     print(behavioural_data.keys())
     print("Keys for network data")
     print(network_data.keys())
-
     # Merge them into a long format. 
-
-    long_combined = behavioural_data.merge(network_data, 
-                                           how="outer",
-                                           left_on=["ID", "Visit_number"], 
-                                           right_on=["subj_id", "session_num"])
+    long_combined = behavioural_data.merge(
+        network_data, 
+        how="outer",
+        left_on=["ID", "Visit_number"], 
+        right_on=["subj_id", "session_num"]
+    )
 
     return long_combined
 

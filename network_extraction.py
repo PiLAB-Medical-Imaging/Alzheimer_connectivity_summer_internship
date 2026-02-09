@@ -69,24 +69,28 @@ def load_all_indices(definitions_filepath):
     return all_networks
 
 
-def define_network(connectivity_matrix_filepath, subject_atlas_path, definitions_filepath, atlas_name, network_name):
-
-    # Load a graph (either a functional or structural connectivity matrix. It is essential that the atlas used matches)
+def define_network(
+        connectivity_matrix_filepath, 
+        subject_atlas_path, 
+        definitions_filepath,
+        atlas_name, 
+        network_name
+    ):
+    # Load a graph (either a functional or structural connectivity matrix. 
+    # It is essential that the atlas used matches)
     conn_matrix = np.load(connectivity_matrix_filepath)
-
-    ## Load the atlas (a subject specific one - already need to have performed registration)
+    ## Load the atlas (already need to have performed registration)
     atlas_img=nib.load(subject_atlas_path)
     atlas = atlas_img.get_fdata().astype(float)
-
     # Load all network to brain network mappings
     print(f"Loading all indices for {network_name}")
     network_mappings = load_all_indices(definitions_filepath)
-
     # Define network indices
     try:
         target_indices = network_mappings[network_name][atlas_name]
     except KeyError:
-        print(f"Failure on {network_name}: The dictionary has {network_mappings.keys()} available.")
+        print(f"Failure on {network_name}:"
+              f"The dictionary has {network_mappings.keys()} available.")
         raise KeyError
 
     # Mask for required indices
@@ -103,24 +107,30 @@ def define_network(connectivity_matrix_filepath, subject_atlas_path, definitions
 
 
 ###### Main logic #####
-def network_extraction(subj_connectivity_folder, matrix_filepath, subj_id, definitions_filepath, atlas):
-    atlas_filepath = os.path.join(subj_connectivity_folder, f"{subj_id}_atlas.nii.gz")
-
+def network_extraction(
+        subj_connectivity_folder, 
+        matrix_filepath, 
+        subj_id, 
+        definitions_filepath, 
+        atlas
+    ):
+    atlas_filepath = os.path.join(
+        subj_connectivity_folder, 
+        f"{subj_id}_atlas.nii.gz"
+    )
     return_networks = {}
-
     for network in NETWORKS:
         print(network)
-        selected_network = define_network(matrix_filepath,atlas_filepath,definitions_filepath, atlas, network)
+        selected_network = define_network(
+            matrix_filepath,
+            atlas_filepath,
+            definitions_filepath,
+            atlas,
+            network
+        )
         return_networks[f"{atlas}_{network}_{subj_id}"] = selected_network
 
     return return_networks
-
-
-
-
-
-
-
 
 
 ####### Out dated - these are functions that only work with the AAL atlas #######
