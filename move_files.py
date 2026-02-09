@@ -37,7 +37,7 @@ def move_files(
             if exists(eng_path):
                 shutil.copyfile(
                     src=eng_path,
-                    dst=destination
+                    dst=new_name
                 )
 
 if __name__ == "__main__":
