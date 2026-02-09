@@ -70,9 +70,12 @@ def data_crawler(
                 session_folder,
                 ENGAGEMENT_NAME
             )
-            mean_eng = avg_engagement(
-                engagement=eng_path
-            )
+            if exists(eng_path):
+                mean_eng = avg_engagement(
+                    engagement=eng_path
+                )
+            else:
+                mean_eng = None
             subj_data[ENG_MEAN_NAME] = mean_eng
             
             sw_fp = join(
