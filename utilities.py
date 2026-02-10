@@ -833,7 +833,7 @@ def split_nifti_to_visualise(original_fp:str):
 def trk_vs_filepath(trk_obj):
     if type(trk_obj) is StatefulTractogram:
         return trk_obj
-    elif trk_obj.isinstance(str):
+    elif type(trk_obj) is str:
         return load_tractogram(trk_obj, "same")
     else:
         raise ValueError(f"Expected either a stateful tractogram," 
