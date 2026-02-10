@@ -257,34 +257,51 @@ def plot_diagnosis_network_characteristics(data_long, metric_of_interest, networ
 
 def group_comparisons(network_name, data):
     #relevant_data = data[data["network"]==network_name]
-    relevant_data = data[data["type"]=="structural"]
+    relevant_data = data[data["type"]=="combined"]
     print(relevant_data.columns)
-    longer_data = relevant_data.melt(id_vars = ["subj_id", "session_num", "Diagnostic cognitif détaillé_CLASSIF_1", "network", "Demented"],
-                                    value_vars = ["m_connectivity", "diameter", "density", "global_clustering", "isolates"],
-                                    var_name = "metric",
-                                    value_name = "score")
-    
+    longer_data = relevant_data.melt(
+        id_vars = ["subj_id", 
+                   "session_num", 
+                   "Diagnostic cognitif détaillé_CLASSIF_1", 
+                   "network", 
+                   "Demented",
+                   "MMSE",
+                   "MEMORY_Composite",
+                   "EXECUTIVE_Composite",
+                   "VISUOSPATIAL_Composite",
+                    "GLOBAL_COGNITIVE_Composite" 
+        ],
+        value_vars = ["m_connectivity",
+                      "diameter", 
+                      "density", 
+                      "global_clustering", 
+                      "isolates"],
+        var_name = "metric",
+        value_name = "score")
+    """ 
     # First plot all patients across different time points
-    sns.relplot(data    = longer_data,
-                x           = "session_num",
-                y           =  "score",
-                hue         = "Diagnostic cognitif détaillé_CLASSIF_1",
-                col         = "metric",
-                row         = "network",
-                facet_kws   ={"sharey": False})
-
+    sns.relplot(
+        data=longer_data,
+        x= "session_num",
+        y="score",
+        hue="Diagnostic cognitif détaillé_CLASSIF_1",
+        col="metric",
+        row="network",
+        facet_kws={"sharey": False})
+    plt.title("Session - Network Metrics")
     plt.show()
 
     # Next plot the average for each group over time points.
-    sns.relplot(data = longer_data,
-            x           = "session_num",
-            y           = "score",
-            hue         = "Diagnostic cognitif détaillé_CLASSIF_1",
-            col         = "metric", 
-            kind        = "line",
-            estimator   = "mean",
-            row         = "network", 
-            facet_kws   ={"sharey": False})
+    sns.relplot(
+        data = longer_data,
+        x="session_num",
+        y="score",
+        hue="Diagnostic cognitif détaillé_CLASSIF_1",
+        col="metric", 
+        kind="line",
+        estimator="mean",
+        row="network", 
+        facet_kws={"sharey": False})
 
     plt.show()
 
@@ -310,6 +327,29 @@ def group_comparisons(network_name, data):
 
     plt.show()
 
+    sns.catplot(data    = longer_data,
+        x           = "Demented",
+        y           =  "score",
+        hue         = "Demented",
+        col         = "metric",
+        row         = "network",
+        kind        = "point",
+        sharey      = False)
+
+    plt.show()
+    """
+    sns.relplot(
+        data = longer_data,
+        x="score",
+        y="MEMORY_Composite",
+        hue="Demented",
+        col="metric", 
+        kind="scatter",
+        row="network", 
+        facet_kws={"sharey": False})
+
+    plt.show()
+
 
 def rel_composite_to_network(data, composite, metric):
     data = data[data["type"]=="structural"]
@@ -331,7 +371,11 @@ def rel_composite_to_network(data, composite, metric):
 
 def run_tests():
     patient_data = "/Users/sam/Desktop/long_form_combined.csv"
-    data_long = pd.read_csv(patient_data, sep=";", decimal=",")
+    data_long = pd.read_csv(patient_data, 
+                            sep=";", 
+                            decimal=",",
+                            index_col=0)
+    print(data_long.head())
     group_comparisons("ecn",data=data_long)
     #rel_composite_to_network(data_long, "MEMORY_Composite", "density")
     #plot_diagnosis_network_characteristics(data_long, "density", "structural")
@@ -339,7 +383,7 @@ def run_tests():
 
 
 
-TESTING = False
+TESTING = True
 
 if __name__=="__main__":
     if not TESTING:
