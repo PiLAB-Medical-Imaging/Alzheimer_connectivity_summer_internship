@@ -336,7 +336,7 @@ def subject_data_crawler(
         # Overall simple weighting metrics
         sw_fp = join(
             session_folder,
-            subj_number + "_" + session + "_" + SIMPLE_WEIGHTING_NAME
+            subj_id + "_" + session + "_" + SIMPLE_WEIGHTING_NAME
         )
         if exists(sw_fp):
             sw_mat = np.load(sw_fp)
@@ -349,7 +349,7 @@ def subject_data_crawler(
             print(f"Warning: Simple weighting matrix was not found at"
                     f"{sw_fp}" )
             # Subnetwork Analysis for the simple weighting data
-            matrix_name = subj_number + "_" + session+ "_" + "simple_weighting.npy"
+            matrix_name = subj_id + "_" + session+ "_" + "simple_weighting.npy"
             subj_results = subnet_analysis(
                 subject_folder=session_folder,
                 matrix_name=matrix_name,

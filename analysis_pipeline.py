@@ -346,7 +346,8 @@ def group_comparisons(network_name, data):
         col="metric", 
         kind="scatter",
         row="network", 
-        facet_kws={"sharey": False})
+        facet_kws={"sharey": False, 
+                   "sharex": False})
 
     plt.show()
 
@@ -371,7 +372,7 @@ def rel_composite_to_network(data, composite, metric):
 
 def compare_graphs(data):
     
-    data_type = ["combined", "structural", "functional"]
+    data_types = ["combined", "structural", 'functional']
     longer_data = data.melt(
         id_vars = ["subj_id", 
                    "session_num", 
@@ -392,20 +393,22 @@ def compare_graphs(data):
                       "isolates"],
         var_name = "metric",
         value_name = "score")
-    
-    for data_type in data_type:
-        relevant_data = longer_data[longer_data["type"]=="combined"]
-        sns.catplot(data    = relevant_data,
+    for data_type in data_types:
+        relevant_data = longer_data[longer_data["type"]==data_type]
+        longer_data["type"].value_counts(dropna=False)
+        print(longer_data["type"].unique())  
+        print(relevant_data["score"].isna().mean())
+        print(relevant_data)
+        sns.catplot(data = relevant_data,
             x= "Demented",
             y="score",
             hue="Demented",
             col="metric",
             row="network",
-            kind= "violin",
+            kind= "strip",
             sharey = False)
-
         plt.show()
-
+        
 
 
 def run_tests():
@@ -415,8 +418,7 @@ def run_tests():
                             sep=";", 
                             decimal=",",
                             index_col=0)
-    print(data_long.head())
-
+    compare_graphs(data_long)
     group_comparisons("ecn",data=data_long)
 
     #rel_composite_to_network(data_long, "MEMORY_Composite", "density")
