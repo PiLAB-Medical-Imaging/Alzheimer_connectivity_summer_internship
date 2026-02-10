@@ -359,17 +359,35 @@ def subject_data_crawler(
                 continue
             for key in subj_results:
                 subj_data[key] = subj_results[key]
+        all_data.append()
     df = pd.DataFrame(
         data = all_data
     )
     save_location = join(
         save_path, 
-        subj_number + "_" + "compiled_data.csv"
+        subj_id + "compiled_data.csv"
     )
     df.to_csv(
         path_or_buf=save_location
     )
-    
+
+def subject_wise_compilation(directory):
+    all_dfs = []
+    for file in listdir(directory):
+        file_path = join(
+            directory,
+            file
+        )
+        df = pd.read_csv(
+            filepath_or_buffer=file_path,
+            index_col=0
+        )
+        all_dfs.append(df)
+
+    final_df = pd.concat(all_dfs)
+    return final_df
+
+
 if __name__ == "__main__":
     output_folder = sys.argv[1]
     save_folder = sys.argv[2]
@@ -388,4 +406,8 @@ if __name__ == "__main__":
         subj_number=subj_num,
         save_path=save_folder,
         network_definitions=network_definitions_fp
+    )
+    final_df = subject_wise_compilation(save_folder)
+    final_df.to_csv(
+        "all_subjects.csv"
     )
