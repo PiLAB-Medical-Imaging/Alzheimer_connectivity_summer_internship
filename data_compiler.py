@@ -365,7 +365,7 @@ def subject_data_crawler(
     )
     save_location = join(
         save_path, 
-        subj_id + "compiled_data.csv"
+        subj_id + "_compiled_data.csv"
     )
     df.to_csv(
         path_or_buf=save_location
