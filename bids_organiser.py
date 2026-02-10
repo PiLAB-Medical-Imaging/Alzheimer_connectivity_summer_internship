@@ -43,8 +43,6 @@ def extract_session_number(filename):
     if m:
         return m.group(1)
     
- 
-
     return None
 
 def extract_participant_number(filename):
@@ -60,28 +58,31 @@ def extract_participant_number(filename):
 
 def process_session_num(session_number):
     """
-    Adjustable logic to handle strange session number formats as needed/
+    Adjustable logic to handle strange session number formats as needed. 
+    Convention is to multiply the session by 10. Hence, session 0.5 becomes
+    05. 
+
+    Note, I have not tested this since changing it to this new convention.
     
     :param session_number: The session number as a string
     """
-    if session_number == "05":
-        return "05"
-    elif session_number == "15":
-        return "15"
-    else:
-        return session_number
+    int_session_num = int(session_number)
+    new_session_num = int_session_num * 10
+    str_session_num = f"{new_session_num}".zfill(2)
+    return str_session_num
     
 def meta_data_creator(destination_folder, meta_data_path):
     """
-    This will create the mandatory BIDs metadata folders. Please be
-    aware that this will be a blank template. You can adjust the meta_data 
-    filepath to point to a completed set of metadata and it will upload that 
-    provided you use the correct filenames
+    This will move the mandatory BIDs metadata folders from the specified
+    filepath. You can get templates from the BIDS site. 
     
-    :param destination_folder: Filepath pointing to the root directory of your bids file. 
-    :param meta_data: A filepath to the folder that contains your metadata. Ensure that the 
-    files enclosed within are named dataset_description.json, participants.json, participants.tsv, 
-    and README.md
+    :param destination_folder: 
+        Filepath pointing to the root directory of your bids file. 
+    :param meta_data: 
+        A filepath to the folder that contains your metadata. 
+        Ensure that the files enclosed within are named 
+        dataset_description.json, participants.json, participants.tsv, 
+        and README.md
     """
     for file_name in METADATA_FILES:
         path  = os.path.join(meta_data_path, file_name)
@@ -89,16 +90,27 @@ def meta_data_creator(destination_folder, meta_data_path):
         try:
             shutil.copy(path, destination)
         except FileNotFoundError:
-            print(f"Please ensure that you have all the required metadata in the folder specified by the meta_data_path\nMissing: {file_name}")
+            print(f"Please ensure that you have all the required metadata" 
+                  f"in the folder specified by the meta_data_path\n"
+                  f"Missing: {file_name}")
             
 
 
 
-def bids_organise(data_folder, destination_folder, data_type, study_name, task="rest", stop_on_failure = False, replace = True):
+def bids_organise(
+        data_folder, 
+        destination_folder, 
+        data_type, 
+        study_name, 
+        task="rest", 
+        stop_on_failure = False, 
+        replace = True
+    ):
 
     """
-    Converts a single folder of scan data into a BIDs organised directory. Currently only works in 
-    folders that are pretty homogenous, does not like files that do not contain a subject number for example. 
+    Converts a single folder of scan data into a BIDs organised directory. 
+    Currently only works in folders that are pretty homogenous, 
+    does not like files that do not contain a subject number for example. 
     
     :param data_folder: Description
     :param destination_folder: Description
@@ -106,11 +118,22 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
     :param study_name: Description
     :param task: Description
     """
-    destination_folder = os.path.join(destination_folder, study_name)
-    os.makedirs(destination_folder, exist_ok=True)
-    os.makedirs(destination_folder + "/derivatives", exist_ok=True)
-   
-    os.makedirs(destination_folder, exist_ok=True)
+    destination_folder = os.path.join(
+        destination_folder, 
+        study_name
+    )
+    os.makedirs(
+        destination_folder,
+        exist_ok=True
+    )
+    os.makedirs(
+        destination_folder + "/derivatives", 
+        exist_ok=True
+    )
+    os.makedirs(
+        destination_folder, 
+        exist_ok=True
+    )
 
     print(f"Processing: {data_folder}\n")
     session_set = set()
@@ -119,20 +142,13 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
     for filename in os.listdir(data_folder):
         count = count + 1
         subject_num = extract_participant_number(filename)
-
         session_num = extract_session_number(filename)
         session_num = process_session_num(session_num)
-
-
         session_set.add(session_num)
-
         # Verbose Logging
         print(f"({count})Filename: {filename}")
         print(f"Subject: {subject_num}")
         print(f"Session: {session_num}")
-
-
-
         extension = get_file_extension(filename)
 
         if data_type == "fMRI" and filename.__contains__(data_type):
@@ -147,10 +163,10 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
         elif data_type == "T2" and filename.__contains__("Coro_T2"):
             scan_type = "T2w"
             func_or_anat = "anat"
-
         else:
-            print(f"There is no logic for handling a file of this type. The offending file {filename}\n Continuing to the next file.")
-            
+            print(f"There is no logic for handling a file of this type."
+                  f"The offending file {filename}\n"
+                  f"Continuing to the next file.")
             if stop_on_failure:
                 raise Exception
             else:
@@ -159,7 +175,6 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
         #if len(subject_num)!=3:
          #   raise Exception(f"The participant number is not correctly formatted: \n Filename: {filename}\n participant number: {subject_num}")
         print(f"Scan type: {func_or_anat}")
-
         # Build the filepath
         try:
             subject_identifier = "TAU" + subject_num
@@ -169,73 +184,99 @@ def bids_organise(data_folder, destination_folder, data_type, study_name, task="
                 raise Exception
             else: continue
 
-        subject_path = destination_folder + "/" + "sub-" + subject_identifier
+        subject_path = (destination_folder 
+                        + "/" 
+                        + "sub-" 
+                        + subject_identifier)
         os.makedirs(subject_path, exist_ok=True)
-        
         session_path = subject_path + "/" +"ses-" + session_num 
         os.makedirs(session_path, exist_ok=True)
-
-        
         type_path = session_path + "/" + func_or_anat
         os.makedirs(type_path, exist_ok=True)
-
-
-
         if func_or_anat == "func":        
-            new_name = "sub-" + subject_identifier + "_ses-" + session_num + "_task-" + task + "_" + scan_type + extension
+            new_name = ("sub-" 
+                        + subject_identifier 
+                        + "_ses-" + session_num 
+                        + "_task-" 
+                        + task 
+                        + "_" 
+                        + scan_type 
+                        + extension
+                        )
         elif func_or_anat == "anat":
-            new_name = "sub-" + subject_identifier + "_ses-" + session_num + "_" + scan_type + extension
+            new_name = ("sub-" 
+                        + subject_identifier 
+                        + "_ses-" 
+                        + session_num 
+                        + "_" 
+                        + scan_type 
+                        + extension
+                    )
         destination = type_path + "/" + new_name 
-        
-        print(f"{filename} is being converted to {new_name}. Scan type: {func_or_anat}. Data location: {data_folder}")
+        print(f"{filename} is being converted to {new_name}."
+              f"Scan type: {func_or_anat}. Data location: {data_folder}")
         print(f"Attempting to save to: {destination}")
 
         if os.path.exists(destination) and replace == False:
             print("Already exists at location\n")
             continue
-
         try:
             shutil.copy(data_folder + "/" + filename, destination)
         except FileNotFoundError:
             print(f"Could not find the file: {filename}")
-           
             if stop_on_failure:
                 print("Exiting")
                 raise Exception
             else:
                 continue
-        
         print("Successfully saved!\n")
-
         if extension == ".nii.gz" and func_or_anat == "anat":
             img = nib.load(destination)
             print("Shape:", img.shape)  
             if (len(img.shape)>3):
                 print("Error in file dimensions")
-                raise Exception(f"{filename} has incorrect dimensions. Shape: {img.shape}. The file was identified as {func_or_anat, scan_type}")
-                
+                raise Exception(
+                    f"{filename} has incorrect dimensions.\n" 
+                    f"Shape: {img.shape}. The file was identified" 
+                    f"as {func_or_anat, scan_type}"
+                    )       
         elif extension == ".nii.gz" and func_or_anat == "func":
             img = nib.load(destination)
             print("Shape:", img.shape)  
             if (len(img.shape)!=4):
                 print("Error in file dimensions")
-                raise Exception(f"{filename} has incorrect dimensions. Shape: {img.shape}. The file was identified as {func_or_anat, scan_type}")
-                
-    
+                raise Exception(
+                    f"{filename} has incorrect dimensions.\n" 
+                    f"Shape: {img.shape}. The file was identified" 
+                    f"as {func_or_anat, scan_type}"
+                    )
     print("The values of session number are: ")
     for value in session_set:
         print(value)
 
     print()
 
-def report_mismatches(target_directory):
+def report_mismatches(
+        target_directory
+):
     missing_dict = {}
     for directory in os.listdir(target_directory):
         print(f"Exploring {directory}")
         if os.path.isdir(target_directory + f"/{directory}"):
-            for sub_directory in os.listdir(os.path.join(target_directory, directory)):
+            for sub_directory in os.listdir(
+                    os.path.join(
+                        target_directory, 
+                        directory
+                    )
+            ):
                 print(f"Exploring {directory}/{sub_directory}")
-                types =  os.listdir(os.path.join(target_directory, directory, sub_directory))
+                types =  os.listdir(
+                    os.path.join(
+                        target_directory, 
+                        directory, 
+                        sub_directory
+                    )
+                )
                 print(f"Types included are: {types}")
                 if len(types) < 2:
                     list_missing = []
@@ -243,29 +284,43 @@ def report_mismatches(target_directory):
                         if data_type not in types:
                             list_missing.append(data_type)
                     missing_dict[directory] = {sub_directory: list_missing}
-    
     return missing_dict
 
 
 
 if __name__ == "__main__":
-    try:
-        data_file_path = sys.argv[1]
-        destination_file_path = sys.argv[2]
-        anat_filepath_1 = sys.argv[3]
-        anat_filepath_2 = sys.argv[4]
-        study_name = sys.argv[5]
-        metadata_location = sys.argv[6]
-        bids_organise(data_file_path, destination_file_path, "fMRI", study_name)
-        bids_organise(anat_filepath_1, destination_file_path, "T1", study_name)
-        bids_organise(anat_filepath_2, destination_file_path, "T2", study_name)
-        destination_file_path = os.path.join(destination_file_path, study_name)
-        meta_data_creator(destination_file_path, metadata_location)
-        #missing_values = report_mismatches(destination_file_path)
-        #with open(os.path.join(destination_file_path, "missing_values.json"), "w") as f:
-         #   json.dump(missing_values, f, indent=4)
-
-    except IndexError:
-        print(IndexError)
-        print(f"Invalid arguments. Please enter data filepath (str), destination_filepath (str), data type (str), study name (str), metadata_location (str) \n Received inputs:\ndata: {data_file_path}\ndestination: {destination_file_path}\ntype: {data_type}")
-   
+    data_file_path = sys.argv[1]
+    destination_file_path = sys.argv[2]
+    anat_filepath_1 = sys.argv[3]
+    anat_filepath_2 = sys.argv[4]
+    study_name = sys.argv[5]
+    metadata_location = sys.argv[6]
+    bids_organise(
+        data_file_path, 
+        destination_file_path, 
+        "fMRI", 
+        study_name
+    )
+    bids_organise(
+        anat_filepath_1, 
+        destination_file_path, 
+        "T1", 
+        study_name
+    )
+    bids_organise(
+        anat_filepath_2, 
+        destination_file_path,
+        "T2", 
+        study_name
+    )
+    destination_file_path = os.path.join(
+        destination_file_path, 
+        study_name
+    )
+    meta_data_creator(
+        destination_file_path, 
+        metadata_location
+    )
+    #missing_values = report_mismatches(destination_file_path)
+    #with open(os.path.join(destination_file_path, "missing_values.json"), "w") as f:
+        #   json.dump(missing_values, f, indent=4)
