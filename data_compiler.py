@@ -408,6 +408,10 @@ if __name__ == "__main__":
         network_definitions=network_definitions_fp
     )
     final_df = subject_wise_compilation(save_folder)
-    final_df.to_csv(
+    final_result_path = join(
+       save_folder,
         "all_subjects.csv"
+    )
+    final_df.to_csv(
+       final_result_path
     )

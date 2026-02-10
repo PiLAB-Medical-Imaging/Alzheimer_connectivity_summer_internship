@@ -94,6 +94,14 @@ if __name__ == "__main__":
     trk.to_vox()
     trk.to_corner()
     dimensions = trk.dimensions
+    sls = trk.streamlines.get_data()
+    sls = sls + dimensions/2
+    trk = StatefulTractogram(
+        streamlines=sls,
+        reference=mni_image,
+        space= Space.VOX, 
+        origin=Origin.TRACKVIS
+    )
     print(dimensions)
     print(mni_image.get_fdata().shape)
     print(trk.affine)
