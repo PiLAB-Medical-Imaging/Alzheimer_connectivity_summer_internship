@@ -283,16 +283,108 @@ def data_crawler(
         path_or_buf=save_location
     )
 
+def subject_data_crawler(
+        outputs_folder: str,
+        subj_number,
+        save_path : str,
+        network_definitions: str,
+):
+    """
+    A crawler that navigates through the outputs folder for a single patient
+    and performs any calculations that you choose. 
+    Will return all values to a dictionary. 
+    
+    :param outputs_folder: str 
+        Filepath to the outputs folder. Assumes a structure of 
+        outputs_folder/subject/session/ and that all relevant files have
+        a generic name in the final folder.
+    """
+    print("Commencing Compilation!")
+    makedirs(
+        name=save_path,
+        exist_ok=True
+    )
+    subject_folder = join(
+        outputs_folder,
+        subj_number
+    )
+    all_data = []
+    for session in listdir(subject_folder):
+        print(f"\t{session}")
+        subj_data = {"subj": subj_number}
+        session_folder = join(
+            subject_folder,
+            session
+        )
+        subj_data["session"] = session
+        #Engagement analysis
+        eng_path = join(
+            session_folder,
+            ENGAGEMENT_NAME
+        )
+        if exists(eng_path):
+            mean_eng = avg_engagement(
+                engagement=eng_path
+            )
+        else:
+            print(f"\tEngagement {eng_path} not found")
+            mean_eng = None
+        subj_data[ENG_MEAN_NAME] = mean_eng
+
+        # Overall simple weighting metrics
+        sw_fp = join(
+            session_folder,
+            subj_number + "_" + session + "_" + SIMPLE_WEIGHTING_NAME
+        )
+        if exists(sw_fp):
+            sw_mat = np.load(sw_fp)
+            sw_metrics = sw_analysis(
+                sw_matrix=sw_mat
+            )
+            for key in sw_metrics:
+                subj_data[key] = sw_metrics[key]
+        else:
+            print(f"Warning: Simple weighting matrix was not found at"
+                    f"{sw_fp}" )
+            # Subnetwork Analysis for the simple weighting data
+            matrix_name = subj_number + "_" + session+ "_" + "simple_weighting.npy"
+            subj_results = subnet_analysis(
+                subject_folder=session_folder,
+                matrix_name=matrix_name,
+                network_definitions=network_definitions
+            )
+            if subj_results is None:
+                continue
+            for key in subj_results:
+                subj_data[key] = subj_results[key]
+    df = pd.DataFrame(
+        data = all_data
+    )
+    save_location = join(
+        save_path, 
+        subj_number + "_" + "compiled_data.csv"
+    )
+    df.to_csv(
+        path_or_buf=save_location
+    )
+
+
 if __name__ == "__main__":
     output_folder = sys.argv[1]
     save_folder = sys.argv[2]
     network_definitions_fp = sys.argv[3]
+    subj_num = sys.argv[4]
     print(f"Input files: \n"
           f"{output_folder}\n"
           f"{save_folder}\n"
           f"{network_definitions_fp}")
-    print("Starting Crawler")
-    scan_data = data_crawler(
+    """scan_data = data_crawler(
         output_folder, 
         save_folder,
-        network_definitions_fp)
+        network_definitions_fp)"""
+    subject_data_crawler(
+        outputs_folder=output_folder,
+        subj_number=subj_num,
+        save_path=save_folder,
+        network_definitions=network_definitions_fp
+    )
