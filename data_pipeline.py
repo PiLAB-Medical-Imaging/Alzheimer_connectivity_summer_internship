@@ -103,7 +103,6 @@ def dataset_pipeline(
         "AAL116"
     )
     process_dictionary2save(structural_networks, dMRI_network_path)
-
     fMRI_network_path = os.path.join(FC_save_path, "networks")
     os.makedirs(fMRI_network_path, exist_ok=True)
     functional_networks =  ne.network_extraction(out_path, FC_filepath,subj_id,definitions_filepath, "AAL116" )

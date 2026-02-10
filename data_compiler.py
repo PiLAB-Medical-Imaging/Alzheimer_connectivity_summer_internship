@@ -304,6 +304,8 @@ def subject_data_crawler(
         name=save_path,
         exist_ok=True
     )
+    subj_components = subj_number.split("_")
+    subj_id = subj_components[0] + subj_components[1].zfill(3)
     subject_folder = join(
         outputs_folder,
         subj_number
@@ -367,8 +369,7 @@ def subject_data_crawler(
     df.to_csv(
         path_or_buf=save_location
     )
-
-
+    
 if __name__ == "__main__":
     output_folder = sys.argv[1]
     save_folder = sys.argv[2]

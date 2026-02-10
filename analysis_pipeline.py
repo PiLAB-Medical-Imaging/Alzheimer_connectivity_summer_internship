@@ -369,14 +369,56 @@ def rel_composite_to_network(data, composite, metric):
                 facet_kws   ={"sharey": False})
     plt.show()
 
+def compare_graphs(data):
+    
+    data_type = ["combined", "structural", "functional"]
+    longer_data = data.melt(
+        id_vars = ["subj_id", 
+                   "session_num", 
+                   "Diagnostic cognitif détaillé_CLASSIF_1", 
+                   "network", 
+                   "Demented",
+                   "MMSE",
+                   "MEMORY_Composite",
+                   "EXECUTIVE_Composite",
+                   "VISUOSPATIAL_Composite",
+                    "GLOBAL_COGNITIVE_Composite",
+                    "type" 
+        ],
+        value_vars = ["m_connectivity",
+                      "diameter", 
+                      "density", 
+                      "global_clustering", 
+                      "isolates"],
+        var_name = "metric",
+        value_name = "score")
+    
+    for data_type in data_type:
+        relevant_data = longer_data[longer_data["type"]=="combined"]
+        sns.catplot(data    = relevant_data,
+            x= "Demented",
+            y="score",
+            hue="Demented",
+            col="metric",
+            row="network",
+            kind= "violin",
+            sharey = False)
+
+        plt.show()
+
+
+
 def run_tests():
     patient_data = "/Users/sam/Desktop/long_form_combined.csv"
+
     data_long = pd.read_csv(patient_data, 
                             sep=";", 
                             decimal=",",
                             index_col=0)
     print(data_long.head())
+
     group_comparisons("ecn",data=data_long)
+
     #rel_composite_to_network(data_long, "MEMORY_Composite", "density")
     #plot_diagnosis_network_characteristics(data_long, "density", "structural")
     
