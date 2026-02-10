@@ -13,6 +13,8 @@ MNI_PATH = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps
 ATLAS_FOLDER = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/bundles"
 T1_ANAT_FILE = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w_brain_only.nii.gz"
 OUT_FOLDER = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/Engagement_analysis"
+NEW_ATLAS_FP = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/corrected_bundles"
+
 def extract_nodes(trk_file: str, nodes: int = 32, smooth_iter: int = 10):
     '''
     Return the streamline with the most density, subsampled into a defined
@@ -64,13 +66,54 @@ def extract_nodes(trk_file: str, nodes: int = 32, smooth_iter: int = 10):
         centroid = _smooth_streamline(centroid, iterations=smooth_iter)
 
     return centroid
- 
+
+def correct_atlases(
+    mni_path: str,
+    atlas_folder: str,
+    outputs_folder: str
+):
+    os.makedirs(
+        outputs_folder, 
+        exist_ok=True
+    )
+    mni_image = nib.load(mni_path)
+    for atlas_file in os.listdir(atlas_folder):
+        save_name = os.path.join(
+            outputs_folder,
+            "edited_"+ atlas_file
+        )
+        atlas_path = os.path.join(
+            atlas_folder,
+            atlas_file
+        )
+        trk = load_tractogram(
+            filename=atlas_path, 
+            reference="same",
+            bbox_valid_check=False
+        )    
+        trk.to_vox()
+        trk.to_corner()
+        dimensions = trk.dimensions
+        sls = trk.streamlines.get_data()
+        sls = sls + dimensions/2
+        trk = StatefulTractogram(
+            streamlines=sls,
+            reference=mni_path,
+            space= Space.VOX, 
+            origin=Origin.TRACKVIS
+        )
+        np.min(trk.streamlines.get_data())
+        save_tractogram(
+            sft=trk,
+            filename=save_name
+        )
+
 def atlas_to_T1(
         mni_path: str,
         t1_anat_file: str,
         atlas_folder: str,
         save_destination: str
-):
+):  
     for atlas_file in os.listdir(atlas_folder):
         save_name = os.path.join(
             save_destination,
@@ -80,16 +123,17 @@ def atlas_to_T1(
             atlas_folder,
             atlas_file
         )
-        diffusion_to_t1space(
+        aligned_atlas = diffusion_to_t1space(
             moving_file=mni_path,
             static_file=t1_anat_file,
             trk_file=atlas_path,
             save=save_name
         )
+        
 
 if __name__ == "__main__":
     test = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/bundles/AR_R.trk"
-    mni_image = nib.load(MNI_PATH)
+    """     mni_image = nib.load(MNI_PATH)
     trk = load_tractogram(test, "same", bbox_valid_check=False)
     trk.to_vox()
     trk.to_corner()
@@ -105,11 +149,17 @@ if __name__ == "__main__":
     print(dimensions)
     print(mni_image.get_fdata().shape)
     print(trk.affine)
-    print(np.min(trk.streamlines.get_data()))
+    print(np.min(trk.streamlines.get_data())) """
 
-    """     atlas_to_T1(
+    correct_atlases(
+        mni_path=MNI_PATH,
+        atlas_folder=ATLAS_FOLDER,
+        outputs_folder=NEW_ATLAS_FP
+    )
+
+    atlas_to_T1(
         mni_path=MNI_PATH,
         t1_anat_file=T1_ANAT_FILE,
         atlas_folder=ATLAS_FOLDER,
         save_destination=OUT_FOLDER
-    ) """
+    )

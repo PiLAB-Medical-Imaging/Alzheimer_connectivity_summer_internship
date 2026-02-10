@@ -359,7 +359,7 @@ def subject_data_crawler(
                 continue
             for key in subj_results:
                 subj_data[key] = subj_results[key]
-        all_data.append()
+        all_data.append(subj_data)
     df = pd.DataFrame(
         data = all_data
     )
