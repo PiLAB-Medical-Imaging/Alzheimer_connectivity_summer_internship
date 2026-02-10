@@ -151,7 +151,7 @@ def network_extraction_V2(
         )
         metrics = graph_level_metrics(graph=selected_network)
         for key in metrics.keys():
-            new_key = network + key
+            new_key = network + "_" + key
             all_values[new_key] = metrics[key]
     return all_values
 
@@ -179,8 +179,6 @@ def subnet_analysis(
     else:
         return None
 
-
-       
 
 def sw_analysis(sw_matrix):
     """

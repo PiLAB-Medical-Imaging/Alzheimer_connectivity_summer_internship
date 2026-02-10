@@ -233,6 +233,7 @@ def diffusion_to_t1space(moving_file,
                          mni= False, 
                          smooth = False, 
                          save = False):
+    """"""
     # TODO this needs to be cleaned up.
     # Moving file is in diffusion space
     if mni:
@@ -264,12 +265,17 @@ def diffusion_to_t1space(moving_file,
             out_file = trk_file[:-4]+'_mni.trk'
         else:
             out_file = trk_file[:-4]+'_T1.trk'
-        if save is not None:
-            save_tractogram(
+        if save is True:
+            if type(save) is str:
+                save_tractogram(
                 sft = trk,
-                filename=out_file
+                filename=save
             )
-
+            else:
+                save_tractogram(
+                    sft = trk,
+                    filename=out_file
+                )
         if smooth:
         # For visualization, not computing
             smooth_streamlines(out_file, out_file=out_file[:-4]+'_smoothed.trk',

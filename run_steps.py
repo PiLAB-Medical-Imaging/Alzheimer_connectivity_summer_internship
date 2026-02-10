@@ -45,6 +45,7 @@ if __name__ == "__main__":
     bold_filepath = ppl.find_bold_filepath(
         functional_folder=functional_folder
     )
+    """
     register_atlases(
         template_file=template_file,
         atlas_fp=atlas_fp,
@@ -97,14 +98,14 @@ if __name__ == "__main__":
         tractography_folder=tractography_folder,
         anatamy_fps=anatomy_fps,
     )
-    """
+    
     ppl.run_dynamic_engagement(
         subj_id=id_val+num,
         session=session,
         output_folder=output_folder,
         anatamy_fps=anatomy_fps,
         bold_fp=bold_filepath
-    )
+    )"""
     ppl.run_functionnectome(
         subj_id=id_val+num,
         session=session,
@@ -112,7 +113,7 @@ if __name__ == "__main__":
         anatamy_fps=anatomy_fps,
         bold_fp=bold_filepath,
         tractogram_file=tractogram_file
-    )"""
+    )
 
 
 
