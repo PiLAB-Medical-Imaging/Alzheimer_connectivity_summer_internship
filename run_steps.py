@@ -2,6 +2,7 @@ import sys
 import os
 from os import path
 from pipeline import register_atlases, find_anat_func_folder, anatamoy_crawler,dilate_atlases
+from engagement_analysis import analyse_all_tracts, patient_registration
 import pipeline as ppl
 if __name__ == "__main__":
     fmri_prep_derivatives_folder = sys.argv[1]
@@ -106,14 +107,18 @@ if __name__ == "__main__":
         anatamy_fps=anatomy_fps,
         bold_fp=bold_filepath
     )"""
-    ppl.run_functionnectome(
+    """ppl.run_functionnectome(
         subj_id=id_val+num,
         session=session,
         output_folder=output_folder,
         anatamy_fps=anatomy_fps,
         bold_fp=bold_filepath,
         tractogram_file=tractogram_file
-    )
+    )"""
+
+
+    
+
 
 
 

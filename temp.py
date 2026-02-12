@@ -86,7 +86,7 @@ out = nib.Nifti1Image(
     affine = atlas_img.affine
 )
 out.to_filename(atlas) """
-""" 
+
 
 OUR_MNI = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/MNI152_T1_1mm_brain.nii.gz"
 OUR_MNI_TRACT ="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/our_mni_bundles/mni_edited_AC.trk"
@@ -147,8 +147,3 @@ save_tractogram(
 )
  
 trk2tck("/Users/sam/Desktop/test_tracts.trk", False)
- """
-trk = load_tractogram("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/wm_atlas_inverted/TAU001_mni_edited_IF0F_R.trk",
-                reference="same")
-
-print(trk)

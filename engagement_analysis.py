@@ -542,7 +542,7 @@ def patient_registration(
 
         new_sl = transform_streamlines(
             trk.streamlines,
-            mat = np.linalg.inv(tform.affine)
+            mat = np.linalg.inv(tform.affine) ## When time, consider wny inverting worked
         )
         
         new_trk = StatefulTractogram(
@@ -681,17 +681,17 @@ if __name__ == "__main__":
         NEW_ATLAS_FP,
         OUR_MNI_BUNDLES
     )"""
-    """
+
     patient_registration(
         atlas_folder=OUR_MNI_BUNDLES,
         original_space=MNI_PATH_MINE,
         target_file=T1_ANAT_FILE,
-        output_folder=WITH_INVERTED,
+        output_folder=PATIENT_FOLDER,
         subj="TAU001",
         verbose=True
     )
-    create_tcks(WITH_INVERTED)"""
-
+    create_tcks(PATIENT_FOLDER)
+    """
     analyse_all_tracts(
         tract_folder=WITH_INVERTED,
         output_folder=ENG_STORAGE,
@@ -699,10 +699,8 @@ if __name__ == "__main__":
         nodes = 30,
         subj="001",
         session="ses-2"
-    )
-    """create_tcks(OUR_MNI_BUNDLES)
-    create_tcks(NEW_ATLAS_FP)
-    create_tcks(PATIENT_FOLDER)"""
+    )"""
+   
     """analyse_dataset(
         ENG_STORAGE + "/TAU-001_ses-2.csv"
     )"""
