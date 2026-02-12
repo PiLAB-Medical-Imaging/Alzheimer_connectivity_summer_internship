@@ -144,7 +144,6 @@ def conn_matrices_V2(
     )
 
     return all_cms
-
    
 def complete_data_compiler(dfmri_fp, 
                            bold_fp,
@@ -227,12 +226,13 @@ def create_VOX_time_series(
     
     return time_series
 
-def diffusion_to_t1space(moving_file, 
-                         static_file, 
-                         trk_file,
-                         mni= False, 
-                         smooth = False, 
-                         save = False):
+def streamline_registration(
+        moving_file, 
+        static_file, 
+        trk_file,
+        mni= False, 
+        smooth = False, 
+        save = False):
     """"""
     # TODO this needs to be cleaned up.
     # Moving file is in diffusion space
@@ -839,9 +839,9 @@ def trk_vs_filepath(trk_obj):
         raise ValueError(f"Expected either a stateful tractogram," 
                          f"or a path to a trk file")
 
-def trk2tck(input_file: str):
-    tract = load_tractogram(input_file, 'same')
-    save_tractogram(tract, input_file[:-3]+'tck')
+def trk2tck(input_file: str, bounding = True):
+    tract = load_tractogram(input_file, 'same', bbox_valid_check=bounding)
+    save_tractogram(tract, input_file[:-3]+'tck', bbox_valid_check=bounding)
 
 def simple_weighting(SC, FC):
    """Simple element wise multiplcation of structural and functional connectivity"""

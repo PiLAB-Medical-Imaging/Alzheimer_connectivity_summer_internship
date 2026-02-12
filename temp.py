@@ -7,7 +7,7 @@ from regis.core import find_transform, apply_transform
 from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
 from utilities import dilate_atlas_labels, atlas_masker, time_slicing
-from utilities import split_nifti_to_visualise, diffusion_to_t1space, mask_to_positions
+from utilities import split_nifti_to_visualise, streamline_registration, mask_to_positions
 from utilities import sl_to_roi_map, voxel_to_streamline_map_V2, conn_matrices, conn_matrices_V2
 from engagement import generate_VWSC_matrices_entire_sl, generate_VWSC_matrices_ep_only
 from time import time
@@ -64,7 +64,7 @@ filtered_img.to_filename(engagement[:-7]+"_filtered.nii.gz")
 
  """
 
-
+""" 
 t1w = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/sub-TAU056_ses-0_desc-preproc_T1w.nii.gz"
 brain_mask = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/sub-TAU056_ses-0_desc-brain_mask.nii.gz"
 trk_diffusion = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/TAU_56_ses-0_tractogram.trk"
@@ -84,4 +84,17 @@ out = nib.Nifti1Image(
     atlas_data,
     affine = atlas_img.affine
 )
-out.to_filename(atlas)
+out.to_filename(atlas) """
+
+whole_head = "/Users/sam/Downloads/mni_icbm152_nlin_sym_09a_nifti/mni_icbm152_nlin_sym_09a/mni_icbm152_t1_tal_nlin_sym_09a.nii"
+brain_mask = "/Users/sam/Downloads/mni_icbm152_nlin_sym_09a_nifti/mni_icbm152_nlin_sym_09a/mni_icbm152_t1_tal_nlin_sym_09a_mask.nii"
+
+whole_head_img = nib.load(whole_head)
+brain_mask_img = nib.load(brain_mask)
+whole_head_data = whole_head_img.get_fdata()
+brain_mask_data = brain_mask_img.get_fdata()
+
+brain_only = whole_head_data*brain_mask_data
+
+out = Nifti1Image(brain_only, affine=whole_head_img.affine)
+out.to_filename("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/mni_icbm152_nlin_sym_09a_nifti/brain_only.nii.gz")

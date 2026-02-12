@@ -20,7 +20,7 @@ from regis.core import find_transform, apply_transform
 ## My Imports (replace these with my package calls)
 from utilities import connectivity_matrix_generation, visualise_square_mat, nifti_vs_img,mask_generator
 from utilities import normalise, create_masked_T1, atlas_registration, mask_to_positions, voxel_to_streamline_map_V2
-from utilities import create_ROI_time_series, create_VOX_time_series, diffusion_to_t1space
+from utilities import create_ROI_time_series, create_VOX_time_series, streamline_registration
 from utilities import trk_vs_filepath, dilate_atlas_labels, time_slicing, load_sift2_weights
 from engagement import correlation_thresholding, ebc_computation, reshape_engagement
 from engagement import engagement_calculation, generate_VWSC_matrices_entire_sl, dynamic_engagement
@@ -604,7 +604,7 @@ def tractogram_registration(
         id_val,
         session,
         "brain_only_t1w.nii.gz")
-    new_trk = diffusion_to_t1space(
+    new_trk = streamline_registration(
         moving_file=moving_file,
         static_file=brain_only_fp,
         trk_file=tractogram_file
@@ -1248,7 +1248,7 @@ def the_grand_central_pipeline(
             "same"
         )
     else:
-        realigned_trk = diffusion_to_t1space(
+        realigned_trk = streamline_registration(
             moving_file=diffusion_data, 
             static_file=anatomy_fps["preproc_T1w"],
             trk_file=trk_file,
@@ -1414,7 +1414,7 @@ if __name__ == "__main__":
     brain_only_fp="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w_brain_only.nii.gz"
     tractogram_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/high_sl_tract/TAU_1_ses-2_tractogram.trk"
     moving_file = "/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_FA.nii.gz"
-    new_trk = diffusion_to_t1space(
+    new_trk = streamline_registration(
         moving_file=moving_file,
         static_file=brain_only_fp,
         trk_file=tractogram_file

@@ -9,7 +9,7 @@ from nilearn import image
 from engagement import generate_VWSC_matrices_entire_sl, correlation_thresholding, ebc_computation
 from engagement import engagement_calculation, reshape_engagement_slices, generate_VWSC_matrices_ep_only
 from engagement import fc_mat_gen, create_ROI_time_series, dynamic_engagement
-from utilities import connectivity_matrix_generation, visualise_square_mat, time_slicing, diffusion_to_t1space
+from utilities import connectivity_matrix_generation, visualise_square_mat, time_slicing, streamline_registration
 from utilities import sparse_equality
 import sparse
 import matplotlib.pyplot as plt
@@ -139,7 +139,7 @@ total_ts = create_ROI_time_series(atlas=atlas_img,
                               bold_filepath=bold_data_path)
 t2 = time.time()
 
-trk = diffusion_to_t1space(
+trk = streamline_registration(
     moving_file="/Users/sam/Desktop/sub-TAU001/TAU_1_ses-2_FA.nii.gz",
     static_file="/Users/sam/Desktop/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w_brain_only.nii.gz",
     trk_file=trk_file,
