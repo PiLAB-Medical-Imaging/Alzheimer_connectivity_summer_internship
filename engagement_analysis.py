@@ -21,12 +21,13 @@ MNI_MASK = "/Users/sam/Downloads/mni_icbm152_nlin_sym_09a_nifti/mni_icbm152_nlin
 ATLAS_FOLDER = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/bundles"
 T1_ANAT_FILE = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w_brain_only.nii.gz"
 OUT_FOLDER = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/Engagement_analysis"
-NEW_ATLAS_FP = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/corrected_bundles"
+NEW_ATLAS_FP = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/corrected_bundles_V2"
 OUR_MNI_BUNDLES =  "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/our_mni_bundles"
 PATIENT_FOLDER =  "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/wm_atlas"
 TEST =  "/Users/sam/Desktop/transform_mat.npy"
 ENG_STORAGE = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/engagement_anal"
 PATIENT_ENG = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/pos_eng.nii.gz"
+WITH_INVERTED = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/wm_atlas_inverted"
 
 def extract_nodes(trk_file: str, nodes: int = 32, smooth_iter: int = 10):
     '''
@@ -226,6 +227,7 @@ def correct_atlases(
     mni_image = nib.load(mni_path)
     mni_affine = mni_image.affine
     offsets = -1*mni_affine[0:3, 3]
+    offsets -= 0.5 ### @todo Check whether this is valid Maybe add it to github.
     for atlas_file in tqdm(os.listdir(atlas_folder), "Correcting atlases"):
         extension = atlas_file.split(".")[-1]
         if extension!="trk":
@@ -257,7 +259,7 @@ def correct_atlases(
         print(mni_image.get_fdata().shape)
         streamlines = trk.streamlines
         data = streamlines._data
-        data += offsets
+        data += offsets 
         mins = data.min(axis=0)
         maxs = data.max(axis=0)
         
@@ -476,7 +478,7 @@ def patient_registration(
         output_folder, 
         exist_ok=True
     )
-    if os.path.exists(TEST):
+    """if os.path.exists(TEST):
         transform_mat = np.load(TEST)
     else:
         tform = find_transform(
@@ -485,7 +487,19 @@ def patient_registration(
                 diffeomorph=False
         )
         transform_mat = tform.affine
-        np.save(TEST, tform.affine)
+        np.save(TEST, tform.affine)"""
+    tform = find_transform(
+                moving_file=original_space,
+                static_file=target_file,
+                diffeomorph=False
+    )
+    
+    apply_transform(
+        moving_file=original_space,
+        static_file=target_file,
+        mapping=tform,
+        output_path="/Users/sam/Desktop/mni_patient_space.nii.gz"
+    )
 
     for atlas_file in tqdm(os.listdir(atlas_folder)):
         extension = atlas_file.split(".")[-1]
@@ -525,7 +539,7 @@ def patient_registration(
 
         new_sl = transform_streamlines(
             trk.streamlines,
-            mat = transform_mat
+            mat = np.linalg.inv(tform.affine)
         )
         
         new_trk = StatefulTractogram(
@@ -566,8 +580,7 @@ def patient_registration(
         )
         # This line is very suspect
         #new_trk.remove_invalid_streamlines()
-        new_trk.to_vox()
-        new_trk.to_corner()
+
         save_tractogram(
             sft=new_trk,
             filename=filename,
@@ -629,9 +642,12 @@ def analyse_dataset(dataset_fp):
 
     for unique_tract in unique_tracts:
         subset = df[df["tract"] == unique_tract]
+        patients = subset["subject"]
+        print(patients.shape)
+        tract = subset["tract"]
         subset = subset.filter(regex = "mu")
         subset = subset.fillna(0)
-        print(subset)
+
         model = NMF(
             n_components='auto',
             init='random',
@@ -639,26 +655,40 @@ def analyse_dataset(dataset_fp):
         )
         W = model.fit_transform(subset.to_numpy())
 
+        headers = model.get_feature_names_out()
+        tract_df = pd.DataFrame(
+            data=W, 
+            columns = headers
+        )
+        tract_df["subject"] = patients
+        tract_df["tract"] = tract
+       
+
 if __name__ == "__main__":
     """correct_atlases(
         mni_path=MNI_PATH,
         atlas_folder=ATLAS_FOLDER,
         outputs_folder=NEW_ATLAS_FP
     )
+    create_tcks(NEW_ATLAS_FP)"""
+    """
     atlas_space_conversion(
         MNI_PATH,
         MNI_PATH_MINE,
         NEW_ATLAS_FP,
         OUR_MNI_BUNDLES
     )"""
-    """patient_registration(
-        atlas_folder=NEW_ATLAS_FP,
-        original_space=MNI_MASK,
+    
+    patient_registration(
+        atlas_folder=OUR_MNI_BUNDLES,
+        original_space=MNI_PATH_MINE,
         target_file=T1_ANAT_FILE,
-        output_folder=PATIENT_FOLDER,
+        output_folder=WITH_INVERTED,
         subj="TAU001",
         verbose=True
     )
+    create_tcks(WITH_INVERTED)
+    """
     analyse_all_tracts(
         tract_folder=PATIENT_FOLDER,
         output_folder=ENG_STORAGE,
@@ -670,7 +700,7 @@ if __name__ == "__main__":
     """create_tcks(OUR_MNI_BUNDLES)
     create_tcks(NEW_ATLAS_FP)
     create_tcks(PATIENT_FOLDER)"""
-    analyse_dataset(
+    """analyse_dataset(
         ENG_STORAGE + "/TAU-001_ses-2.csv"
-    )
+    )"""
 
