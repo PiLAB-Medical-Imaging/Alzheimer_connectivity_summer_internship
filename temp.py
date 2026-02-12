@@ -86,15 +86,4 @@ out = nib.Nifti1Image(
 )
 out.to_filename(atlas) """
 
-whole_head = "/Users/sam/Downloads/mni_icbm152_nlin_sym_09a_nifti/mni_icbm152_nlin_sym_09a/mni_icbm152_t1_tal_nlin_sym_09a.nii"
-brain_mask = "/Users/sam/Downloads/mni_icbm152_nlin_sym_09a_nifti/mni_icbm152_nlin_sym_09a/mni_icbm152_t1_tal_nlin_sym_09a_mask.nii"
-
-whole_head_img = nib.load(whole_head)
-brain_mask_img = nib.load(brain_mask)
-whole_head_data = whole_head_img.get_fdata()
-brain_mask_data = brain_mask_img.get_fdata()
-
-brain_only = whole_head_data*brain_mask_data
-
-out = Nifti1Image(brain_only, affine=whole_head_img.affine)
-out.to_filename("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/mni_icbm152_nlin_sym_09a_nifti/brain_only.nii.gz")
+load_tractogram("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/wm_atlas/TAU001_edited_AC.trk", "same")

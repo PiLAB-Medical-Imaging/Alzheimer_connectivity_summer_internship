@@ -2,6 +2,7 @@ import time
 import os
 from os.path import join
 
+import pandas as pd
 import numpy as np
 import nibabel as nib
 from dipy.io.streamline import load_tractogram, save_tractogram
@@ -24,6 +25,9 @@ NEW_ATLAS_FP = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_
 OUR_MNI_BUNDLES =  "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/our_mni_bundles"
 PATIENT_FOLDER =  "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/wm_atlas"
 TEST =  "/Users/sam/Desktop/transform_mat.npy"
+ENG_STORAGE = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/engagement_anal"
+PATIENT_ENG = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/pos_eng.nii.gz"
+
 def extract_nodes(trk_file: str, nodes: int = 32, smooth_iter: int = 10):
     '''
     Return the streamline with the most density, subsampled into a defined
@@ -49,8 +53,10 @@ def extract_nodes(trk_file: str, nodes: int = 32, smooth_iter: int = 10):
     trk = load_tractogram(trk_file, 'same')
     trk.to_vox()
     trk.to_corner()
-
-    dens = get_streamline_density(trk, subsegment=5)
+    try:
+        dens = get_streamline_density(trk, subsegment=5)
+    except IndexError:
+        print(trk.streamlines)
 
     streams = trk.streamlines
     s_dens = np.empty(len(streams))
@@ -59,7 +65,7 @@ def extract_nodes(trk_file: str, nodes: int = 32, smooth_iter: int = 10):
 
         s_dens[i] = np.sum(dens[np.floor(streams[i]).astype(np.int32)],
                            dtype=np.float32)
-
+    
     s_i_max = np.argmax(s_dens)
 
     deltas = np.diff(streams[s_i_max], axis=0)
@@ -78,24 +84,33 @@ def extract_nodes(trk_file: str, nodes: int = 32, smooth_iter: int = 10):
 
 def tract_engagement(
         tract_file,
-        engagement_file
+        engagement_file, 
+        nodes = 30
 ):
+    trk = load_tractogram(tract_file, reference="same",bbox_valid_check=True)
+    eng_img = nifti_vs_img(engagement_file)
+    if not np.allclose(trk.affine, eng_img.affine):
+        raise ValueError("The affine information does not match")
+
+    if len(trk.streamlines) == 0:
+        return False, False
     nodes = extract_nodes(
         trk_file=tract_file,
-        nodes=50
+        nodes=nodes
     )
+
     mask = get_roi_sections_from_nodes(
         trk_file=tract_file,
         point_array=nodes
     )
-    eng_vals = nifti_vs_img(engagement_file).get_fdata()
+    eng_vals = eng_img.get_fdata()
     checkpoints = []
     for value in np.unique(mask):
         coords = np.where(mask == value, 1, 0)
         relevant_values = coords*eng_vals
         checkpoints.append(np.mean(relevant_values))
-    count = np.bincount(inverse)
     unique_vals, inverse = np.unique(mask, return_inverse=True)
+    count = np.bincount(inverse)
     count = np.bincount(inverse)
     checkpoints_mean = (
         np.bincount(inverse, weights=eng_vals.ravel()) / count
@@ -109,8 +124,55 @@ def tract_engagement(
 
     return (checkpoints_mean, std)
 
+def analyse_all_tracts(
+        tract_folder: str,
+        output_folder: str,
+        engagement_file: str,
+        nodes: int, 
+        subj: str,
+        session: str
 
-
+):
+    all_patient_data = []
+    for tract in tqdm(os.listdir(tract_folder), "Tract Analysis"):
+        print(f"Analysing Tract: {tract}")
+        patient_tract_data = {"subject": subj, "session": session}
+        split_name = tract.split("_")
+        tract_name = ""
+        for name_part in split_name[2:]:
+            tract_name += name_part + "_"
+        tract_name = tract_name[:-5]
+        patient_tract_data["tract"] = tract_name
+        tract_path = join(
+            tract_folder,
+            tract
+        )
+        means, stds = tract_engagement(
+            tract_file=tract_path,
+            engagement_file=engagement_file,
+            nodes=nodes
+        )
+        if means is False or stds is False: 
+            print(f"Failure on tract {tract}")
+            for i in range(nodes):
+                patient_tract_data[f"mu_{i+1}"] = None
+                patient_tract_data[f"sigma_{i+1}"] = None
+        else:
+            for i in range(len(means)):
+                patient_tract_data[f"mu_{i+1}"] = means[i]
+                patient_tract_data[f"sigma_{i+1}"] = stds[i]
+        all_patient_data.append(patient_tract_data)
+    patient_frame = pd.DataFrame(
+        data=all_patient_data
+    )
+    csv_name = "TAU-" + subj+ "_" + session +".csv"
+    csv_path = join(
+        output_folder,
+        csv_name
+    )
+    patient_frame.to_csv(
+        csv_path
+    )
 
 def correct_atlases(
     mni_path: str,
@@ -332,7 +394,8 @@ def patient_registration(
         original_space,
         target_file,
         output_folder,
-        subj
+        subj,
+        verbose: bool=False
 ):
     os.makedirs(
         output_folder, 
@@ -353,7 +416,7 @@ def patient_registration(
         extension = atlas_file.split(".")[-1]
         if extension != "trk":
             continue
-        print(f"Processing {atlas_file}")
+        
         fp = join(
             atlas_folder,
             atlas_file
@@ -362,24 +425,28 @@ def patient_registration(
             filename=fp,
             reference="same"
         )
-        trk.to_vox()
-        trk.to_corner()
+        if verbose:
+            print(f"Processing {atlas_file}")
+            print("Space is: ", trk.space)
+            trk.to_vox()
+            trk.to_corner()
+            print("Space 2 is: ", trk.space)
+            data =trk.streamlines.get_data()
 
-        data =trk.streamlines.get_data()
+            mins = data.min(axis=0)
+            maxs = data.max(axis=0)
 
-        mins = data.min(axis=0)
-        maxs = data.max(axis=0)
-
-        print("Streamline bounds (pre transform):")
-        print("X:", mins[0], "→", maxs[0])
-        print("Y:", mins[1], "→", maxs[1])
-        print("Z:", mins[2], "→", maxs[2])
+            print("Streamline bounds (pre transform):")
+            print("X:", mins[0], "→", maxs[0])
+            print("Y:", mins[1], "→", maxs[1])
+            print("Z:", mins[2], "→", maxs[2])
 
         img = nib.load(target_file)
-        print("IMG Dimensions\n")
-        print(img.get_fdata().shape)
-        print("trk\n",trk.affine)
-        print("img\n", img.affine)
+        if verbose:
+            print("IMG Dimensions\n")
+            print(img.get_fdata().shape)
+            print("trk\n",trk.affine)
+            print("img\n", img.affine)
 
         new_sl = transform_streamlines(
             trk.streamlines,
@@ -391,25 +458,42 @@ def patient_registration(
             reference=target_file,
             space = Space.RASMM
         )
+        if verbose:
+            print("Space 3 is: ", new_trk.space)
+            data =new_trk.streamlines.get_data()
+
+            mins = data.min(axis=0)
+            maxs = data.max(axis=0)
+
+            print("Streamline bounds (post transform, rasm):")
+            print("X:", mins[0], "→", maxs[0])
+            print("Y:", mins[1], "→", maxs[1])
+            print("Z:", mins[2], "→", maxs[2])
+
+
         new_trk.to_vox()
         new_trk.to_corner()
-        data =new_trk.streamlines.get_data()
+        if verbose:
+            print("Space 4 is: ", new_trk.space)
+            data =new_trk.streamlines.get_data()
 
-        mins = data.min(axis=0)
-        maxs = data.max(axis=0)
+            mins = data.min(axis=0)
+            maxs = data.max(axis=0)
 
-        print("Streamline bounds (post transform):")
-        print("X:", mins[0], "→", maxs[0])
-        print("Y:", mins[1], "→", maxs[1])
-        print("Z:", mins[2], "→", maxs[2])
+            print("Streamline bounds (post transform):")
+            print("X:", mins[0], "→", maxs[0])
+            print("Y:", mins[1], "→", maxs[1])
+            print("Z:", mins[2], "→", maxs[2])
 
-        img = nib.load(target_file)
-        print("trk\n",new_trk.affine)
-        print("img\n", img.affine)
+            img = nib.load(target_file)
+            print("trk\n",new_trk.affine)
+            print("img\n", img.affine)
         filename = join(
             output_folder,
             subj + "_" + atlas_file
         )
+        # This line is very suspect
+        new_trk.remove_invalid_streamlines()
         save_tractogram(
             sft=new_trk,
             filename=filename,
@@ -480,13 +564,21 @@ if __name__ == "__main__":
         NEW_ATLAS_FP,
         OUR_MNI_BUNDLES
     )"""
-    
+    """
     patient_registration(
         atlas_folder=NEW_ATLAS_FP,
         original_space=MNI_MASK,
         target_file=T1_ANAT_FILE,
         output_folder=PATIENT_FOLDER,
         subj="TAU001"
+    )"""
+    analyse_all_tracts(
+        tract_folder=PATIENT_FOLDER,
+        output_folder=ENG_STORAGE,
+        engagement_file=PATIENT_ENG,
+        nodes = 30,
+        subj="001",
+        session="ses-2"
     )
    #create_tcks(PATIENT_FOLDER)
 
