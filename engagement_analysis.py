@@ -54,17 +54,17 @@ def extract_nodes(trk_file: str, nodes: int = 32, smooth_iter: int = 10):
     trk = load_tractogram(trk_file, 'same')
     trk.to_vox()
     trk.to_corner()
-    try:
-        dens = get_streamline_density(trk, subsegment=5)
-    except IndexError:
-        print(trk.streamlines)
+    dens = get_streamline_density(trk, subsegment=5)
 
     streams = trk.streamlines
     s_dens = np.empty(len(streams))
-
     for i in tqdm(range(len(streams)), desc="Computing centroid streamline"):
 
-        s_dens[i] = np.sum(dens[np.floor(streams[i]).astype(np.int32)],
+        coords = np.floor(streams[i]).astype(np.int32)
+        x = coords[:, 0]
+        y = coords[:, 1]
+        z = coords[:, 2]
+        s_dens[i] = np.sum(dens[x,y,z],
                            dtype=np.float32)
     
     s_i_max = np.argmax(s_dens)
@@ -89,6 +89,8 @@ def tract_engagement(
         nodes = 30
 ):
     trk = load_tractogram(tract_file, reference="same",bbox_valid_check=True)
+    if trk is False:
+        raise ValueError("Could not load trk")
     eng_img = nifti_vs_img(engagement_file)
     if not np.allclose(trk.affine, eng_img.affine):
         raise ValueError("The affine information does not match")
@@ -99,7 +101,6 @@ def tract_engagement(
         trk_file=tract_file,
         nodes=nodes
     )
-
     mask = get_roi_sections_from_nodes(
         trk_file=tract_file,
         point_array=nodes
@@ -116,7 +117,6 @@ def tract_engagement(
     checkpoints_mean = (
         np.bincount(inverse, weights=eng_vals.ravel()) / count
     )
-
     checkpoints_mean_squares = (
         (np.bincount(inverse, weights=eng_vals.ravel()**2) / count)
     )
@@ -135,12 +135,15 @@ def analyse_all_tracts(
 
 ):
     all_patient_data = []
-    for tract in tqdm(os.listdir(tract_folder), "Tract Analysis"):
+    for tract in os.listdir(tract_folder):
+        file_extension = tract.split(".")[-1]
+        if file_extension != "trk":
+            continue
         print(f"Analysing Tract: {tract}")
         patient_tract_data = {"subject": subj, "session": session}
         split_name = tract.split("_")
         tract_name = ""
-        for name_part in split_name[2:]:
+        for name_part in split_name[3:]:
             tract_name += name_part + "_"
         tract_name = tract_name[:-5]
         patient_tract_data["tract"] = tract_name
@@ -678,7 +681,7 @@ if __name__ == "__main__":
         NEW_ATLAS_FP,
         OUR_MNI_BUNDLES
     )"""
-    
+    """
     patient_registration(
         atlas_folder=OUR_MNI_BUNDLES,
         original_space=MNI_PATH_MINE,
@@ -687,16 +690,16 @@ if __name__ == "__main__":
         subj="TAU001",
         verbose=True
     )
-    create_tcks(WITH_INVERTED)
-    """
+    create_tcks(WITH_INVERTED)"""
+
     analyse_all_tracts(
-        tract_folder=PATIENT_FOLDER,
+        tract_folder=WITH_INVERTED,
         output_folder=ENG_STORAGE,
         engagement_file=PATIENT_ENG,
         nodes = 30,
         subj="001",
         session="ses-2"
-    )"""
+    )
     """create_tcks(OUR_MNI_BUNDLES)
     create_tcks(NEW_ATLAS_FP)
     create_tcks(PATIENT_FOLDER)"""
