@@ -12,7 +12,7 @@ from unravel.stream import get_roi_sections_from_nodes
 from tqdm import tqdm
 from regis.core import find_transform, apply_transform
 from dipy.tracking.streamline import transform_streamlines
-
+from sklearn.decomposition import NMF
 from utilities import streamline_registration, trk2tck, nifti_vs_img
 
 MNI_PATH_MINE = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/MNI152_T1_1mm_brain.nii.gz"
@@ -278,6 +278,89 @@ def correct_atlases(
             bbox_valid_check=True
         )
 
+
+def correct_atlases_V2(
+    mni_path: str,
+    atlas_folder: str,
+    outputs_folder: str,
+    save_prefix: str = "edited_"
+):
+    """
+    Correct `.trk` atlas tractograms by aligning them to an MNI reference image.
+
+    This function iterates over all `.trk` files in a specified folder and
+    applies a spatial translation so that their streamline coordinates align
+    with the voxel-space origin of a provided MNI reference image. The
+    translation offset is derived from the affine matrix of the MNI image.
+
+    For each `.trk` file:
+        1. The tractogram is loaded.
+        2. Streamlines are converted to voxel space and corner convention.
+        3. A translation offset computed from the MNI affine is applied.
+        4. A corrected tractogram is saved to the output directory with a
+           configurable filename prefix.
+
+    Parameters
+    ----------
+    mni_path : str
+        Path to the reference MNI NIfTI image. Its affine matrix is used
+        to compute the spatial translation offset.
+    atlas_folder : str
+        Path to a directory containing input tractogram files (.trk).
+        Only files with the `.trk` extension are processed.
+    outputs_folder : str
+        Path to the directory where corrected tractograms will be saved.
+        The directory is created if it does not exist.
+    save_prefix : str, optional
+        Prefix added to each corrected tractogram filename before saving.
+        Default is "edited_".
+
+    Notes
+    -----
+    - The correction consists solely of a translation based on the affine
+      offset; no rotation or scaling is performed.
+    - Streamlines are converted to voxel space (`to_vox()`) and corner
+      convention (`to_corner()`) before applying the offset.
+    - The output tractograms are saved in voxel space (`Space.VOX`).
+    - Files in `atlas_folder` that do not have a `.trk` extension are ignored.
+    """
+    os.makedirs(
+        outputs_folder, 
+        exist_ok=True
+    )
+    mni_image = nib.load(mni_path)
+    mni_affine = mni_image.affine
+    offsets = -1*mni_affine[0:3, 3]
+    for atlas_file in tqdm(os.listdir(atlas_folder), "Correcting atlases"):
+        extension = atlas_file.split(".")[-1]
+        if extension!="trk":
+            continue
+        save_name = os.path.join(
+            outputs_folder,
+            save_prefix+ atlas_file
+        )
+        atlas_path = os.path.join(
+            atlas_folder,
+            atlas_file
+        )
+        trk = load_tractogram(
+            filename=atlas_path, 
+            reference="same",
+            bbox_valid_check=False
+        )
+
+        sls = trk.streamlines
+        new_trk = StatefulTractogram(
+            streamlines=sls, 
+            reference=mni_path,
+            space=Space.RASMM
+        )
+        save_tractogram(
+            sft=new_trk,
+            filename=save_name,
+            bbox_valid_check=True
+        )
+
 def atlas_space_conversion(
         current_space: str,
         target_space: str,
@@ -307,14 +390,13 @@ def atlas_space_conversion(
         save_destination, 
         exist_ok=True
     )
-
     for atlas_file in tqdm(os.listdir(atlas_folder),"Space conversion"):
         extension = atlas_file.split(".")[-1]
         if extension != "trk":
             continue
         save_name = os.path.join(
             save_destination,
-            prefix+ atlas_file
+            prefix + atlas_file
         )
         atlas_path = os.path.join(
             atlas_folder,
@@ -331,8 +413,6 @@ def atlas_space_conversion(
             filename=atlas_path,
             reference="same",
         )
-        trk.to_vox()
-        trk.to_corner()
 
         tform = find_transform(
             moving_file=current_space,
@@ -357,11 +437,8 @@ def atlas_space_conversion(
         new_trk = StatefulTractogram(
             streamlines=new_streamlines,
             reference=target_space,
-            space=Space.VOX,
-            origin=Origin.TRACKVIS
+            space=Space.RASMM
         )
-        print("The minimum value")
-        print(np.min(new_trk.streamlines.get_data()))
         save_tractogram(
             sft = new_trk,
             filename=save_name
@@ -382,8 +459,6 @@ def create_tcks(atlas_folder):
             atlas_folder,
             atlas_file
         )
-        print(atlas_path)
-        print("\n\n\n\n\WHAT THA FACK")
         trk2tck(
             input_file=atlas_path,
             bounding=False
@@ -428,8 +503,8 @@ def patient_registration(
         if verbose:
             print(f"Processing {atlas_file}")
             print("Space is: ", trk.space)
-            trk.to_vox()
-            trk.to_corner()
+            """ trk.to_vox()
+            trk.to_corner() """
             print("Space 2 is: ", trk.space)
             data =trk.streamlines.get_data()
 
@@ -470,9 +545,6 @@ def patient_registration(
             print("Y:", mins[1], "→", maxs[1])
             print("Z:", mins[2], "→", maxs[2])
 
-
-        new_trk.to_vox()
-        new_trk.to_corner()
         if verbose:
             print("Space 4 is: ", new_trk.space)
             data =new_trk.streamlines.get_data()
@@ -493,7 +565,9 @@ def patient_registration(
             subj + "_" + atlas_file
         )
         # This line is very suspect
-        new_trk.remove_invalid_streamlines()
+        #new_trk.remove_invalid_streamlines()
+        new_trk.to_vox()
+        new_trk.to_corner()
         save_tractogram(
             sft=new_trk,
             filename=filename,
@@ -549,29 +623,42 @@ def patient_registration(
         )"""
 
 
+def analyse_dataset(dataset_fp):
+    df = pd.read_csv(dataset_fp)
+    unique_tracts = df["tract"].unique()
 
-    
+    for unique_tract in unique_tracts:
+        subset = df[df["tract"] == unique_tract]
+        subset = subset.filter(regex = "mu")
+        subset = subset.fillna(0)
+        print(subset)
+        model = NMF(
+            n_components='auto',
+            init='random',
+            random_state=0
+        )
+        W = model.fit_transform(subset.to_numpy())
 
 if __name__ == "__main__":
     """correct_atlases(
         mni_path=MNI_PATH,
         atlas_folder=ATLAS_FOLDER,
         outputs_folder=NEW_ATLAS_FP
-    )""" 
-    """ atlas_space_conversion(
+    )
+    atlas_space_conversion(
         MNI_PATH,
         MNI_PATH_MINE,
         NEW_ATLAS_FP,
         OUR_MNI_BUNDLES
     )"""
-    """
-    patient_registration(
+    """patient_registration(
         atlas_folder=NEW_ATLAS_FP,
         original_space=MNI_MASK,
         target_file=T1_ANAT_FILE,
         output_folder=PATIENT_FOLDER,
-        subj="TAU001"
-    )"""
+        subj="TAU001",
+        verbose=True
+    )
     analyse_all_tracts(
         tract_folder=PATIENT_FOLDER,
         output_folder=ENG_STORAGE,
@@ -579,6 +666,11 @@ if __name__ == "__main__":
         nodes = 30,
         subj="001",
         session="ses-2"
+    )"""
+    """create_tcks(OUR_MNI_BUNDLES)
+    create_tcks(NEW_ATLAS_FP)
+    create_tcks(PATIENT_FOLDER)"""
+    analyse_dataset(
+        ENG_STORAGE + "/TAU-001_ses-2.csv"
     )
-   #create_tcks(PATIENT_FOLDER)
 
