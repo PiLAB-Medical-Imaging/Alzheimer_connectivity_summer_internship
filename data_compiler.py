@@ -15,7 +15,7 @@ ATLAS_NAME = "registered_atlas.nii.gz"
 SIMPLE_WEIGHTING_NAME = "simple_weighting.npy"
 ENG_MEAN_NAME = "mean_eng"
 SW_METRIC_NAME = "sw_metrics"
-NETWORKS = ["dmn-basic", "dmn-ext", "salience", "ecn"]
+NETWORKS = ["dmn-basic", "dmn-ext", "salience", "ecn", "emot"]
 
 def avg_engagement(engagement):
     """
