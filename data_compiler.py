@@ -347,6 +347,7 @@ def subject_data_crawler(
             )
             for key in sw_metrics:
                 subj_data[key] = sw_metrics[key]
+            matrix_name = subj_id + "_" + session+ "_" + "simple_weighting.npy"
             subj_results = subnet_analysis(
                 subject_folder=session_folder,
                 matrix_name=matrix_name,
@@ -359,8 +360,6 @@ def subject_data_crawler(
         else:
             print(f"Warning: Simple weighting matrix was not found at"
                     f"{sw_fp}" )
-            # Subnetwork Analysis for the simple weighting data
-            matrix_name = subj_id + "_" + session+ "_" + "simple_weighting.npy"
             
         all_data.append(subj_data)
     df = pd.DataFrame(
