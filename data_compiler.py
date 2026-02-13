@@ -12,11 +12,13 @@ from graph_metrics import graph_level_metrics
 
 ENGAGEMENT_NAME = "engagement.nii.gz"
 ATLAS_NAME = "registered_atlas.nii.gz"
-SIMPLE_WEIGHTING_NAME = "simple_weighting.npy"
+SIMPLE_WEIGHTING_NAME = "simple_weighting"
+STRUCTURAL = "sc_matrix"
+FUNCTIONAL = "fc_matrix"
 ENG_MEAN_NAME = "mean_eng"
 SW_METRIC_NAME = "sw_metrics"
 NETWORKS = ["dmn-basic", "dmn-ext", "salience", "ecn", "emot"]
-
+NETWORK_TYPES = [SIMPLE_WEIGHTING_NAME,STRUCTURAL, FUNCTIONAL ]
 def avg_engagement(engagement):
     """
     Simple function to get the average engagement score
@@ -283,6 +285,7 @@ def data_crawler(
         path_or_buf=save_location
     )
 
+
 def subject_data_crawler(
         outputs_folder: str,
         subj_number,
@@ -315,12 +318,12 @@ def subject_data_crawler(
         print(f"\t{session}")
         if session == "wm_atlas":
             continue
-        subj_data = {"subj": subj_number}
+        subject = subj_number[4:]
+        
         session_folder = join(
             subject_folder,
             session
         )
-        subj_data["session"] = session
         #Engagement analysis
         eng_path = join(
             session_folder,
@@ -333,35 +336,38 @@ def subject_data_crawler(
         else:
             print(f"\tEngagement {eng_path} not found")
             mean_eng = None
-        subj_data[ENG_MEAN_NAME] = mean_eng
+        for net_type in NETWORK_TYPES:
+            subj_data = {"subj": subject}
+            subj_data["session"] = session
+            subj_data[ENG_MEAN_NAME] = mean_eng
+            subj_data["net_type"] = net_type
+            matrix_fp = join(
+                session_folder,
+                subj_id + "_" + session + "_" + net_type + ".npy"
+            )
+            if exists(matrix_fp):
+                mat = np.load(matrix_fp)
+                mat_metrics = sw_analysis(
+                    sw_matrix=mat
+                )
+                for key in mat_metrics:
+                    subj_data[key] = mat_metrics[key]
+               
+                subj_results = subnet_analysis(
+                    subject_folder=session_folder,
+                    matrix_name=matrix_fp,
+                    network_definitions=network_definitions
+                )
+                if subj_results is None:
+                    continue
+                for key in subj_results:
+                    subj_data[key] = subj_results[key]
+            else:
+                print(f"Warning: Matrix was not found at"
+                        f"{matrix_fp}" )
 
-        # Overall simple weighting metrics
-        sw_fp = join(
-            session_folder,
-            subj_id + "_" + session + "_" + SIMPLE_WEIGHTING_NAME
-        )
-        if exists(sw_fp):
-            sw_mat = np.load(sw_fp)
-            sw_metrics = sw_analysis(
-                sw_matrix=sw_mat
-            )
-            for key in sw_metrics:
-                subj_data[key] = sw_metrics[key]
-            matrix_name = subj_id + "_" + session+ "_" + "simple_weighting.npy"
-            subj_results = subnet_analysis(
-                subject_folder=session_folder,
-                matrix_name=matrix_name,
-                network_definitions=network_definitions
-            )
-            if subj_results is None:
-                continue
-            for key in subj_results:
-                subj_data[key] = subj_results[key]
-        else:
-            print(f"Warning: Simple weighting matrix was not found at"
-                    f"{sw_fp}" )
-            
-        all_data.append(subj_data)
+            all_data.append(subj_data)
+
     df = pd.DataFrame(
         data = all_data
     )
