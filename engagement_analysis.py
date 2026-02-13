@@ -10,10 +10,11 @@ from dipy.io.stateful_tractogram import StatefulTractogram, Space, Origin
 from unravel.stream import get_streamline_density, align_streamline, _smooth_streamline
 from unravel.stream import get_roi_sections_from_nodes
 from tqdm import tqdm
-from regis.core import find_transform, apply_transform
+from regis.core import find_transform
 from dipy.tracking.streamline import transform_streamlines
 from sklearn.decomposition import NMF
-from utilities import streamline_registration, trk2tck, nifti_vs_img
+
+from utilities import trk2tck, nifti_vs_img
 
 MNI_PATH_MINE = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/MNI152_T1_1mm_brain.nii.gz"
 MNI_PATH = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/mni_icbm152_nlin_sym_09a_nifti/brain_only.nii.gz"
@@ -541,13 +542,18 @@ def patient_registration(
         output_folder, 
         exist_ok=True
     )
-
+    # I have reversed the direction from what I think it should be
+    # I have been unable to comprehend why this is fixing the problem
+    # But it seems to wor? TODO deep dive into why this is successful?
     tform = find_transform(
-                moving_file=original_space,
-                static_file=target_file,
-                diffeomorph=False
+                moving_file=target_file,
+                static_file=original_space,
+                diffeomorph=True
     )
+
     for atlas_file in tqdm(os.listdir(atlas_folder)):
+        if verbose:
+            print(f"Processing {atlas_file} in {atlas_folder}")
         extension = atlas_file.split(".")[-1]
         if extension != "trk":
             continue
@@ -559,8 +565,6 @@ def patient_registration(
             filename=fp,
             reference="same"
         )
-        if verbose:
-            print(f"Processing {atlas_file}")
         img = nib.load(target_file)
         if verbose:
             print("IMG Dimensions\n")
@@ -568,11 +572,17 @@ def patient_registration(
             print("trk\n",trk.affine)
             print("img\n", img.affine)
 
-        new_sl = transform_streamlines(
+        ## When time, consider wny inverting worked?? @todo
+        """         new_sl = transform_streamlines(
             trk.streamlines,
-            mat = np.linalg.inv(tform.affine) ## When time, consider wny inverting worked
-        )
-        
+            mat = np.linalg.inv(tform.affine) 
+        ) """
+        if hasattr(tform, 'transform_points'):
+            new_sl = tform.transform_points(trk.streamlines,)
+        else:
+            new_sl = transform_streamlines(trk.streamlines,
+                                            # np.linalg.inv(mapping.affine))
+                                            tform.affine)
         new_trk = StatefulTractogram(
             streamlines=new_sl,
             reference=target_file,
@@ -589,7 +599,16 @@ def patient_registration(
         )
 
 
-def analyse_dataset(dataset_fp):
+def analyse_dataset(dataset_fp:str):
+    """
+   Performs non-negative matrix factorisation per tract to 
+   extract features that characterise the data. 
+
+   @TODO: Need to add normalisation somewhere  
+    
+    :param dataset_fp: Filepath to the csv file containing the tract
+    engagement values. 
+    """
     df = pd.read_csv(dataset_fp)
     unique_tracts = df["tract"].unique()
 
