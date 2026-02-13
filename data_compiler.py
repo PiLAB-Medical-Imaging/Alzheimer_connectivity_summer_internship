@@ -313,6 +313,8 @@ def subject_data_crawler(
     all_data = []
     for session in listdir(subject_folder):
         print(f"\t{session}")
+        if session == "wm_atlas":
+            continue
         subj_data = {"subj": subj_number}
         session_folder = join(
             subject_folder,
