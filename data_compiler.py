@@ -409,6 +409,7 @@ if __name__ == "__main__":
         save_path=save_folder,
         network_definitions=network_definitions_fp
     )
+    """
     final_df = subject_wise_compilation(save_folder)
     final_result_path = join(
        save_folder,
@@ -417,3 +418,4 @@ if __name__ == "__main__":
     final_df.to_csv(
        final_result_path
     )
+    """
