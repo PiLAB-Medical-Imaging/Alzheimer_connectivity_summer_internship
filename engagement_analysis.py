@@ -589,54 +589,6 @@ def patient_registration(
             filename=filename,
             bbox_valid_check=True
         )
-        """tform = find_transform(
-            moving_file=original_space,
-            static_file=target_file,
-            diffeomorph=False
-        )
-        print("transform",tform)
-        new_sls = transform_streamlines(
-            trk.streamlines,
-            mat = tform.affine
-        )
-        new_trk = StatefulTractogram(
-            streamlines=new_sls,
-            reference=target_file,
-            space=Space.RASMM
-        )
-        print("Space = ", new_trk.space)
-        ref_img = nib.load(target_file)
-        print("img affine",ref_img.affine)
-        data =new_trk.streamlines.get_data()
-
-        mins = data.min(axis=0)
-        maxs = data.max(axis=0)
-
-        print("Streamline bounds:")
-        print("X:", mins[0], "→", maxs[0])
-        print("Y:", mins[1], "→", maxs[1])
-        print("Z:", mins[2], "→", maxs[2])
-
-        new_trk.to_vox()
-        new_trk.to_corner()
-        data =new_trk.streamlines.get_data()
-
-        mins = data.min(axis=0)
-        maxs = data.max(axis=0)
-
-        print("Streamline bounds:")
-        print("X:", mins[0], "→", maxs[0])
-        print("Y:", mins[1], "→", maxs[1])
-        print("Z:", mins[2], "→", maxs[2])
-        filename = join(
-            output_folder,
-            subj + "_" + atlas_file
-        )
-        save_tractogram(
-            sft=new_trk,
-            filename=filename,
-            bbox_valid_check=True
-        )"""
 
 
 def analyse_dataset(dataset_fp):
