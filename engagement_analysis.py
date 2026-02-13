@@ -557,6 +557,12 @@ def patient_registration(
             continue
         if verbose:
             print(f"Processing {atlas_file} in {atlas_folder}")
+        filename = join(
+            output_folder,
+            subj + "_" + atlas_file
+        )
+        if os.path.exists(filename):
+            continue
         fp = join(
             atlas_folder,
             atlas_file
@@ -588,10 +594,7 @@ def patient_registration(
             reference=target_file,
             space = Space.RASMM
         )
-        filename = join(
-            output_folder,
-            subj + "_" + atlas_file
-        )
+
         save_tractogram(
             sft=new_trk,
             filename=filename,

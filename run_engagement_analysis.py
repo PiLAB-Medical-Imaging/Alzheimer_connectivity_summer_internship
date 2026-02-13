@@ -1,4 +1,3 @@
-import os
 from os import path
 import sys
 
@@ -51,7 +50,8 @@ if __name__=="__main__":
         output_folder=outpath,
         engagement_file=eng_file,
         nodes=100, 
-        subj=subject
+        subj=subject,
+        session=session
     )
 
   
