@@ -506,27 +506,42 @@ def create_tcks(atlas_folder):
         )
 
 def patient_registration(
-        atlas_folder,
-        original_space,
-        target_file,
-        output_folder,
-        subj,
+        atlas_folder:str,
+        original_space:str,
+        target_file:str,
+        output_folder:str,
+        subj:str,
         verbose: bool=False
-):
+):  
+    """
+    Converts white matter atlas files to a target space. 
+    Computes a transform from the original space, to the target file.
+    Iterates through a folder containing trk atlases and applies
+    the transformation to each file. 
+    
+    :param atlas_folder: Filepath to the folder containing the white matter
+    tract atlases. 
+    :type atlas_folder: str
+    :param original_space: Filepath to a niftii image that is in the 
+    same space as the trk files in atlas_folder.
+    :type original_space: str
+    :param target_file: A filepath to a niftii image in the desired space. 
+    :type target_file: str
+    :param output_folder: Filepath to a folder to store the registered 
+    atlases. Will create the folder if it does not already exist.
+    :type output_folder: str
+    :param subj: Subject identifier for saving. Adds this as a prefix to 
+    the original atlas names.
+    :type subj: str
+    :param verbose: If true, the function prints more information as it 
+    performs each step.
+    :type verbose: bool
+    """
     os.makedirs(
         output_folder, 
         exist_ok=True
     )
-    """if os.path.exists(TEST):
-        transform_mat = np.load(TEST)
-    else:
-        tform = find_transform(
-                moving_file=original_space,
-                static_file=target_file,
-                diffeomorph=False
-        )
-        transform_mat = tform.affine
-        np.save(TEST, tform.affine)"""
+
     tform = find_transform(
                 moving_file=original_space,
                 static_file=target_file,
