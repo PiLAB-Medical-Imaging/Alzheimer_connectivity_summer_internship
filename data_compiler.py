@@ -18,7 +18,8 @@ FUNCTIONAL = "fc_matrix"
 ENG_MEAN_NAME = "mean_eng"
 SW_METRIC_NAME = "sw_metrics"
 NETWORKS = ["dmn-basic", "dmn-ext", "salience", "ecn", "emot"]
-NETWORK_TYPES = [SIMPLE_WEIGHTING_NAME,STRUCTURAL, FUNCTIONAL ]
+NETWORK_TYPES = [SIMPLE_WEIGHTING_NAME,STRUCTURAL, FUNCTIONAL]
+NETWORK_NAMES = ["sw", "struct", "funct"]
 def avg_engagement(engagement):
     """
     Simple function to get the average engagement score
@@ -336,11 +337,12 @@ def subject_data_crawler(
         else:
             print(f"\tEngagement {eng_path} not found")
             mean_eng = None
-        for net_type in NETWORK_TYPES:
+
+        for i, net_type in enumerate(NETWORK_TYPES):
             subj_data = {"subj": subject}
             subj_data["session"] = session[-1]
             subj_data[ENG_MEAN_NAME] = mean_eng
-            subj_data["net_type"] = net_type
+            subj_data["net_type"] = NETWORK_NAMES[i]
             matrix_fp = join(
                 session_folder,
                 subj_id + "_" + session + "_" + net_type + ".npy"
