@@ -84,10 +84,29 @@ def extract_nodes(trk_file: str, nodes: int = 32, smooth_iter: int = 10):
     return centroid
 
 def tract_engagement(
-        tract_file,
-        engagement_file, 
-        nodes = 30
+        tract_file: str,
+        engagement_file: str, 
+        nodes:int = 30
 ):
+    """
+    A function to analyse engagement along a tract. Tract should be defined
+    in the same space as the engagement file. Use patient_registration
+    to do this. Extracts an average streamline from the tract, divides
+    that into a specified number of nodes. Then, separates the tract
+    into labelled regions. These can then be used to calculate summary
+    values for engagement along the tract. As written, this returns the mean
+    and standard deviation of each node region. 
+    
+    :param tract_file: A filepath to the tract atlas. Should be a trk.
+    Ensure that this is in the same space as the engagement file.
+    :type tract_file: str
+    :param engagement_file: A filepath to the engagement score. Should 
+    point to a niftii like object.
+    :type engagement_file: str
+    :param node: A number of nodes to divide the average streamline into. 
+    Default value is 30.
+    :type nodes: int
+    """
     trk = load_tractogram(tract_file, reference="same",bbox_valid_check=True)
     if trk is False:
         raise ValueError("Could not load trk")
@@ -134,6 +153,23 @@ def analyse_all_tracts(
         session: str
 
 ):
+    """
+    A function that applies the tract analysis to a foldere of tracts
+    for a single patient. Provide a folder t
+    
+    :param tract_folder: Description
+    :type tract_folder: str
+    :param output_folder: Description
+    :type output_folder: str
+    :param engagement_file: Description
+    :type engagement_file: str
+    :param nodes: Description
+    :type nodes: int
+    :param subj: Description
+    :type subj: str
+    :param session: Description
+    :type session: str
+    """
     all_patient_data = []
     for tract in os.listdir(tract_folder):
         file_extension = tract.split(".")[-1]
@@ -496,19 +532,10 @@ def patient_registration(
                 static_file=target_file,
                 diffeomorph=False
     )
-    
-    apply_transform(
-        moving_file=original_space,
-        static_file=target_file,
-        mapping=tform,
-        output_path="/Users/sam/Desktop/mni_patient_space.nii.gz"
-    )
-
     for atlas_file in tqdm(os.listdir(atlas_folder)):
         extension = atlas_file.split(".")[-1]
         if extension != "trk":
             continue
-        
         fp = join(
             atlas_folder,
             atlas_file
@@ -519,20 +546,6 @@ def patient_registration(
         )
         if verbose:
             print(f"Processing {atlas_file}")
-            print("Space is: ", trk.space)
-            """ trk.to_vox()
-            trk.to_corner() """
-            print("Space 2 is: ", trk.space)
-            data =trk.streamlines.get_data()
-
-            mins = data.min(axis=0)
-            maxs = data.max(axis=0)
-
-            print("Streamline bounds (pre transform):")
-            print("X:", mins[0], "→", maxs[0])
-            print("Y:", mins[1], "→", maxs[1])
-            print("Z:", mins[2], "→", maxs[2])
-
         img = nib.load(target_file)
         if verbose:
             print("IMG Dimensions\n")
@@ -550,40 +563,10 @@ def patient_registration(
             reference=target_file,
             space = Space.RASMM
         )
-        if verbose:
-            print("Space 3 is: ", new_trk.space)
-            data =new_trk.streamlines.get_data()
-
-            mins = data.min(axis=0)
-            maxs = data.max(axis=0)
-
-            print("Streamline bounds (post transform, rasm):")
-            print("X:", mins[0], "→", maxs[0])
-            print("Y:", mins[1], "→", maxs[1])
-            print("Z:", mins[2], "→", maxs[2])
-
-        if verbose:
-            print("Space 4 is: ", new_trk.space)
-            data =new_trk.streamlines.get_data()
-
-            mins = data.min(axis=0)
-            maxs = data.max(axis=0)
-
-            print("Streamline bounds (post transform):")
-            print("X:", mins[0], "→", maxs[0])
-            print("Y:", mins[1], "→", maxs[1])
-            print("Z:", mins[2], "→", maxs[2])
-
-            img = nib.load(target_file)
-            print("trk\n",new_trk.affine)
-            print("img\n", img.affine)
         filename = join(
             output_folder,
             subj + "_" + atlas_file
         )
-        # This line is very suspect
-        #new_trk.remove_invalid_streamlines()
-
         save_tractogram(
             sft=new_trk,
             filename=filename,

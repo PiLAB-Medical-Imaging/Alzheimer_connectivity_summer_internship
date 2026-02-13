@@ -26,11 +26,16 @@ if __name__=="__main__":
         session,
         "brain_only_t1w.nii.gz"
     )
+    save_patient_atlas = path.join(
+        outputs_folder,
+        sub_id,
+        "wm_atlas"
+    )
     patient_registration(
         atlas_folder=atlas_folder,
         original_space=mni_path,
         target_file=t1w_file,
-        output_folder=outpath,
+        output_folder=save_patient_atlas,
         subj=subject
     )
     eng_file = path.join(
@@ -39,7 +44,7 @@ if __name__=="__main__":
     )
     analyse_all_tracts(
         tract_folder=atlas_folder, 
-        output_folder=outputs_folder,
+        output_folder=outpath,
         engagement_file=eng_file,
         nodes=100, 
         subj=subject
