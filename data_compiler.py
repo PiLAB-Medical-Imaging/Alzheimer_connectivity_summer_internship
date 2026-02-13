@@ -338,7 +338,7 @@ def subject_data_crawler(
             mean_eng = None
         for net_type in NETWORK_TYPES:
             subj_data = {"subj": subject}
-            subj_data["session"] = session
+            subj_data["session"] = session[-1]
             subj_data[ENG_MEAN_NAME] = mean_eng
             subj_data["net_type"] = net_type
             matrix_fp = join(
