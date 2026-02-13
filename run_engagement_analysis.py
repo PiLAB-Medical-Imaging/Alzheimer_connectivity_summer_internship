@@ -9,10 +9,8 @@ if __name__=="__main__":
     atlas_folder = sys.argv[2]
     mni_path = sys.argv[3]
     outpath = sys.argv[4]
-    save_csv_path = sys.argv[5]
-    engagement_folder = sys.argv[6]
-    derivatives_folder = sys.argv[7]
-    outputs_folder = sys.argv[8]
+    engagement_folder = sys.argv[5]
+    outputs_folder = sys.argv[6]
 
     # Extract subject and session from input subject info
     subj_info = subject.split("_")
