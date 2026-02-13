@@ -36,7 +36,8 @@ if __name__=="__main__":
         original_space=mni_path,
         target_file=t1w_file,
         output_folder=save_patient_atlas,
-        subj=subject
+        subj=subject,
+        verbose=True
     )
     eng_file = path.join(
         engagement_folder,
