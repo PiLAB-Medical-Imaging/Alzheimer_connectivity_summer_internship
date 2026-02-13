@@ -11,6 +11,7 @@ if __name__=="__main__":
     outpath = sys.argv[4]
     engagement_folder = sys.argv[5]
     outputs_folder = sys.argv[6]
+    print(f"Commencing Patient {subject}")
 
     # Extract subject and session from input subject info
     subj_info = subject.split("_")
@@ -31,6 +32,7 @@ if __name__=="__main__":
         sub_id,
         "wm_atlas"
     )
+    print(f"Beginning Atlas Registration")
     patient_registration(
         atlas_folder=atlas_folder,
         original_space=mni_path,
@@ -43,6 +45,7 @@ if __name__=="__main__":
         engagement_folder,
         subject + "_engagement.nii.gz"
     )
+    print(f"Beginning tract analysis")
     analyse_all_tracts(
         tract_folder=atlas_folder, 
         output_folder=outpath,
