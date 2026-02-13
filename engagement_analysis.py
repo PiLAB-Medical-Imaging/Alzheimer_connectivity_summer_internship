@@ -512,7 +512,7 @@ def patient_registration(
         target_file:str,
         output_folder:str,
         subj:str,
-        verbose: bool=False
+        verbose: bool=True
 ):  
     """
     Converts white matter atlas files to a target space. 
@@ -552,11 +552,11 @@ def patient_registration(
     )
 
     for atlas_file in tqdm(os.listdir(atlas_folder)):
-        if verbose:
-            print(f"Processing {atlas_file} in {atlas_folder}")
         extension = atlas_file.split(".")[-1]
         if extension != "trk":
             continue
+        if verbose:
+            print(f"Processing {atlas_file} in {atlas_folder}")
         fp = join(
             atlas_folder,
             atlas_file
