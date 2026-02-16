@@ -319,7 +319,7 @@ def subject_data_crawler(
         print(f"\t{session}")
         if session == "wm_atlas":
             continue
-        subject = subj_number[4:]
+        subject = subj_number[4:7]
         
         session_folder = join(
             subject_folder,
@@ -408,10 +408,6 @@ if __name__ == "__main__":
           f"{output_folder}\n"
           f"{save_folder}\n"
           f"{network_definitions_fp}")
-    """scan_data = data_crawler(
-        output_folder, 
-        save_folder,
-        network_definitions_fp
     subject_data_crawler(
         outputs_folder=output_folder,
         subj_number=subj_num,
@@ -427,4 +423,5 @@ if __name__ == "__main__":
     final_df.to_csv(
        final_result_path
     )
+    """
 
