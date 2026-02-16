@@ -411,7 +411,7 @@ if __name__ == "__main__":
     """scan_data = data_crawler(
         output_folder, 
         save_folder,
-        network_definitions_fp)"""
+        network_definitions_fp
     subject_data_crawler(
         outputs_folder=output_folder,
         subj_number=subj_num,
@@ -427,4 +427,4 @@ if __name__ == "__main__":
     final_df.to_csv(
        final_result_path
     )
-    """
+
