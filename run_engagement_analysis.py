@@ -45,7 +45,7 @@ if __name__=="__main__":
 
     eng_file = path.join(
         engagement_folder,
-        subject + "_engagement.nii.gz"
+        sub_id + "_" + session + "_engagement.nii.gz"
     )
     print(f"Beginning tract analysis")
     analyse_all_tracts(
