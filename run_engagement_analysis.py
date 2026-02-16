@@ -1,4 +1,5 @@
 from os import path
+import re
 import sys
 
 from engagement_analysis import analyse_all_tracts, patient_registration
@@ -40,6 +41,8 @@ if __name__=="__main__":
         subj=subject,
         verbose=True
     )
+
+
     eng_file = path.join(
         engagement_folder,
         subject + "_engagement.nii.gz"
@@ -50,7 +53,7 @@ if __name__=="__main__":
         output_folder=outpath,
         engagement_file=eng_file,
         nodes=100, 
-        subj=subject,
+        subj=sub_id,
         session=session
     )
 
