@@ -160,13 +160,10 @@ def network_extraction_V2(
 
 def subnet_analysis(
         subject_folder,
-        matrix_name,
+        matrix_path,
         network_definitions
 ):
-    matrix_path = join(
-        subject_folder, 
-        matrix_name, 
-    )
+
     if exists(matrix_path):
         atlas_fp = join(
             subject_folder,
@@ -347,7 +344,9 @@ def subject_data_crawler(
                 session_folder,
                 subj_id + "_" + session + "_" + net_type + ".npy"
             )
+            print(matrix_fp)
             if exists(matrix_fp):
+                
                 mat = np.load(matrix_fp)
                 mat_metrics = sw_analysis(
                     sw_matrix=mat

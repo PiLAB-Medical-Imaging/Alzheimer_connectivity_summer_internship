@@ -23,13 +23,11 @@ def merge_dfs(
         study_data,
         index_col=0
     )
-
-    print(net_df["subj"])
-    print(clin_df["ID"])
+    net_df["subj"] = net_df["subj"].str.split("_").str[0].astype(float)
 
     combined_df = clin_df.merge(
         net_df,
-        how="outer",
+        how="inner",
         left_on=["ID", "Visit_number"],
         right_on=["subj", "session"]
     )
@@ -46,13 +44,31 @@ def nice_plot(data, metric):
     )
     plt.show()
 
+def longify_data(data:pd.DataFrame):
+    metric_columns = []
+    prefixes = ("emot_", "dmn", "salience", "ecn")
+    for col in data.columns:
+        if col.startswith(prefixes):
+            metric_columns.append(col)
+
+    df_long = data.melt(
+        id_vars=[col for col in data.columns if col not in metric_columns],
+        value_vars=metric_columns,
+        var_name="metric",
+        value_name="score"
+    )
+
+    return df_long
+
 def main():
     merged_data = merge_dfs(
         clinical_data=PATIENT_DATA,
         study_data=NET_DATA
     )
 
-    print(merged_data)
+    longer_df = longify_data(merged_data)
+
+    print(longer_df)
 
 if __name__=="__main__":
     main()
