@@ -349,9 +349,12 @@ def subject_data_crawler(
             print(matrix_fp)
             if exists(matrix_fp):
                 mat = np.load(matrix_fp)
+                print(mat)
+                print(np.sum(mat))
                 mat_metrics = sw_analysis(
                     sw_matrix=mat
                 )
+                print(mat_metrics)
                 for key in mat_metrics:
                     subj_data[key] = mat_metrics[key]
                
