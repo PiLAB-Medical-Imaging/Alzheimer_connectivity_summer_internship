@@ -929,7 +929,8 @@ def run_EBC(
         subj_id,
         session,
         output_folder,
-        fc_mat = None  
+        fc_mat = None, 
+        allow_caching=False  
 ):
     destination_folder = path.join(
         output_folder,
@@ -949,11 +950,11 @@ def run_EBC(
             raise e
     
     ebc_matrix_fn = POS_EBC
-    """ebc_matrix_fp = path.join(
+    ebc_matrix_fp = path.join(
         destination_folder,
         ebc_matrix_fn
-    )"""
-    if path.exists(ebc_matrix_fp):
+    )
+    if path.exists(ebc_matrix_fp) and allow_caching:
         ebc_matrix_pos = np.load(
             file=ebc_matrix_fp
         )
