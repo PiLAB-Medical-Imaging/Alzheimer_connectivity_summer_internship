@@ -5,8 +5,10 @@ import networkx as nx
 
 
 #### Graph level analysis ####
-def graph_level_metrics(graph):
+def graph_level_metrics(graph, threshold=None):
     if isinstance(graph, np.ndarray):
+        if threshold is not None: 
+            graph = np.where(graph>threshold, graph, 0)
         graph = nx.from_numpy_array(graph)
 
     n_isolates = len(list(nx.isolates(graph)))
@@ -15,7 +17,7 @@ def graph_level_metrics(graph):
 
     avg_node_connectivity = nx.average_node_connectivity(graph)
     density = nx.density(graph)
-    global_clustering = nx.average_clustering(graph)
+    global_clustering = nx.average_clustering(graph, weight="weight")
 
     if nx.is_connected(graph):
         diam = nx.diameter(graph)
@@ -25,14 +27,18 @@ def graph_level_metrics(graph):
 
     density = nx.density(graph)
 
-    n = graph.number_of_nodes()
-    m = graph.number_of_edges()   
+    degree= nx.degree(graph, weight="weight")
+
+
+
+
     return {
         "m_connectivity": avg_node_connectivity,
         "density": density,
         "diameter": diam,
         "global_clustering": global_clustering,
-        "isolates": n_isolates
+        "isolates": n_isolates,
+        "degree": degree
     }
 
 #### Node level analysis ####
