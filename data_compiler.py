@@ -20,6 +20,7 @@ SW_METRIC_NAME = "sw_metrics"
 NETWORKS = ["dmn-basic", "dmn-ext", "salience", "ecn", "emot"]
 NETWORK_TYPES = [SIMPLE_WEIGHTING_NAME,STRUCTURAL, FUNCTIONAL]
 NETWORK_NAMES = ["sw", "struct", "funct"]
+
 def avg_engagement(engagement):
     """
     Simple function to get the average engagement score
@@ -264,7 +265,7 @@ def data_crawler(
             matrix_name = subject + "_" + session+ "_" + "simple_weighting.npy"
             subj_results = subnet_analysis(
                 subject_folder=session_folder,
-                matrix_name=matrix_name,
+                matrix_path=matrix_name,
                 network_definitions=network_definitions
             )
             if subj_results is None:
@@ -293,7 +294,7 @@ def subject_data_crawler(
     """
     A crawler that navigates through the outputs folder for a single patient
     and performs any calculations that you choose. 
-    Will return all values to a dictionary. 
+    Saves values as a csv
     
     :param outputs_folder: str 
         Filepath to the outputs folder. Assumes a structure of 

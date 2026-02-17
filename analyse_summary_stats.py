@@ -46,7 +46,7 @@ def nice_plot(data, metric):
 
 def longify_data(data:pd.DataFrame):
     metric_columns = []
-    prefixes = ("emot_", "dmn", "salience", "ecn")
+    prefixes = ("emot_", "dmn", "salience", "ecn", "m_connecivity", "diamter", "global_clustering", "isolates", "density")
     for col in data.columns:
         if col.startswith(prefixes):
             metric_columns.append(col)
@@ -60,6 +60,32 @@ def longify_data(data:pd.DataFrame):
 
     return df_long
 
+def category_plots(long_data, variable):
+    plotting_data = long_data[long_data["metric"] == variable]
+    sns.catplot(
+        plotting_data, 
+        x = "Diagnostic cognitif détaillé_CLASSIF_1",
+        y = "score", 
+        hue= "Diagnostic cognitif détaillé_CLASSIF_1",
+        col="net_type",
+        kind="violin",
+        sharey=False
+    )
+    plt.show()
+
+def rel_plots(long_data, variable):
+    
+    plotting_data = long_data[long_data["metric"] == variable]
+    sns.relplot(
+        plotting_data, 
+        x="score",
+        y="MMSE",
+        col="net_type",
+        hue="Diagnostic cognitif détaillé_CLASSIF_1",
+        facet_kws={"sharey": False}
+    )
+    plt.show()
+
 def main():
     merged_data = merge_dfs(
         clinical_data=PATIENT_DATA,
@@ -68,7 +94,8 @@ def main():
 
     longer_df = longify_data(merged_data)
 
-    print(longer_df)
+    category_plots(long_data=longer_df, variable= "salience_density")
+    #rel_plots(long_data=longer_df, variable="global_clustering")
 
 if __name__=="__main__":
     main()
