@@ -357,7 +357,7 @@ def subject_data_crawler(
                
                 subj_results = subnet_analysis(
                     subject_folder=session_folder,
-                    matrix_name=matrix_fp,
+                    matrix_path=matrix_fp,
                     network_definitions=network_definitions
                 )
                 if subj_results is None:
