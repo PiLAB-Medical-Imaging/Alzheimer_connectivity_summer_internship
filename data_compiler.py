@@ -345,9 +345,9 @@ def subject_data_crawler(
                 session_folder,
                 subj_id + "_" + session + "_" + net_type + ".npy"
             )
+            # This is bizarre
             print(matrix_fp)
             if exists(matrix_fp):
-                
                 mat = np.load(matrix_fp)
                 mat_metrics = sw_analysis(
                     sw_matrix=mat
