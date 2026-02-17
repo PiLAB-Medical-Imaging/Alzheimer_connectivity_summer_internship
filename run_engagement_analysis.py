@@ -33,7 +33,7 @@ if __name__=="__main__":
         "wm_atlas"
     )
     print(f"Beginning Atlas Registration")
-    patient_registration(
+    """patient_registration(
         atlas_folder=atlas_folder,
         original_space=mni_path,
         target_file=t1w_file,
@@ -41,11 +41,19 @@ if __name__=="__main__":
         subj=subject,
         verbose=True
     )
+    """
     eng_file = path.join(
         engagement_folder,
         sub_id + "_" + session + "_engagement.nii.gz"
     )
     print(f"Beginning tract analysis")
-    analyse_all_tracts(save_patient_atlas)
+    analyse_all_tracts(
+        tract_folder=save_patient_atlas, 
+        output_folder=outpath,
+        engagement_file=eng_file,
+        nodes=100, 
+        subj=sub_id,
+        session=session
+    )
 
   
