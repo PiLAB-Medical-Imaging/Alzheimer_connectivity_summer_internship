@@ -29,8 +29,7 @@ def graph_level_metrics(graph, threshold=None):
 
     degree= nx.degree(graph, weight="weight")
 
-
-
+    mean_degree = np.mean(degree)
 
     return {
         "m_connectivity": avg_node_connectivity,
@@ -38,7 +37,7 @@ def graph_level_metrics(graph, threshold=None):
         "diameter": diam,
         "global_clustering": global_clustering,
         "isolates": n_isolates,
-        "degree": degree
+        "degree": mean_degree
     }
 
 #### Node level analysis ####
