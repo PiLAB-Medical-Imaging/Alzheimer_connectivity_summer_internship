@@ -46,13 +46,6 @@ if __name__=="__main__":
         sub_id + "_" + session + "_engagement.nii.gz"
     )
     print(f"Beginning tract analysis")
-    analyse_all_tracts(
-        tract_folder=atlas_folder, 
-        output_folder=outpath,
-        engagement_file=eng_file,
-        nodes=100, 
-        subj=sub_id,
-        session=session
-    )
+    analyse_all_tracts(save_patient_atlas)
 
   
