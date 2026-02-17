@@ -20,6 +20,7 @@ SW_METRIC_NAME = "sw_metrics"
 NETWORKS = ["dmn-basic", "dmn-ext", "salience", "ecn", "emot"]
 NETWORK_TYPES = [SIMPLE_WEIGHTING_NAME,STRUCTURAL, FUNCTIONAL]
 NETWORK_NAMES = ["sw", "struct", "funct"]
+THRESHOLD = 0.1
 
 def avg_engagement(engagement):
     """
@@ -132,7 +133,8 @@ def network_extraction_V2(
         atlas_filepath, 
         matrix_filepath, 
         definitions_filepath, 
-        atlas
+        atlas,
+        threshold
     ):
     """
     Gives a dictionary containing metrics calculated per network. 
@@ -153,7 +155,10 @@ def network_extraction_V2(
             atlas,
             network
         )
-        metrics = graph_level_metrics(graph=selected_network)
+        metrics = graph_level_metrics(
+            graph=selected_network, 
+            hreshold=threshold
+        )
         for key in metrics.keys():
             new_key = network + "_" + key
             all_values[new_key] = metrics[key]
@@ -162,7 +167,8 @@ def network_extraction_V2(
 def subnet_analysis(
         subject_folder,
         matrix_path,
-        network_definitions
+        network_definitions,
+        threshold
 ):
 
     if exists(matrix_path):
@@ -174,7 +180,8 @@ def subnet_analysis(
             atlas_filepath=atlas_fp,
             matrix_filepath=matrix_path,
             definitions_filepath=network_definitions,
-            atlas="AAL116"
+            atlas="AAL116",
+            threshold=threshold
         )
         return values
     else:
@@ -345,6 +352,10 @@ def subject_data_crawler(
                 session_folder,
                 subj_id + "_" + session + "_" + net_type + ".npy"
             )
+            if net_type == FUNCTIONAL:
+                threshold = THRESHOLD
+            else:
+                threshold = None
             # This is bizarre
             print(matrix_fp)
             if exists(matrix_fp):
@@ -361,7 +372,8 @@ def subject_data_crawler(
                 subj_results = subnet_analysis(
                     subject_folder=session_folder,
                     matrix_path=matrix_fp,
-                    network_definitions=network_definitions
+                    network_definitions=network_definitions,
+                    threshold=threshold
                 )
                 if subj_results is None:
                     continue
