@@ -653,7 +653,7 @@ if __name__ == "__main__":
         NEW_ATLAS_FP,
         OUR_MNI_BUNDLES
     )"""
-
+    """
     patient_registration(
         atlas_folder=OUR_MNI_BUNDLES,
         original_space=MNI_PATH_MINE,
@@ -671,7 +671,7 @@ if __name__ == "__main__":
         nodes = 30,
         subj="001",
         session="ses-2"
-    )"""
+    )
    
     """analyse_dataset(
         ENG_STORAGE + "/TAU-001_ses-2.csv"

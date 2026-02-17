@@ -41,8 +41,6 @@ if __name__=="__main__":
         subj=subject,
         verbose=True
     )
-
-
     eng_file = path.join(
         engagement_folder,
         sub_id + "_" + session + "_engagement.nii.gz"
