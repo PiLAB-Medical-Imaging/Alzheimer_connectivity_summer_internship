@@ -949,10 +949,10 @@ def run_EBC(
             raise e
     
     ebc_matrix_fn = POS_EBC
-    ebc_matrix_fp = path.join(
+    """ebc_matrix_fp = path.join(
         destination_folder,
         ebc_matrix_fn
-    )
+    )"""
     if path.exists(ebc_matrix_fp):
         ebc_matrix_pos = np.load(
             file=ebc_matrix_fp

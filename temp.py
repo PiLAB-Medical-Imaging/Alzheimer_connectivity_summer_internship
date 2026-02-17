@@ -87,7 +87,7 @@ out = nib.Nifti1Image(
 )
 out.to_filename(atlas) """
 
-
+"""
 OUR_MNI = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/MNI152_T1_1mm_brain.nii.gz"
 OUR_MNI_TRACT ="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/our_mni_bundles/mni_edited_AC.trk"
 T1 = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/anat/sub-TAU001_desc-preproc_T1w_brain_only.nii.gz"
@@ -147,3 +147,26 @@ save_tractogram(
 )
  
 trk2tck("/Users/sam/Desktop/test_tracts.trk", False)
+"""
+atlas_fp = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/BugHunting/ses-0/registered_atlas.nii.gz"
+atlas_img = nib.load(atlas_fp)
+data = atlas_img.get_fdata()
+u_values = np.unique(data) 
+print(u_values)
+print(len(u_values))
+
+ebc = np.load("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/BugHunting/ses-0/pos_ebc.npy")
+print(ebc.shape)
+fc = np.load(
+    "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/BugHunting/ses-0/TAU056_ses-0_fc_matrix.npy"
+)
+
+print(fc.shape)
+
+from engagement import ebc_computation
+new_ebc = ebc_computation(
+    fc,
+    False
+)
+
+print(np.allclose(new_ebc, ebc, 1e-6))

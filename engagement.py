@@ -82,7 +82,7 @@ def engagement_calculation(EBC_matrix,
         try:
             result = sparse.einsum("ijk,jk->i", SC_matrices, EBC_matrix)
         except ValueError as e:
-            print(f"Dimensions of SC_matrices: {SC_matrices.shape}"
+            print(f"Dimensions of SC_matrices: {SC_matrices.shape}\n"
                   f"Dimensions of EBC_matrix: {EBC_matrix.shape}")
         denom = SC_matrices.sum(axis=(1, 2))# This line converts each slice of 
         #the SC_matrices array into a single number (the sum of all the values 
