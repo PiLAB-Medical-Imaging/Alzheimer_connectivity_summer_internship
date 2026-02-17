@@ -157,7 +157,7 @@ def network_extraction_V2(
         )
         metrics = graph_level_metrics(
             graph=selected_network, 
-            hreshold=threshold
+            threshold=threshold
         )
         for key in metrics.keys():
             new_key = network + "_" + key
