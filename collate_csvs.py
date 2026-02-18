@@ -29,4 +29,6 @@ def subject_wise_compilation(directory, save_name):
 if __name__ == "__main__":
     directory = sys.argv[1]
     save_name = sys.argv[2]
-    subject_wise_compilation(directory=directory)
+    subject_wise_compilation(
+        directory=directory,
+        save_name=save_name)
