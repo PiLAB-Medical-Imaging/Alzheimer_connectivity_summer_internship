@@ -31,4 +31,5 @@ if __name__ == "__main__":
     save_name = sys.argv[2]
     subject_wise_compilation(
         directory=directory,
-        save_name=save_name)
+        save_name=save_name
+    )

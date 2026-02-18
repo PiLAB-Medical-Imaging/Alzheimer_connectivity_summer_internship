@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 NET_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/OutputData/all_subjects.csv"
 PATIENT_DATA  = "/Users/sam/Desktop/TAU_Dg_neuro_complet_DATA.csv"
-
+TRACT_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/all_eng_tracts.csv"
 
 def merge_dfs(
         clinical_data:str,
@@ -73,6 +73,65 @@ def category_plots(long_data, variable):
     )
     plt.show()
 
+
+def analyse_tract_engagement(
+        tract_data = TRACT_DATA,
+        original_data = PATIENT_DATA
+):
+    tract_df = pd.read_csv(
+        tract_data, 
+        index_col=0
+    )
+    patient_data = pd.read_csv(
+        original_data,
+        sep=";", 
+        decimal=",", 
+        encoding="latin-1"
+    )
+    tract_df["subject"] = tract_df["subject"].str[3:].astype(float)
+    tract_df["session"] = tract_df["session"].str.split("-").str[-1].astype(int)
+    print(tract_df.head())
+    # Merge:
+    merged_df = pd.merge(
+        left=patient_data, 
+        right=tract_df,
+        how="inner",
+        left_on=["ID", "Visit_number"],
+        right_on=["subject", "session"]
+    )
+
+    plot_along_tracts(merged_df)
+
+
+def plot_along_tracts(merged_df:pd.DataFrame):
+    subset = [col for col in merged_df.columns if col.startswith("mu")]
+    grouped = (merged_df.groupby(["Demented", "tract"])[subset]
+               .mean()
+               .reset_index()
+               )
+    
+    mean_df  = grouped[subset].mean()
+    std_df   = grouped[subset].std()
+    count_df = grouped[subset].count()
+    sem_df = std_df / np.sqrt(count_df)
+    ci_upper = mean_df + 1.96 * sem_df
+    ci_lower = mean_df - 1.96 * sem_df
+    for tract_name, tract_df in grouped.groupby("tract"):
+    
+        plt.figure()
+        
+        for dementia_status, group_df in tract_df.groupby("Demented"):
+            y = group_df[subset].values.flatten()
+            x = range(1, len(subset) + 1)
+            
+            plt.plot(x, y, label=f"Demented = {dementia_status}")
+        
+        plt.title(f"Mean Tract Profile - {tract_name}")
+        plt.xlabel("Tract Point")
+        plt.ylabel("Mean Value")
+        plt.legend()
+        plt.show()
+
 def rel_plots(long_data, variable):
     
     plotting_data = long_data[long_data["metric"] == variable]
@@ -98,4 +157,4 @@ def main():
     #rel_plots(long_data=longer_df, variable="global_clustering")
 
 if __name__=="__main__":
-    main()
+    analyse_tract_engagement()

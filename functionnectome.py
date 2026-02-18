@@ -1,7 +1,6 @@
 import os
-from os import path
-from collections import defaultdict
 import json
+
 import numpy as np
 from numpy import tensordot
 import sparse
@@ -9,8 +8,6 @@ from scipy.ndimage import gaussian_filter
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from dipy.tracking.utils import target, density_map
-from dipy.tracking.streamline import select_by_rois, transform_streamlines
-from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.io.stateful_tractogram import StatefulTractogram
 import nibabel as nib
 from nibabel.nifti1 import Nifti1Image
@@ -19,6 +16,7 @@ from nilearn.maskers import (NiftiLabelsMasker,
                              NiftiMasker)
 from nilearn import image, masking
 from nilearn.regions import signals_to_img_labels
+
 from utilities import (voxel_to_streamline_map, 
                        mask_generator, 
                        is_sparse, 
@@ -148,9 +146,11 @@ def vectorised_probability_maps(
                 raise ValueError("The mask does not match " \
                     "the shape of the atlas")
             
-            relevant_streamlines = target_1(trk = trk, 
-                                            mask = mask,
-                                            affine = np.eye(4))
+            relevant_streamlines = target_1(
+                trk = trk, 
+                mask = mask,
+                affine = np.eye(4)
+            )
             
             trk_new = trk.from_sft(
                 relevant_streamlines, 
@@ -222,6 +222,47 @@ def vectorised_probability_maps(
 def compute_connection_probability(
         overall_density_map, 
         all_density_maps):
+    """
+    Compute the connection probability by normalizing individual density maps
+    with respect to an overall density map.
+
+    This function divides `all_density_maps` by `overall_density_map`
+    element-wise to estimate the probability of connection at each position.
+    To prevent division-by-zero errors, any zero values in
+    `overall_density_map` are temporarily replaced with 1 before division.
+
+    If a `ValueError` occurs during division (typically due to incompatible
+    array shapes), the function attempts to fix the mismatch by transposing
+    `all_density_maps` to the shape (3, 0, 1, 2) before performing the
+    division again.
+
+    After computing the probability:
+        - If the result is not sparse (as determined by `is_sparse`),
+          all NaN values are replaced with 0 using `np.nan_to_num`.
+
+    Parameters
+    ----------
+    overall_density_map : numpy.ndarray
+        An array representing the overall density values. Must be
+        broadcast-compatible with `all_density_maps`.
+
+    all_density_maps : numpy.ndarray
+        An array of density maps to be normalized by the overall density.
+        May be transposed internally if shape mismatch occurs.
+
+    Returns
+    -------
+    numpy.ndarray
+        An array of the same broadcasted shape as the input density maps,
+        containing the computed connection probabilities. NaN values are
+        replaced with 0 for non-sparse outputs.
+
+    Notes
+    -----
+    - Zero values in `overall_density_map` are replaced with 1 only for
+      the division step to avoid division-by-zero errors.
+    - If `connection_probability` is sparse, NaN values are preserved.
+    """
     try:
         safe_overall_density = np.where(
             overall_density_map==0, 
@@ -243,11 +284,12 @@ def compute_connection_probability(
 
     return connection_probability
 
-def normalizer(funct_results, 
-               probability_maps, 
-               method = "basic",
-               bold_min = None, 
-               bold_max = None):
+def normalizer(
+        funct_results, 
+        probability_maps, 
+        method = "basic",
+        bold_min = None, 
+        bold_max = None):
     """
     Converts the raw functionnectome values to constrain them to
     within the range of the original BOLD signal. Some of these 
@@ -311,12 +353,13 @@ def normalizer(funct_results,
     normalised = funct_results/summed_probs   
     return normalised
     
-def functionnectome(probability_maps, 
-                    timeseries, 
-                    registered_atlas,
-                    normalisation="hack",
-                    extensive_visualisation=False, 
-                    debug_prints= False):
+def functionnectome(
+        probability_maps, 
+        timeseries, 
+        registered_atlas,
+        normalisation="hack",
+        extensive_visualisation=False, 
+        debug_prints= False):
     """
     Computes the functionnectome based on a probability of 
     connection map and the fmri data.
@@ -411,42 +454,3 @@ def plot_ROI_activity(registered_atlas, roi_timeseries):
                                           roi_timeseries[j, idx], 
                                           np.nan)
 
-
-"""
-Possibly useful detritus - maybe need to add some of these to the pipeline
-
-Originally from the probability maps vectorised. It would check
-if the values were saved and if they were, it would load them
-
-    if save_density_map_path != None:
-        filepath = path.join(save_density_map_path, 
-                             f"{mode}_density_map.nii.gz")
-
-        if os.path.exists(filepath):
-                print("\tLoading Pre-existing density maps")
-                all_density_maps = nib.load(filepath)
-                all_density_maps = all_density_maps.get_fdata()
-                return all_density_maps, overall_density_map
-
-        if save_density_map_path != None:
-            complete_density_map_data = np.transpose(
-                    all_density_maps, 
-                    (1,2,3,0))
-            out = nib.Nifti1Image(
-                    complete_density_map_data.astype(float), 
-                    trk.affine)
-            out.to_filename(filename=filepath)
-
-    if save_output != None and is_sparse(connection_probability) == False:
-        if type(save_output) is not str:
-           raise ValueError("Please ensure save_output is a string " \
-                            "filepath to save the probability maps")
-        
-        save_name = path.join(save_output, f"probability_maps.nii.gz")
-        save_values = np.transpose(connection_probability, (1,2,3,0))
-        out = nib.Nifti1Image(save_values.astype(float), trk.affine)
-        out.to_filename(save_name)
-
-
-
-"""

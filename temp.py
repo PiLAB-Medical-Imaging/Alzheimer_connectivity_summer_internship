@@ -148,25 +148,47 @@ save_tractogram(
  
 trk2tck("/Users/sam/Desktop/test_tracts.trk", False)
 """
-atlas_fp = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/BugHunting/ses-0/registered_atlas.nii.gz"
-atlas_img = nib.load(atlas_fp)
-data = atlas_img.get_fdata()
-u_values = np.unique(data) 
-print(u_values)
-print(len(u_values))
 
-ebc = np.load("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/BugHunting/ses-0/pos_ebc.npy")
-print(ebc.shape)
-fc = np.load(
-    "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/BugHunting/ses-0/TAU056_ses-0_fc_matrix.npy"
+# Install nilearn if needed:
+# pip install nilearn matplotlib
+
+from nilearn import plotting, image
+from nilearn.datasets import load_mni152_template
+import matplotlib.pyplot as plt
+
+# ------------------------------------------------------------------
+# Option 1: Plot your own BOLD fMRI NIfTI file
+# ------------------------------------------------------------------
+# Replace with the path to your BOLD fMRI NIfTI file (.nii or .nii.gz)
+bold_path = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz"
+
+# Load image
+bold_img = image.load_img(bold_path)
+
+# If 4D (time series), select one volume (e.g., first time point)
+if bold_img.ndim == 4:
+    bold_img = image.index_img(bold_img, 20)
+
+# Plot
+plotting.plot_stat_map(
+    bold_img,
+    bg_img=load_mni152_template(),
+    threshold=None,
+    black_bg=False,
+    display_mode="ortho",
+    title="BOLD fMRI Volume"
 )
 
-print(fc.shape)
+plt.show()
 
-from engagement import ebc_computation
-new_ebc = ebc_computation(
-    fc,
-    False
-)
 
-print(np.allclose(new_ebc, ebc, 1e-6))
+# ------------------------------------------------------------------
+# Option 2: Example using nilearn sample dataset
+# ------------------------------------------------------------------
+from nilearn.datasets import fetch_development_fmri
+data = fetch_development_fmri(n_subjects=1)
+example_bold = data.func[0]
+bold_img = image.load_img(example_bold)
+bold_img = image.index_img(bold_img, 0)
+plotting.plot_stat_map(bold_img, display_mode="ortho", title="Sample BOLD fMRI")
+plt.show()
