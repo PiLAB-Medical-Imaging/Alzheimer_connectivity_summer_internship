@@ -3,7 +3,7 @@ import sys
 from os.path import join
 import pandas as pd
 
-def subject_wise_compilation(directory):
+def subject_wise_compilation(directory, save_name):
     all_dfs = []
     for file in listdir(directory):
         file_path = join(
@@ -17,7 +17,13 @@ def subject_wise_compilation(directory):
         all_dfs.append(df)
 
     final_df = pd.concat(all_dfs)
-    return final_df
+
+    save_path = join(
+        directory, 
+        save_name
+    )
+
+    final_df.to_csv(save_path)
 
 
 if __name__ == "__main__":
