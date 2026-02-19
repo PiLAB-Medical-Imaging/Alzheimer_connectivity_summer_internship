@@ -8,7 +8,7 @@ import networkx as nx
 def graph_level_metrics(graph, threshold=None):
     if isinstance(graph, np.ndarray):
         if threshold is not None: 
-            graph = np.where(graph>threshold, graph, 0)
+            graph = np.where(np.abs(graph)>threshold, graph, 0)
         graph = nx.from_numpy_array(graph)
 
     n_isolates = len(list(nx.isolates(graph)))
