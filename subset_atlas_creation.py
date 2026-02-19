@@ -7,7 +7,6 @@ import numpy as np
 from network_analyses import load_all_indices
 
 def atlas_subsetting(
-        atlas_fp: str,
         network_definitions: str,
         save_path: str,
         subject: str,
@@ -19,6 +18,13 @@ def atlas_subsetting(
     all_networks = load_all_indices(
         definitions_filepath=network_definitions
     )
+    atlas_fp = join(
+        save_path,
+        sub_num,
+        sub_session,
+        "registered_atlas.nii.gz"
+    )
+
     atlas_img = nib.load(atlas_fp)
     atlas_data = atlas_img.get_fdata()
 
@@ -48,6 +54,12 @@ def atlas_subsetting(
         )
 
 if __name__ == "__main__":
-    atlas_fp = sys.argv[1]
-    network_definitions_path = sys.argv[2]
-    save_path = 
+    network_definitions_path = sys.argv[1]
+    save_path = sys.argv[2]
+    subject = sys.argv[3]
+
+    atlas_subsetting(
+        network_definitions=network_definitions_path,
+        save_path=save_path,
+        subject=subject
+    )
