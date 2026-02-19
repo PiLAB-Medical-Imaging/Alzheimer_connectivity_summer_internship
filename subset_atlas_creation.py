@@ -13,8 +13,8 @@ def atlas_subsetting(
         atlas_name = "AAL116"
 ):
     subject_split = subject.split("_")
-    sub_num = subject_split[0] + subject_split[2].zfill(3)
-    sub_session = subject_split[3]
+    sub_num = subject_split[0] + subject_split[1].zfill(3)
+    sub_session = subject_split[2]
     all_networks = load_all_indices(
         definitions_filepath=network_definitions
     )
