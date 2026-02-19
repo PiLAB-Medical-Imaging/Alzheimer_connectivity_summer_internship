@@ -8,7 +8,7 @@ from sklearn.decomposition import non_negative_factorization
 from sklearn.impute import SimpleImputer
 ### Filepaths
 
-NET_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/OutputData/all_subjects.csv"
+NET_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/compiled_all_subjects_thresholded.csv"
 PATIENT_DATA  = "/Users/sam/Desktop/TAU_Dg_neuro_complet_DATA.csv"
 TRACT_DATA ="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/all_tracts_30.csv"
 COMPOSITES = ["MEMORY_Composite",
@@ -129,6 +129,12 @@ def category_plots(long_data, variable):
         sharey=False
     )
     plt.show()
+
+def network_analysis():
+    merged_df = merge_dfs(
+        clinical_data=PATIENT_DATA,
+        study_data=NET_DATA,
+    )
 
 
 def analyse_tract_engagement(
@@ -682,4 +688,5 @@ def main():
 
 if __name__=="__main__":
     #analyse_tract_engagement()
-    temp(TRACT_DATA,PATIENT_DATA)
+    #temp(TRACT_DATA,PATIENT_DATA)
+    network_analysis()
