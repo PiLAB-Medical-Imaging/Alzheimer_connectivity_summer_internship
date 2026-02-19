@@ -160,18 +160,19 @@ def analyse_tract_engagement(
     #plot_along_tracts(merged_df)
     #seaborn_tracts(merged_df=merged_df, type="sigma")
 
-    """for metric in COMPOSITES:
+    for metric in COMPOSITES:
         plot_high_low(
             merged_df=merged_df,
             metric=metric
         )
-    """
-    for tracts in TRACT_TYPES:
+    
+    """for tracts in TRACT_TYPES:
         mean_plots(
             merged_df=merged_df,
             relevant_set=tracts,
             name=tracts
-        )
+        )"""
+
     """tracts_scores(
         merged_df,
         "mni_edited_CT_L",
@@ -451,11 +452,13 @@ def plot_high_low(
 
     # Make a new column, that is Status: high vs low
     med = np.nanmedian(df_long[metric])
-    values = ["very low", "low", "high", "very high"]
+    #values = ["very low", "low", "high", "very high"]
     #df_long["status"] = np.where(df_long[metric] > med, "high", "low")
+    values = ["low", "high"]
+    
     df_long["status"] = pd.qcut(
         df_long[metric],
-        q=4,
+        q=2,
         labels = values
     )
     sns.set_theme(style="whitegrid")
@@ -685,4 +688,4 @@ def main():
 
 if __name__=="__main__":
     #analyse_tract_engagement()
-   temp(TRACT_DATA,PATIENT_DATA)
+    temp(TRACT_DATA,PATIENT_DATA)

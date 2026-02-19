@@ -51,7 +51,7 @@ if __name__=="__main__":
         tract_folder=save_patient_atlas, 
         output_folder=outpath,
         engagement_file=eng_file,
-        nodes=100, 
+        nodes=30, 
         subj=sub_id,
         session=session
     )
