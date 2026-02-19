@@ -59,7 +59,8 @@ def load_all_indices(definitions_filepath):
     df.columns = df.columns.str.strip()
 
     if "Network" not in df.columns:
-        raise ValueError("Definitions file must contain a 'Network' column.")
+        raise ValueError(f"Definitions file must contain a 'Network' column."
+                         f"Columns: {df.columns}")
 
     # Identify atlas columns = everything except 'Network'
     atlas_columns = [col for col in df.columns if col.lower() != "network"]

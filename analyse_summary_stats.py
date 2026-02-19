@@ -10,7 +10,7 @@ from sklearn.impute import SimpleImputer
 
 NET_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/OutputData/all_subjects.csv"
 PATIENT_DATA  = "/Users/sam/Desktop/TAU_Dg_neuro_complet_DATA.csv"
-TRACT_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/all_eng_tracts.csv"
+TRACT_DATA ="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/all_tracts_30.csv"
 COMPOSITES = ["MEMORY_Composite",
                 "EXECUTIVE_Composite",
                 "VISUOSPATIAL_Composite",
@@ -547,7 +547,8 @@ def rel_plots(long_data, variable):
 
 def nnf_per_tract(
         merged_df,
-        tract
+        tract,
+        components = 3
 ):
     cols = [col for col in merged_df.columns if col.startswith("mu")]  
     imputer = SimpleImputer(strategy="median")
@@ -558,7 +559,7 @@ def nnf_per_tract(
     #  matrix (transformed data)
     W, H, n_iter = non_negative_factorization(
         X=tract_data,
-        n_components=5,
+        n_components=components,
         init="random",
         random_state=0,
         max_iter=10000,
@@ -590,11 +591,8 @@ def nnf_per_tract(
     print(W.shape)
     print(H.shape)
 
-    plt.plot(H[0,:])
-    plt.plot(H[1,:])
-    plt.plot(H[2,:])
-    plt.plot(H[3,:])
-    plt.plot(H[4,:])
+    for i in range(components):
+        plt.plot(H[i,:])
     plt.show()
 
     # Longify the result_df
@@ -680,10 +678,6 @@ def main():
     )
 
     print(merged_data)
-
-
-
-
     #rel_plots(long_data=longer_df, variable="global_clustering")
 
 if __name__=="__main__":
