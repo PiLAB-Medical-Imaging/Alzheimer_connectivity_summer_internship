@@ -52,7 +52,7 @@ def load_all_indices(definitions_filepath):
         }
     """
     # Auto-detect delimiter (handles tabs, semicolons, commas)
-    df = pd.read_csv(definitions_filepath, sep="\\t", engine="python")
+    df = pd.read_csv(definitions_filepath, sep=None, engine="python")
     print(df.columns)
     df.columns = df.columns.str.strip('"')
 
@@ -205,93 +205,6 @@ def sw_analysis(sw_matrix):
     )
     return metrics
 
-def data_crawler(
-        outputs_folder: str,
-        save_path: str,
-        network_definitions: str
-):
-    """
-    A crawler that navigates through the outputs folder and performs
-    any calculations that you choose. Will return all values to a 
-    dictionary. 
-    
-    :param outputs_folder: str 
-        Filepath to the outputs folder. Assumes a structure of 
-        outputs_folder/subject/session/ and that all relevant files have
-        a generic name in the final folder.
-    """
-    print("Commencing Compilation!")
-    data = []
-    total = len(listdir(outputs_folder))
-    for i, subject in enumerate(listdir(outputs_folder)):
-        print(f'Analysing {i} of total: {subject}')
-        subject_folder = join(
-            outputs_folder,
-            subject
-        )
-        for session in listdir(subject_folder):
-            print(f"\t{session}")
-            subj_data = {"subj": subject}
-            session_folder = join(
-                subject_folder,
-                session
-            )
-            subj_data[session] = session
-            
-            #Engagement analysis
-            eng_path = join(
-                session_folder,
-                ENGAGEMENT_NAME
-            )
-            if exists(eng_path):
-                mean_eng = avg_engagement(
-                    engagement=eng_path
-                )
-            else:
-                print(f"\tEngagement {eng_path} not found")
-                mean_eng = None
-            subj_data[ENG_MEAN_NAME] = mean_eng
-
-            # Overall simple weighting metrics
-            sw_fp = join(
-                session_folder,
-                subject + "_" + session + "_" + SIMPLE_WEIGHTING_NAME
-            )
-            if exists(sw_fp):
-                sw_mat = np.load(sw_fp)
-                sw_metrics = sw_analysis(
-                    sw_matrix=sw_mat
-                )
-                for key in sw_metrics:
-                    subj_data[key] = sw_metrics[key]
-            else:
-                print(f"Warning: Simple weighting matrix was not found at"
-                      f"{sw_fp}" )
-
-            # Subnetwork Analysis for the simple weighting data
-            matrix_name = subject + "_" + session+ "_" + "simple_weighting.npy"
-            subj_results = subnet_analysis(
-                subject_folder=session_folder,
-                matrix_path=matrix_name,
-                network_definitions=network_definitions
-            )
-            if subj_results is None:
-                continue
-            for key in subj_results:
-                subj_data[key] = subj_results[key]
-
-            data.append(subj_data)
-
-    df = pd.DataFrame(data)
-    save_location = join(
-        save_path, 
-        "compiled_data.csv"
-    )
-    df.to_csv(
-        path_or_buf=save_location
-    )
-
-
 def subject_data_crawler(
         outputs_folder: str,
         subj_number,
@@ -360,12 +273,19 @@ def subject_data_crawler(
             print(matrix_fp)
             if exists(matrix_fp):
                 mat = np.load(matrix_fp)
+                print("Fresh Load")
                 print(mat)
                 print(np.sum(mat))
+                if net_type == FUNCTIONAL:
+                    mat = np.where(np.abs(mat) > 0.2, mat, 0)
+                    print("After thresholding")
+                    print(mat)
+                    print(np.sum(mat))
+
                 mat_metrics = sw_analysis(
                     sw_matrix=mat
                 )
-                print(mat_metrics)
+                print("metric", mat_metrics)
                 for key in mat_metrics:
                     subj_data[key] = mat_metrics[key]
                
@@ -439,4 +359,6 @@ if __name__ == "__main__":
        final_result_path
     )
     """
+    """/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/neg_eng.nii.gz"""
 
+"""/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/definitions.csv"""

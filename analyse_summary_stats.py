@@ -1,3 +1,5 @@
+from os.path import join
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -6,15 +8,23 @@ from scipy.stats import pearsonr
 from scipy.ndimage import gaussian_filter1d
 from sklearn.decomposition import non_negative_factorization
 from sklearn.impute import SimpleImputer
+import re
+
 ### Filepaths
 
 NET_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/compiled_all_subjects_thresholded.csv"
 PATIENT_DATA  = "/Users/sam/Desktop/TAU_Dg_neuro_complet_DATA.csv"
 TRACT_DATA ="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/all_tracts_30.csv"
+TRACT_IMAGE_PATH = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Analysis/TractFigs"
+
 COMPOSITES = ["MEMORY_Composite",
+              "LANGUAGE_Composite",
                 "EXECUTIVE_Composite",
                 "VISUOSPATIAL_Composite",
-                "GLOBAL_COGNITIVE_Composite"]
+                "GLOBAL_COGNITIVE_Composite",
+                "MMSE"]
+
+IMAGE_ROOT = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Analysis/NetworkFigs"
 
 PROJECTION = ["AR", 
               "CST", 
@@ -64,6 +74,7 @@ BRAINSTEM = [
 ]
 
 TRACT_TYPES = [PROJECTION, ASSOCIATION, COMMISSURAL]
+TRACT_NAMES = ["Projection", "Association", "Commissural"]
 
 
 def merge_dfs(
@@ -103,7 +114,17 @@ def nice_plot(data, metric):
 
 def longify_data(data:pd.DataFrame):
     metric_columns = []
-    prefixes = ("emot_", "dmn", "salience", "ecn", "m_connecivity", "diamter", "global_clustering", "isolates", "density")
+    prefixes = ("emot_", 
+                "dmn", 
+                "salience", 
+                "ecn", 
+                "m_connecivity", 
+                "diamter", 
+                "global_clustering", 
+                "isolates", 
+                "density", 
+                "degree")
+    
     for col in data.columns:
         if col.startswith(prefixes):
             metric_columns.append(col)
@@ -119,22 +140,434 @@ def longify_data(data:pd.DataFrame):
 
 def category_plots(long_data, variable):
     plotting_data = long_data[long_data["metric"] == variable]
-    sns.catplot(
+    sns.set_theme(
+        style="white",
+        context="paper",   # use "talk" for presentations
+        font_scale=1.2
+    )
+
+    g = sns.catplot(
         plotting_data, 
-        x = "Diagnostic cognitif détaillé_CLASSIF_1",
+        x = "Demented",
         y = "score", 
-        hue= "Diagnostic cognitif détaillé_CLASSIF_1",
+        hue= "Demented",
         col="net_type",
-        kind="violin",
-        sharey=False
+        kind="box",
+        height=3.2,
+        aspect=1.1,
+        sharex=True,
+        sharey=True,
+        linewidth=1,
+        palette="colorblind"
     )
     plt.show()
+    path=join(
+        IMAGE_ROOT,
+        f"total_network_{variable}.png"
+    )
+    g.savefig(path, dpi=600, bbox_inches="tight")
 
-def network_analysis():
+def network_plots(merged_df, net_type, x_var, metric):
+    id_cols = [
+        "subj",
+        "session",
+        "Demented",
+        "Diagnostic cognitif détaillé_CLASSIF_1",
+        "CLASSIF_REVUE_categ",
+        "MMSE",
+        "MEMORY_Composite",
+        "LANGUAGE_Composite",
+        "EXECUTIVE_Composite",
+        "VISUOSPATIAL_Composite",
+        "GLOBAL_COGNITIVE_Composite",
+        "net_type"
+    ]
+    prefixes = ("emot_", 
+                "dmn", 
+                "salience", 
+                "ecn")
+    metric_columns = []
+    for col in merged_df.columns:
+        if col.startswith(prefixes):
+            metric_columns.append(col)
+    
+    intermediate_df = pd.melt(
+        frame=merged_df,
+        id_vars=id_cols,
+        value_vars=metric_columns,
+        var_name = "metric"
+    )
+    intermediate_df[["network", "measure"]] = intermediate_df["metric"].str.extract(
+        r"^([^_]+)_(.+)$"
+    )
+    values = ["low", "high"]
+    intermediate_df["status"] = pd.qcut(
+        intermediate_df[metric],
+        q=2,
+        labels = values
+    )
+    final_df = intermediate_df[(((intermediate_df["measure"] == "degree") 
+                        |(intermediate_df["measure"] == "global_clustering"))
+                         &(intermediate_df["net_type"] == net_type))
+                    ]
+    # This may need to be removed.
+    final_df["z_score"] = final_df.groupby("network")["value"].transform(
+        lambda x: (x - x.mean()) / x.std()
+    )
+    # 1️⃣ Set clean theme
+    sns.set_theme(
+        style="white",
+        context="paper",   # use "talk" for presentations
+        font_scale=1.2
+    )
+
+    g = sns.catplot(
+        data=final_df,
+        x=x_var,
+        y="z_score",
+        col="network",
+        row="measure",
+        hue=x_var,
+        kind="box",                 # boxplots are more publication-standard
+        height=3.2,
+        aspect=1.1,
+        sharex=True,
+        sharey=False,
+        linewidth=1,
+        fliersize=2,
+        palette="colorblind"        # colorblind-safe palette
+    )
+
+    # 2️⃣ Improve spacing
+    g.figure.subplots_adjust(
+        top=0.92,
+        hspace=0.25,
+        wspace=0.15
+    )
+
+    # 3️⃣ Improve titles
+    g.set_titles(
+        row_template="{row_name}",
+        col_template="{col_name}"
+    )
+
+    # 4️⃣ Remove redundant axis labels
+    g.set_axis_labels("", "Score")
+
+    # 5️⃣ Clean spines
+    for ax in g.axes.flat:
+        sns.despine(ax=ax)
+
+    # 6️⃣ Move legend to top
+    #g.add_legend(title="Diagnostic group")
+    #._legend.set_bbox_to_anchor((0.5, 1.02))
+    #g._legend.set_frame_on(False)
+    plt.show()
+    path = join(
+        IMAGE_ROOT,
+        f"networks_{x_var}_{metric}_{net_type}.png"
+    )
+    g.savefig(path, dpi=600, bbox_inches="tight")
+
+def network_rel_plots(merged_df, metric, net_type, x_var):
+    id_cols = [
+        "subj",
+        "session",
+        "Demented",
+        "Diagnostic cognitif détaillé_CLASSIF_1",
+        "CLASSIF_REVUE_categ",
+        "MMSE",
+        "MEMORY_Composite",
+        "LANGUAGE_Composite",
+        "EXECUTIVE_Composite",
+        "VISUOSPATIAL_Composite",
+        "GLOBAL_COGNITIVE_Composite",
+        "net_type"
+    ]
+    prefixes = ("emot_", 
+                "dmn", 
+                "salience", 
+                "ecn")
+    metric_columns = []
+    for col in merged_df.columns:
+        if col.startswith(prefixes):
+            metric_columns.append(col)
+    
+    intermediate_df = pd.melt(
+        frame=merged_df,
+        id_vars=id_cols,
+        value_vars=metric_columns,
+        var_name = "metric"
+    )
+    intermediate_df[["network", "measure"]] = intermediate_df["metric"].str.extract(
+        r"^([^_]+)_(.+)$"
+    )
+    values = ["low", "high"]
+    intermediate_df["status"] = pd.qcut(
+        intermediate_df[metric],
+        q=2,
+        labels = values
+    )
+    final_df = intermediate_df[(((intermediate_df["measure"] == "degree") 
+                        |(intermediate_df["measure"] == "global_clustering"))
+                         &(intermediate_df["net_type"] == net_type))
+                    ]
+ 
+    # 1️⃣ Set clean theme
+    sns.set_theme(
+        style="white",
+        context="paper",   # use "talk" for presentations
+        font_scale=1.2
+    )
+
+    g = sns.lmplot(
+        data=final_df,
+        x = "value",
+        y=metric,
+        col="network",
+        row="measure",
+        facet_kws={"sharey": False, "sharex": False},
+        height=4,
+        aspect=1,
+        ci=95,                      # confidence interval around regression
+        scatter_kws={"s":20, "alpha":0.6},
+        line_kws={"linewidth":2}
+    )
+
+    # 2️⃣ Improve spacing
+    g.figure.subplots_adjust(
+        top=0.92,
+        hspace=0.25,
+        wspace=0.15
+    )
+
+    # 3️⃣ Improve titles
+    g.set_titles(
+        row_template="{row_name}",
+        col_template="{col_name}"
+    )
+
+    # 4️⃣ Remove redundant axis labels
+    g.set_axis_labels("", "Score")
+
+    # 5️⃣ Clean spines
+    for ax in g.axes.flat:
+        sns.despine(ax=ax)
+
+    # 6️⃣ Move legend to top
+    #g.add_legend(title="Diagnostic group")
+    #._legend.set_bbox_to_anchor((0.5, 1.02))
+    #g._legend.set_frame_on(False)
+    plt.show()
+    path = join(
+        IMAGE_ROOT,
+        f"networks_rel_plots_{x_var}_{metric}_{net_type}.png"
+    )
+    g.savefig(path, dpi=600, bbox_inches="tight")
+
+def network_rel_plots_V2(merged_df, metric, net_type):
+
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    from scipy.stats import pearsonr
+    from os.path import join
+
+    # -------------------------
+    # ID columns
+    # -------------------------
+    id_cols = [
+        "subj",
+        "session",
+        "Demented",
+        "Diagnostic cognitif détaillé_CLASSIF_1",
+        "CLASSIF_REVUE_categ",
+        "MMSE",
+        "MEMORY_Composite",
+        "LANGUAGE_Composite",
+        "EXECUTIVE_Composite",
+        "VISUOSPATIAL_Composite",
+        "GLOBAL_COGNITIVE_Composite",
+        "net_type"
+    ]
+
+    # -------------------------
+    # Select metric columns
+    # -------------------------
+    prefixes = ("emot_", "dmn", "salience", "ecn")
+    metric_columns = [col for col in merged_df.columns if col.startswith(prefixes)]
+
+    # -------------------------
+    # Melt to long format
+    # -------------------------
+    intermediate_df = pd.melt(
+        frame=merged_df,
+        id_vars=id_cols,
+        value_vars=metric_columns,
+        var_name="metric_name",
+        value_name="value"
+    )
+
+    # Split network and measure
+    intermediate_df[["network", "measure"]] = (
+        intermediate_df["metric_name"]
+        .str.extract(r"^([^_]+)_(.+)$")
+    )
+
+    # -------------------------
+    # Filter relevant measures + net_type
+    # -------------------------
+    """ final_df = intermediate_df[
+        (intermediate_df["measure"].isin(["degree", "global_clustering"])) &
+        (intermediate_df["net_type"] == net_type)
+    ].copy() """
+    final_df = intermediate_df[
+        (intermediate_df["measure"].isin(["global_clustering"])) &
+        (intermediate_df["net_type"] == net_type)
+    ].copy()
+
+    # -------------------------
+    # Clean theme
+    # -------------------------
+    sns.set_theme(
+        style="white",
+        context="paper",
+        font_scale=1.2
+    )
+
+    # -------------------------
+    # Base scatter facets
+    # -------------------------
+    g = sns.relplot(
+        data=final_df,
+        x="value",               # clinical variable
+        y=metric,             # network metric
+        col="network",
+        row="measure",
+        kind="scatter",
+        height=3.8,
+        aspect=1.1,
+        alpha=0.7,
+        s=25,
+        facet_kws={"sharey": False, "sharex": False},
+    )
+
+    # -------------------------
+    # Add regression + r per facet
+    # -------------------------
+    def add_reg_and_r(data, **kwargs):
+        ax = plt.gca()
+
+        # Drop NaNs ONLY for variables involved
+        clean = data[[metric, "value"]].dropna()
+
+        # Only proceed if enough valid data points
+        if len(clean) > 2:
+
+            # Regression line (uses cleaned data)
+            sns.regplot(
+                data=clean,
+                x="value",
+                y=metric,
+                scatter=False,
+                ax=ax,
+                color="red",
+                line_kws={"linewidth": 1.5},
+                ci=95
+            )
+
+            # Pearson correlation
+            r, p = pearsonr(clean[metric], clean["value"])
+
+            ax.text(
+                0.05, 0.92,
+                f"r = {r:.2f}\np = {p:.3f}",
+                transform=ax.transAxes,
+                fontsize=9,
+                verticalalignment="top"
+            )
+
+        else:
+            ax.text(
+                0.05, 0.92,
+                "Insufficient data",
+                transform=ax.transAxes,
+                fontsize=9,
+                verticalalignment="top"
+            )
+
+
+    g.map_dataframe(add_reg_and_r)
+
+    # -------------------------
+    # Titles & labels
+    # -------------------------
+    g.set_titles(
+        row_template="{row_name}",
+        col_template="{col_name}"
+    )
+
+    g.set_axis_labels("Global Clustering", metric)
+
+    for ax in g.axes.flat:
+        sns.despine(ax=ax)
+
+    g.figure.subplots_adjust(
+        top=0.92,
+        hspace=0.25,
+        wspace=0.15
+    )
+
+    plt.tight_layout()
+
+    # -------------------------
+    # Save
+    # -------------------------
+    path = join(
+        IMAGE_ROOT,
+        f"networks_rel_plots_glob-cluster_{net_type}.png"
+    )
+
+    g.savefig(path, dpi=600, bbox_inches="tight")
+    plt.show()
+
+
+def network_analysis(categorical_plots, rel_plots):
     merged_df = merge_dfs(
         clinical_data=PATIENT_DATA,
         study_data=NET_DATA,
     )
+    longer_df = longify_data(merged_df)
+
+    if categorical_plots:
+        category_plots(longer_df, "global_clustering")
+        for metric_name in COMPOSITES:
+            network_plots(
+                merged_df=merged_df,
+                net_type="funct",
+                x_var="status",
+                metric=metric_name
+            )
+            network_plots(
+                merged_df=merged_df,
+                net_type="struct",
+                x_var="status",
+                metric=metric_name
+            )
+            network_plots(
+                merged_df=merged_df,
+                net_type="sw",
+                x_var="status",
+                metric=metric_name
+            )
+    if rel_plots:
+        for metric_name in COMPOSITES:
+            for net_type in ["funct", "struct", "sw"]:
+                network_rel_plots_V2(
+                    merged_df,
+                    metric_name,
+                    net_type=net_type
+                )
 
 
 def analyse_tract_engagement(
@@ -444,49 +877,65 @@ def plot_high_low(
 
     df_long = merged_df.melt(
         id_vars=["subject", 
-                 "Demented", 
-                 "Diagnostic cognitif détaillé_CLASSIF_1", 
-                 "tract",
-                 "MEMORY_Composite",
-                 "EXECUTIVE_Composite",
-                 "VISUOSPATIAL_Composite",
-                 "GLOBAL_COGNITIVE_Composite"],
+                "Demented", 
+                "Diagnostic cognitif détaillé_CLASSIF_1", 
+                "tract",
+                "MMSE",
+                "MEMORY_Composite",
+                "LANGUAGE_Composite",
+                "EXECUTIVE_Composite",
+                "VISUOSPATIAL_Composite",
+                "GLOBAL_COGNITIVE_Composite"],
         value_vars=subset,
         var_name="tract_point",
         value_name="value"
     )
-
-    # Make a new column, that is Status: high vs low
-    med = np.nanmedian(df_long[metric])
-    #values = ["very low", "low", "high", "very high"]
-    #df_long["status"] = np.where(df_long[metric] > med, "high", "low")
     values = ["low", "high"]
-    
     df_long["status"] = pd.qcut(
-        df_long[metric],
-        q=2,
-        labels = values
+            df_long[metric],
+            q=2,
+            labels = values
     )
-    sns.set_theme(style="whitegrid")
+    for i, tract_set in enumerate(TRACT_TYPES):
+        # Make a new column, that is Status: high vs low
+        #values = ["very low", "low", "high", "very high"]
+        #df_long["status"] = np.where(df_long[metric] > med, "high", "low")
+        print(tract_set)
+        print()
+        pattern = r"(?:^|_)(?:" + "|".join(map(re.escape, PROJECTION)) + r")(?:_|$)"
 
-    g = sns.relplot(
-        data=df_long,
-        x="tract_point",
-        y="value",
-        hue="status",
-        col="tract",
-        kind="line",
-        estimator="mean",
-        errorbar=("ci", 95),
-        height=4,
-        aspect=1.2,
-        col_wrap=8,
-        facet_kws={"sharey": False},
-        
-    )
+        plot_df = df_long[
+            df_long["tract"].str.contains(pattern, na=False, regex=True)
+        ].copy()
 
-    g.set_axis_labels("Tract Point", "Mean Value")
-    plt.show()
+        sns.set_theme(style="white",context="paper")
+
+        g = sns.relplot(
+            data=plot_df,
+            x="tract_point",
+            y="value",
+            hue="status",
+            col="tract",
+            kind="line",
+            estimator="mean",
+            errorbar=("ci", 95),
+            height=4,
+            aspect=1.2,
+            col_wrap=6,
+            facet_kws={"sharey": False},  
+        )
+        g.set_axis_labels("Tract Point", "Mean Value")
+        for ax in g.axes.flat:
+            # Only show every 5th point from the actual tract_point column
+            ax.set_xticks(range(0, len(plot_df["tract_point"].unique()), 5))
+            ax.set_xticklabels(plot_df["tract_point"].str[3:].unique()[::5])
+
+        #plt.show()
+        path = join(
+            TRACT_IMAGE_PATH,
+            f"rel_plot_HL_{metric}_{TRACT_NAMES[i]}.png"
+        )
+        g.savefig(path, dpi=600, bbox_inches="tight")
 
     
 def mean_plots(
@@ -689,4 +1138,7 @@ def main():
 if __name__=="__main__":
     #analyse_tract_engagement()
     #temp(TRACT_DATA,PATIENT_DATA)
-    network_analysis()
+    network_analysis(
+        categorical_plots=True,
+        rel_plots=False
+    ) 
