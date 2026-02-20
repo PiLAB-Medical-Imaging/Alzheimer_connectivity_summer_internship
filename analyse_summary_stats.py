@@ -8,6 +8,7 @@ from scipy.stats import pearsonr
 from scipy.ndimage import gaussian_filter1d
 from sklearn.decomposition import non_negative_factorization
 from sklearn.impute import SimpleImputer
+from scipy.interpolate import Akima1DInterpolator
 import re
 
 ### Filepaths
@@ -16,7 +17,7 @@ NET_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/
 PATIENT_DATA  = "/Users/sam/Desktop/TAU_Dg_neuro_complet_DATA.csv"
 TRACT_DATA ="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/all_tracts_30.csv"
 TRACT_IMAGE_PATH = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Analysis/TractFigs"
-
+HEATMAP_PATH = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Analysis/heatmaps"
 COMPOSITES = ["MEMORY_Composite",
               "LANGUAGE_Composite",
                 "EXECUTIVE_Composite",
@@ -600,10 +601,11 @@ def analyse_tract_engagement(
     #seaborn_tracts(merged_df=merged_df, type="sigma")
 
     for metric in COMPOSITES:
-        plot_high_low(
+        plot_high_low_v2(
             merged_df=merged_df,
             metric=metric
         )
+        #heat_maps(merged_df, metric)
     
     """for tracts in TRACT_TYPES:
         mean_plots(
@@ -626,6 +628,101 @@ def analyse_tract_engagement(
         cog_score="MMSE"
     )
     """
+
+
+def heat_maps(
+        merged_df:pd.DataFrame,
+        measure:str,
+):
+    subset = [col for col in merged_df.columns if col.startswith("mu")]
+
+    df_long = merged_df.melt(
+        id_vars=["subject", 
+                "Demented", 
+                "Diagnostic cognitif détaillé_CLASSIF_1", 
+                "tract",
+                "MMSE",
+                "MEMORY_Composite",
+                "LANGUAGE_Composite",
+                "EXECUTIVE_Composite",
+                "VISUOSPATIAL_Composite",
+                "GLOBAL_COGNITIVE_Composite"],
+        value_vars=subset,
+        var_name="tract_point",
+        value_name="value"
+    )
+    values = ["low", "high"]
+    df_long["status"] = pd.qcut(
+            df_long[measure],
+            q=2,
+            labels = values
+    )
+    print(df_long.columns)
+
+    difference_df= df_long.groupby(
+        by=["tract", "tract_point", "status"],
+        observed=False,
+        sort=False
+    )["value"].mean().unstack().reset_index()
+
+    difference_df["diff"] = difference_df["high"] - difference_df["low"]
+    difference_df["tract"] = difference_df["tract"].str.removeprefix("mni_edited_")
+    difference_df["tract_point"] =  difference_df["tract_point"].str.removeprefix("mu_")
+    difference_df = difference_df.drop(columns=["low", "high"])
+    difference_df["tract_point"] = difference_df["tract_point"].astype(int)
+    difference_df = difference_df.pivot(
+        index="tract",
+        columns="tract_point",
+        values="diff",
+    )
+    print(difference_df)
+    for i, tract_type in enumerate(TRACT_TYPES):
+        pattern = r"(?:^|_)(?:" + "|".join(map(re.escape, tract_type)) + r")(?:_|$)"
+
+        plot_df = difference_df[
+            difference_df.index.str.contains(pattern, na=False, regex=True)
+        ].copy()
+        # Style
+        sns.set_theme(style="white",
+                      context="paper",
+                      font_scale=3)
+
+        # Create figure
+        plt.figure(figsize=(12, 6), dpi=300)
+
+        # Draw heatmap
+        vmax = abs(difference_df.values).max()
+
+        ax = sns.heatmap(
+            plot_df,
+            cmap="RdBu_r",
+            center=0,
+            vmin=-vmax,
+            vmax=vmax,
+            cbar_kws={"label": "High - Low Mean Difference"}
+        )
+
+        # Improve axis labels
+        ax.set_xlabel("Tract Point", fontsize=12)
+        ax.set_ylabel("Tract", fontsize=12)
+
+        # Improve tick formatting
+        ax.tick_params(axis='x', labelsize=8, rotation=0)
+        ax.tick_params(axis='y', labelsize=10)
+
+        # Remove top/right spines
+        sns.despine(left=True, bottom=True)
+
+        plt.tight_layout()
+        #plt.show()
+        path = join(
+            HEATMAP_PATH,
+            f"heat_map_{measure}_{TRACT_NAMES[i]}.png"
+        )
+        plt.savefig(path, dpi=600, bbox_inches="tight")
+
+
+    
 
 def plot_along_tracts(merged_df:pd.DataFrame):
     subset = [col for col in merged_df.columns if col.startswith("mu")]
@@ -937,7 +1034,146 @@ def plot_high_low(
         )
         g.savefig(path, dpi=600, bbox_inches="tight")
 
+
+def plot_high_low_v2(
+        merged_df: pd.DataFrame,
+        metric:str
+):
+    """
+   Split the dataset according to participants who are
+   either high or low on a given metric
     
+    :param merged_df: Description
+    :type merged_df: pd.DataFrame
+    :param metric: Description
+    :type metric: str
+    """
+    subset = [col for col in merged_df.columns if col.startswith("mu")]
+
+    df_long = merged_df.melt(
+        id_vars=["subject", 
+                "Demented", 
+                "Diagnostic cognitif détaillé_CLASSIF_1", 
+                "tract",
+                "MMSE",
+                "MEMORY_Composite",
+                "LANGUAGE_Composite",
+                "EXECUTIVE_Composite",
+                "VISUOSPATIAL_Composite",
+                "GLOBAL_COGNITIVE_Composite"],
+        value_vars=subset,
+        var_name="tract_point",
+        value_name="value"
+    )
+    values = ["low", "high"]
+    df_long["status"] = pd.qcut(
+            df_long[metric],
+            q=2,
+            labels = values
+    )
+    for i, tract_set in enumerate(TRACT_TYPES):
+        # Make a new column, that is Status: high vs low
+        #values = ["very low", "low", "high", "very high"]
+        #df_long["status"] = np.where(df_long[metric] > med, "high", "low")
+
+        pattern = r"(?:^|_)(?:" + "|".join(map(re.escape, tract_set)) + r")(?:_|$)"
+
+        plot_df = df_long[
+            df_long["tract"].str.contains(pattern, na=False, regex=True)
+        ].copy()
+        plot_df["tract_point"]=plot_df["tract_point"].str.removeprefix("mu_").astype(int)
+        plot_df = plot_df[plot_df["tract_point"] != 1]
+        interp_list = []
+
+        print(plot_df["tract"].unique())
+        for tract in plot_df["tract"].unique():
+            print(tract)
+            subsetting = plot_df[plot_df["tract"]==tract]
+            inter_df = subsetting.groupby(
+                by=["tract", "status", "tract_point"],
+                observed=False
+            )["value"].mean().unstack().reset_index()
+            inter_df = pd.melt(
+                frame=inter_df,
+                id_vars=["tract", "status"],
+                value_vars= [col for col in inter_df.columns if col not in ["tract", "status"]],
+                value_name="mean",
+                var_name="tract_point"  
+            )
+            x_high = inter_df[inter_df["status"]=="high"]["tract_point"]
+            y_high = inter_df[inter_df["status"]=="high"]["mean"]
+            x_low = inter_df[inter_df["status"]=="low"]["tract_point"]
+            y_low = inter_df[inter_df["status"]=="low"]["mean"]
+            xs =np.linspace(start=min(x_low), stop=max(x_low), num=1000)
+            print(max(xs))
+            y_high_interp = Akima1DInterpolator(
+                x=x_high,
+                y=y_high,
+                method="akima"
+            )(xs)
+
+            y_low_interp = Akima1DInterpolator(
+                x=x_low,
+                y=y_low,
+                method="akima"
+            )(xs)
+
+            interpolated_df_high = pd.DataFrame(
+                {"tract": tract,
+                 "status": "high",
+                 "tract_point":xs,
+                 "value":y_high_interp}
+            )
+            interpolated_df_low = pd.DataFrame(
+                {"tract": tract,
+                 "status": "low",
+                 "tract_point":xs,
+                 "value":y_low_interp}
+            )
+            interp_list.append(interpolated_df_high)
+            interp_list.append(interpolated_df_low)
+
+            print(interpolated_df_high.shape,interpolated_df_low.shape)
+
+        plot_df = pd.concat(interp_list)
+        plot_df["tract_frac"] = plot_df.groupby("tract")["tract_point"].transform(
+            lambda x: (x - x.min()) / (x.max() - x.min())
+        )
+            
+
+        sns.set_theme(style="white",context="paper")
+        
+        print("Hello",max(plot_df["tract_point"]))
+        g = sns.relplot(
+            data=plot_df,
+            x="tract_frac",
+            y="value",
+            hue="status",
+            col="tract",
+            kind="line",
+            estimator="mean",
+            errorbar=("ci", 95),
+            height=4,
+            aspect=1.2,
+            col_wrap=6,
+            facet_kws={"sharey": False}, 
+        )
+        g.set_axis_labels("Tract Fraction", "Mean Value")
+
+        
+        for ax in g.axes.flat:
+            ax.set_xticks([i/10 for i in range(0, 11)])  # 0.0, 0.1, ..., 1.0
+            ax.set_xticklabels([f"{i/10:.1f}" for i in range(0, 11)])
+
+        #plt.show()
+        path = join(
+            TRACT_IMAGE_PATH,
+            f"rel_plot_HL_{metric}_{TRACT_NAMES[i]}.png"
+        )
+        g.savefig(path, dpi=600, bbox_inches="tight")
+
+
+
 def mean_plots(
         merged_df: pd.DataFrame,
         relevant_set: list,
@@ -983,8 +1219,6 @@ def mean_plots(
     )
     plt.show()
     
-
-
 def rel_plots(long_data, variable):
     
     plotting_data = long_data[long_data["metric"] == variable]
@@ -1042,10 +1276,8 @@ def nnf_per_tract(
         ],
         axis=1
     )
-
     print(W.shape)
     print(H.shape)
-
     for i in range(components):
         plt.plot(H[i,:])
     plt.show()
@@ -1136,9 +1368,9 @@ def main():
     #rel_plots(long_data=longer_df, variable="global_clustering")
 
 if __name__=="__main__":
-    #analyse_tract_engagement()
+    analyse_tract_engagement()
     #temp(TRACT_DATA,PATIENT_DATA)
-    network_analysis(
+    """network_analysis(
         categorical_plots=True,
         rel_plots=False
-    ) 
+    ) """
