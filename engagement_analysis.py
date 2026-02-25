@@ -223,16 +223,16 @@ def tract_engagement(
     tract_cat = categorize_tract(tract_name) 
     if (tract_cat == "PROJECTION"):
         if  end_p_2[2] > end_p_1[2]:
-            checkpoints_mean=checkpoints_mean.flip()
-            std=std.flip()
+            checkpoints_mean=np.flip(checkpoints_mean)
+            std=np.flip(std)
     if (tract_cat == "ASSOCIATION"):
          if  end_p_2[1] > end_p_1[1]:
-            checkpoints_mean=checkpoints_mean.flip()
-            std=std.flip()
+            checkpoints_mean=np.flip(checkpoints_mean)
+            std=np.flip(std)
     if (tract_cat == "COMMISSURAL" or tract_cat == "CEREBELLUM" ):
         if end_p_2[0] < end_p_1[0]:
-            checkpoints_mean=checkpoints_mean.flip()
-            std=std.flip()
+            checkpoints_mean=np.flip(checkpoints_mean)
+            std=np.flip(std)
     
     return (checkpoints_mean, std)
 
