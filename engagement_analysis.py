@@ -1,6 +1,7 @@
 import time
 import os
 from os.path import join
+import re
 
 import pandas as pd
 import numpy as np
@@ -13,7 +14,8 @@ from tqdm import tqdm
 from regis.core import find_transform
 from dipy.tracking.streamline import transform_streamlines
 from sklearn.decomposition import NMF
-
+from scipy.spatial import ckdtree
+from scipy.spatial import cKDTree
 from utilities import trk2tck, nifti_vs_img
 
 MNI_PATH_MINE = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/MNI152_T1_1mm_brain.nii.gz"
@@ -29,6 +31,78 @@ TEST =  "/Users/sam/Desktop/transform_mat.npy"
 ENG_STORAGE = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/engagement_anal"
 PATIENT_ENG = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/pos_eng.nii.gz"
 WITH_INVERTED = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/wm_atlas_inverted"
+PROJECTION = ["AR", 
+              "CST", 
+              "CBT", 
+              "CS", 
+              "CT", 
+              "F", 
+              "OR", 
+              "FPT", 
+              "OPT", 
+              "PPT", 
+              "TPT"]
+
+ASSOCIATION = ["AF", 
+               "C", 
+               "EMC", 
+               "FAT", 
+               "IFOF", 
+               "ILF", 
+               "MdLF", 
+               "SLF", 
+               "U", 
+               "UF", 
+               "VOF"]
+
+COMMISSURAL = ["AC",
+              "CC",
+              "PC"
+]
+
+CEREBELLUM = [
+    "CB",
+    "SCP",
+    "MCP",
+    "ICP",
+    "V"
+]
+
+BRAINSTEM = [
+    "CTT",
+    "DLF",
+    "LL",
+    "ML",
+    "MLF",
+    "RST",
+    "STT"
+]
+
+CATEGORY_MAP = {
+    "PROJECTION": PROJECTION,
+    "ASSOCIATION": ASSOCIATION,
+    "COMMISSURAL": COMMISSURAL,
+    "CEREBELLUM": CEREBELLUM,
+    "BRAINSTEM": BRAINSTEM,
+}
+
+# Flatten pattern → category mapping
+pattern_to_category = {
+    pattern: category
+    for category, patterns in CATEGORY_MAP.items()
+    for pattern in patterns
+}
+
+# Sort patterns longest first (VERY important)
+sorted_patterns = sorted(pattern_to_category.keys(), key=len, reverse=True)
+
+
+def categorize_tract(tract_name):
+    for pattern in sorted_patterns:
+        # match as standalone token (prevents "C" matching everything)
+        if re.search(rf'(?<![A-Za-z]){pattern}(?![A-Za-z])', tract_name):
+            return pattern_to_category[pattern]
+    return "UNKNOWN"
 
 def extract_nodes(trk_file: str, nodes: int = 32, smooth_iter: int = 10):
     '''
@@ -143,6 +217,23 @@ def tract_engagement(
     checkpoints_var = checkpoints_mean_squares - checkpoints_mean**2
     std = np.sqrt(checkpoints_var)
 
+    tract_name = tract_file.split("/")[-1]
+    end_p_1 = nodes[0] 
+    end_p_2 = nodes[-1]
+    tract_cat = categorize_tract(tract_name) 
+    if (tract_cat == "PROJECTION"):
+        if  end_p_2[2] > end_p_1[2]:
+            checkpoints_mean=checkpoints_mean.flip()
+            std=std.flip()
+    if (tract_cat == "ASSOCIATION"):
+         if  end_p_2[1] > end_p_1[1]:
+            checkpoints_mean=checkpoints_mean.flip()
+            std=std.flip()
+    if (tract_cat == "COMMISSURAL" or tract_cat == "CEREBELLUM" ):
+        if end_p_2[0] < end_p_1[0]:
+            checkpoints_mean=checkpoints_mean.flip()
+            std=std.flip()
+    
     return (checkpoints_mean, std)
 
 def analyse_all_tracts(
@@ -214,6 +305,24 @@ def analyse_all_tracts(
     patient_frame.to_csv(
         csv_path
     )
+
+def nodes_follow_centroid(nodes, centroid, tol=1e-3):
+   
+    import numpy as np
+
+    centroid = np.asarray(centroid)
+    nodes = np.asarray(nodes)
+
+    tree = cKDTree(centroid)
+    distances, indices = tree.query(nodes)
+
+    if np.any(distances > tol):
+        return False
+
+    forward = np.all(np.diff(indices) >= 0)
+    backward = np.all(np.diff(indices) <= 0)
+
+    return forward or backward
 
 def correct_atlases(
     mni_path: str,

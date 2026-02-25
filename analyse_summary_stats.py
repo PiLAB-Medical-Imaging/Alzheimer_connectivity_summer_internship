@@ -13,7 +13,7 @@ import re
 
 ### Filepaths
 
-NET_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/compiled_all_subjects_thresholded.csv"
+NET_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/compiled_all_subjects_thresholded_v2.csv"
 PATIENT_DATA  = "/Users/sam/Desktop/TAU_Dg_neuro_complet_DATA.csv"
 TRACT_DATA ="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/all_tracts_30.csv"
 TRACT_IMAGE_PATH = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Analysis/TractFigs"
@@ -115,7 +115,8 @@ def nice_plot(data, metric):
 
 def longify_data(data:pd.DataFrame):
     metric_columns = []
-    prefixes = ("emot_", 
+    prefixes = ("emot_",
+                "mean_eng", 
                 "dmn", 
                 "salience", 
                 "ecn", 
@@ -153,6 +154,7 @@ def category_plots(long_data, variable):
         y = "score", 
         hue= "Demented",
         col="net_type",
+        row = "metric",
         kind="box",
         height=3.2,
         aspect=1.1,
@@ -423,7 +425,7 @@ def network_rel_plots_V2(merged_df, metric, net_type):
         (intermediate_df["net_type"] == net_type)
     ].copy() """
     final_df = intermediate_df[
-        (intermediate_df["measure"].isin(["global_clustering"])) &
+        (intermediate_df["measure"].isin(["global_clustering", "degree"])) &
         (intermediate_df["net_type"] == net_type)
     ].copy()
 
@@ -508,7 +510,7 @@ def network_rel_plots_V2(merged_df, metric, net_type):
         col_template="{col_name}"
     )
 
-    g.set_axis_labels("Global Clustering", metric)
+    g.set_axis_labels("Network Metric", metric)
 
     for ax in g.axes.flat:
         sns.despine(ax=ax)
@@ -526,11 +528,11 @@ def network_rel_plots_V2(merged_df, metric, net_type):
     # -------------------------
     path = join(
         IMAGE_ROOT,
-        f"networks_rel_plots_glob-cluster_{net_type}.png"
+        f"networks_rel_plots_glob-{metric}_{net_type}.png"
     )
 
     g.savefig(path, dpi=600, bbox_inches="tight")
-    plt.show()
+    #plt.show()
 
 
 def network_analysis(categorical_plots, rel_plots):
@@ -541,7 +543,9 @@ def network_analysis(categorical_plots, rel_plots):
     longer_df = longify_data(merged_df)
 
     if categorical_plots:
+        category_plots(longer_df, "mean_eng")
         category_plots(longer_df, "global_clustering")
+        category_plots(longer_df, "degree")
         for metric_name in COMPOSITES:
             network_plots(
                 merged_df=merged_df,
@@ -1368,9 +1372,9 @@ def main():
     #rel_plots(long_data=longer_df, variable="global_clustering")
 
 if __name__=="__main__":
-    analyse_tract_engagement()
+    #analyse_tract_engagement()
     #temp(TRACT_DATA,PATIENT_DATA)
-    """network_analysis(
+    network_analysis(
         categorical_plots=True,
-        rel_plots=False
-    ) """
+        rel_plots=True
+    )
