@@ -29,7 +29,13 @@ def graph_level_metrics(graph, threshold=None):
 
     degree= nx.degree(graph, weight="weight")
 
-    mean_degree = np.mean(degree)
+    degree_only = [d for n, d in degree]
+    if len(degree_only) == 0:
+        mean_degree = 0
+    else:
+        mean_degree = np.mean(degree_only)
+    mean_degree = np.mean(degree_only)
+
 
     return {
         "m_connectivity": avg_node_connectivity,

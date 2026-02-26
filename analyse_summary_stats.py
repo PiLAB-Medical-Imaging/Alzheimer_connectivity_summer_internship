@@ -15,7 +15,7 @@ import re
 
 NET_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/compiled_all_subjects_thresholded_v2.csv"
 PATIENT_DATA  = "/Users/sam/Desktop/TAU_Dg_neuro_complet_DATA.csv"
-TRACT_DATA ="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/all_tracts_30.csv"
+TRACT_DATA ="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/30_tracts_ordered.csv"
 TRACT_IMAGE_PATH = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Analysis/TractFigs"
 HEATMAP_PATH = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Analysis/heatmaps"
 COMPOSITES = ["MEMORY_Composite",
@@ -147,7 +147,6 @@ def category_plots(long_data, variable):
         context="paper",   # use "talk" for presentations
         font_scale=1.2
     )
-
     g = sns.catplot(
         plotting_data, 
         x = "Demented",
@@ -159,9 +158,10 @@ def category_plots(long_data, variable):
         height=3.2,
         aspect=1.1,
         sharex=True,
-        sharey=True,
+        sharey=False,
         linewidth=1,
         palette="colorblind"
+        
     )
     plt.show()
     path=join(
@@ -535,13 +535,15 @@ def network_rel_plots_V2(merged_df, metric, net_type):
     #plt.show()
 
 
-def network_analysis(categorical_plots, rel_plots):
+def network_analysis(categorical_plots, rel_plots, correlations):
     merged_df = merge_dfs(
         clinical_data=PATIENT_DATA,
         study_data=NET_DATA,
     )
     longer_df = longify_data(merged_df)
-
+    longer_df.to_csv(
+        path_or_buf="/Users/sam/Desktop/long_df.csv"
+    )
     if categorical_plots:
         category_plots(longer_df, "mean_eng")
         category_plots(longer_df, "global_clustering")
@@ -573,6 +575,36 @@ def network_analysis(categorical_plots, rel_plots):
                     metric_name,
                     net_type=net_type
                 )
+    if correlations:
+        keep_cols = ['MMSE',
+       'MEMORY_Composite', 'LANGUAGE_Composite', 'EXECUTIVE_Composite',
+       'VISUOSPATIAL_Composite', 'GLOBAL_COGNITIVE_Composite','net_type',
+       'metric', 'score']
+        relevant_df = longer_df[keep_cols]
+        # Reduce to only degree and global clustering
+        mask = ((relevant_df["metric"] == "degree")| (relevant_df["metric"] == "global_clustering"))
+        relevant_df = relevant_df[mask]
+        
+        results = []
+        # Loop over unique network types and metrics
+        for net in relevant_df['net_type'].unique():
+            for metric in relevant_df['metric'].unique():
+                subset = relevant_df[(relevant_df['net_type']==net) & (relevant_df['metric']==metric)]
+                for outcome in COMPOSITES:  # all outcome columns
+                    clean_subset = subset[['score', outcome]].dropna()
+                    r, p = pearsonr(clean_subset["score"], clean_subset[outcome])  # correlate metric column with outcome
+                    results.append({
+                        'net_type': net,
+                        'metric_name': metric,
+                        'outcome': outcome,
+                        'r': r,
+                        'p': p
+                    })
+
+        # Convert to DataFrame
+        corr_table = pd.DataFrame(results)
+        print(corr_table)
+
 
 
 def analyse_tract_engagement(
@@ -605,11 +637,11 @@ def analyse_tract_engagement(
     #seaborn_tracts(merged_df=merged_df, type="sigma")
 
     for metric in COMPOSITES:
-        plot_high_low_v2(
+        plot_high_low(
             merged_df=merged_df,
             metric=metric
         )
-        #heat_maps(merged_df, metric)
+        heat_maps(merged_df, metric)
     
     """for tracts in TRACT_TYPES:
         mean_plots(
@@ -1362,6 +1394,8 @@ def temp(tract_data, original_data):
             tract=tract
         )
 
+
+
 def main():
     merged_data = merge_dfs(
         clinical_data=PATIENT_DATA,
@@ -1376,5 +1410,6 @@ if __name__=="__main__":
     #temp(TRACT_DATA,PATIENT_DATA)
     network_analysis(
         categorical_plots=True,
-        rel_plots=True
+        rel_plots=False,
+        correlations=True
     )

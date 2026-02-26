@@ -156,7 +156,7 @@ from nilearn import plotting, image
 from nilearn.datasets import load_mni152_template
 import matplotlib.pyplot as plt
 
-# ------------------------------------------------------------------
+""" # ------------------------------------------------------------------
 # Option 1: Plot your own BOLD fMRI NIfTI file
 # ------------------------------------------------------------------
 # Replace with the path to your BOLD fMRI NIfTI file (.nii or .nii.gz)
@@ -167,7 +167,7 @@ bold_img = image.load_img(bold_path)
 
 # If 4D (time series), select one volume (e.g., first time point)
 if bold_img.ndim == 4:
-    bold_img = image.index_img(bold_img, 20)
+    bold_img = image.index_img(bold_img, 30)
 
 # Plot
 plotting.plot_stat_map(
@@ -181,10 +181,10 @@ plotting.plot_stat_map(
 
 plt.show()
 
-
+ """
 # ------------------------------------------------------------------
 # Option 2: Example using nilearn sample dataset
-# ------------------------------------------------------------------
+""" # ------------------------------------------------------------------
 from nilearn.datasets import fetch_development_fmri
 data = fetch_development_fmri(n_subjects=1)
 example_bold = data.func[0]
@@ -192,3 +192,148 @@ bold_img = image.load_img(example_bold)
 bold_img = image.index_img(bold_img, 0)
 plotting.plot_stat_map(bold_img, display_mode="ortho", title="Sample BOLD fMRI")
 plt.show()
+
+ """
+
+
+""" import nibabel as nib
+from nilearn.input_data import NiftiLabelsMasker
+from nilearn.connectome import ConnectivityMeasure
+from nilearn import plotting
+import matplotlib.pyplot as plt
+from nilearn import datasets
+from nilearn import image
+from nilearn.input_data import NiftiLabelsMasker
+from nilearn.connectome import ConnectivityMeasure
+import sys
+import xml.etree.ElementTree as ET
+import pandas as pd
+import numpy as np
+import nibabel as nib
+import os
+from nibabel.nifti1 import Nifti1Image
+import re
+from nilearn.plotting import plot_matrix, show
+
+from nilearn.interfaces.fmriprep import load_confounds_strategy
+
+def connectivity_matrix_generation(bold, atlas, normalise=True, method="nilearn",
+                                   kind="covariance", bold_filepath=None):
+    # Load atlas
+    if isinstance(atlas, str):
+        atlas_img = nib.load(atlas)
+    elif isinstance(atlas, nib.Nifti1Image):
+        atlas_img = atlas
+    else:
+        raise TypeError("The atlas should be a path or a Nifti1Image object.")
+    
+    # Masker to extract time series
+    masker = NiftiLabelsMasker(labels_img=atlas_img, standardize=normalise)
+    
+    # Extract time series with or without confounds
+    if bold_filepath is not None:
+        confounds_df, _ = load_confounds_strategy(bold_filepath, denoise_strategy="simple")
+        time_series = masker.fit_transform(bold, confounds=confounds_df)
+    else:
+        time_series = masker.fit_transform(bold)
+    
+    # --- Plot timeseries ---
+    plt.figure(figsize=(12, 4))
+    plt.plot(time_series[:,0:4 ])
+    plt.xlabel('Time points')
+    plt.ylabel('Signal')
+    plt.title('BOLD Time Series per Region')
+    plt.show()
+    
+    # Compute connectivity matrix
+    if method == "nilearn":
+        conn_measure = ConnectivityMeasure(kind=kind)
+        conn_matrix = conn_measure.fit_transform([time_series])[0]
+    else:
+        raise ValueError("Enter a valid method: 'nilearn' or 'custom'")
+    
+    # --- Plot connectivity matrix ---
+    plotting.plot_matrix(conn_matrix, figure=(10, 8), labels=None, colorbar=True, vmax=1.0)
+    plt.show()
+    
+    # --- Plot connectome on brain ---
+    # Get region coordinates
+    coords = plotting.find_parcellation_cut_coords(labels_img=atlas_img)
+    
+    # Plot connectome
+    plotting.plot_connectome(conn_matrix, coords, edge_threshold="80%", node_size=50, title="Connectome")
+    plt.show()
+    
+    return conn_matrix
+
+connectivity_matrix_generation(
+    bold="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_desc-preproc_bold.nii.gz",
+    atlas="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/registered_atlas.nii.gz",
+    normalise=True,
+    bold_filepath="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_desc-preproc_bold.nii.gz",
+) """
+
+struct_mat = np.load("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/TAU001_ses-2_simple_weighting.npy")
+from nilearn.plotting import plot_matrix
+#struct_mat = np.clip(struct_mat, 0, 100)
+plot_matrix(struct_mat)
+plt.show()
+
+
+
+import pyvista as pv
+from unravel.viz import plot_trk
+
+def create_gif(plotter, file_path:str):
+        """Create a 360° rotation GIF of the current 3D view."""
+
+        # Ensure the file has a .gif extension
+        if not file_path.lower().endswith(".gif"):
+            file_path += ".gif"
+
+        # Create the 360° rotation GIF
+        plotter.open_gif(file_path, fps=20)
+        n_frames = 360
+        for i in range(n_frames):
+            plotter.camera.azimuth += 360 / n_frames
+            plotter.render()
+            plotter.write_frame()
+        plotter.close()
+        
+trk_file="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/wm_atlas_inverted/TAU001_mni_edited_CC.trk"
+#trk_file="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/whole_brain/whole_brain_MNI.trk"
+#gif_file="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/temp.gif"
+gif_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Presentations/Images/whole_trk.gif"
+
+plotter=pv.Plotter()
+plot_trk(trk_file=trk_file,
+         plotter=plotter,
+         background="white")
+create_gif(plotter, gif_file)
+plotter.show()
+
+
+#eng_img = nib.load("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/pos_eng_mni_space.nii.gz")
+#eng = eng_img.get_fdata()
+#eng=np.clip(eng, 0,5)
+
+mni_atlas = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/MNI152_T1_1mm_brain.nii.gz"
+mni_atlas_img = nib.load(mni_atlas)
+mni = mni_atlas_img.get_fdata()
+grid = pv.ImageData()
+ 
+grid.dimensions = np.array(mni.shape) + 1
+grid.cell_data['values'] = mni.flatten(order='F')
+plotter = pv.Plotter()
+plotter.add_volume(grid, cmap='gray', opacity=[0.0, 0.045], show_scalar_bar=False)
+#plot_trk(trk_file,plotter=plotter, background='white')
+#plot_trk(trk_file,plotter=plotter, background='white', scalar=eng, color_map="turbo")
+
+# plotter.show()
+
+from unravel.stream import get_roi_sections_from_nodes, extract_nodes
+
+#point_array = extract_nodes(trk_file=trk_file, nodes=30)
+#rois_arrays = get_roi_sections_from_nodes(trk_file, point_array)
+#plot_trk(trk_file,plotter=plotter, background='white', scalar=rois_arrays, color_map="Set3")
+#plotter.show()
