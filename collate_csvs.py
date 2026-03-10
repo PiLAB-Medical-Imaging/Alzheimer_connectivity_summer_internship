@@ -6,15 +6,21 @@ import pandas as pd
 def subject_wise_compilation(directory, save_name):
     all_dfs = []
     for file in listdir(directory):
-        file_path = join(
-            directory,
-            file
-        )
-        df = pd.read_csv(
-            filepath_or_buffer=file_path,
-            index_col=0
-        )
-        all_dfs.append(df)
+        print(file.split(".")[-1])
+        if file.split(".")[-1] == "csv":
+            file_path = join(
+                directory,
+                file
+            )
+            try:
+                df = pd.read_csv(
+                    filepath_or_buffer=file_path,
+                    index_col=0
+                )
+                all_dfs.append(df)
+            except Exception as e:
+                print(file)
+                continue
 
     final_df = pd.concat(all_dfs)
 

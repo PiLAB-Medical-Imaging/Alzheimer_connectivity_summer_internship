@@ -2,8 +2,8 @@ import pandas as pd
 from datetime import date
 import dateutil 
 
-data = pd.read_csv("/Users/sam/Desktop/TAU_Dg_neuro_complet_DATA.csv", sep=";", decimal=",", encoding="latin-1")
-long_data = pd.read_csv("/Users/sam/Desktop/long_form_combined.csv", sep=";", decimal=",", encoding="latin-1")
+data = pd.read_csv("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Belgium Desktop/TAU_Dg_neuro_complet_DATA.csv", sep=";", decimal=",", encoding="latin-1")
+long_data = pd.read_csv("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Belgium Desktop/long_form_combined.csv", sep=";", decimal=",", encoding="latin-1")
 birth_dates = pd.to_datetime(long_data["DOB"], format="mixed", errors="coerce")
 consultation_dates =  pd.to_datetime(long_data['Date_Cognitive_Assessment'], format="mixed", errors="coerce")
 age = consultation_dates - birth_dates

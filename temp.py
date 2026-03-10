@@ -273,13 +273,6 @@ connectivity_matrix_generation(
     bold_filepath="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/ses-2/func/sub-TAU001_ses-2_task-rest_desc-preproc_bold.nii.gz",
 ) """
 
-struct_mat = np.load("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/TAU001_ses-2_simple_weighting.npy")
-from nilearn.plotting import plot_matrix
-#struct_mat = np.clip(struct_mat, 0, 100)
-plot_matrix(struct_mat)
-plt.show()
-
-
 
 import pyvista as pv
 from unravel.viz import plot_trk
@@ -301,6 +294,7 @@ def create_gif(plotter, file_path:str):
         plotter.close()
         
 trk_file="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/wm_atlas_inverted/TAU001_mni_edited_CC.trk"
+trk_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/derivatives/sub-TAU001/wm_atlas_inverted/TAU001_mni_edited_PPT_R.trk"
 #trk_file="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/Atlas_80_Bundles/Atlas_80_Bundles/whole_brain/whole_brain_MNI.trk"
 #gif_file="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/temp.gif"
 gif_file = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Presentations/Images/whole_trk.gif"
@@ -309,15 +303,15 @@ plotter=pv.Plotter()
 plot_trk(trk_file=trk_file,
          plotter=plotter,
          background="white")
-create_gif(plotter, gif_file)
-plotter.show()
+#create_gif(plotter, gif_file)
+#plotter.show()
 
 
-#eng_img = nib.load("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/pos_eng_mni_space.nii.gz")
-#eng = eng_img.get_fdata()
-#eng=np.clip(eng, 0,5)
+eng_img = nib.load("/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/pos_eng.nii.gz")
+eng = eng_img.get_fdata()
+eng=np.clip(eng, 0,5)
 
-mni_atlas = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Atlas_Maps/MNI152_T1_1mm_brain.nii.gz"
+mni_atlas = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/TestFileStructure/Outputs/TAU001/ses-2/registered_atlas.nii.gz"
 mni_atlas_img = nib.load(mni_atlas)
 mni = mni_atlas_img.get_fdata()
 grid = pv.ImageData()
@@ -327,9 +321,10 @@ grid.cell_data['values'] = mni.flatten(order='F')
 plotter = pv.Plotter()
 plotter.add_volume(grid, cmap='gray', opacity=[0.0, 0.045], show_scalar_bar=False)
 #plot_trk(trk_file,plotter=plotter, background='white')
-#plot_trk(trk_file,plotter=plotter, background='white', scalar=eng, color_map="turbo")
+plot_trk(trk_file,plotter=plotter, background='white', scalar=eng, color_map="turbo")
+create_gif(plotter,  "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Presentations/Images/cheeky_2.gif")
+plotter.show()
 
-# plotter.show()
 
 from unravel.stream import get_roi_sections_from_nodes, extract_nodes
 

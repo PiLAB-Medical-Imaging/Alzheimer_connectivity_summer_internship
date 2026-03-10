@@ -11,6 +11,7 @@ import os
 from nibabel.nifti1 import Nifti1Image
 import re
 from nilearn.plotting import plot_matrix, show
+
 from nilearn.interfaces.fmriprep import load_confounds_strategy
 
 
@@ -66,6 +67,7 @@ def connectivity_matrix_generation(bold, atlas, normalise, method= "nilearn", ki
         time_series = masker.fit_transform(bold)
 
     
+    
     # Correlation Matrix
     if method == "nilearn":
         conn_measure = ConnectivityMeasure(kind=kind)
@@ -74,7 +76,7 @@ def connectivity_matrix_generation(bold, atlas, normalise, method= "nilearn", ki
         conn_matrix = matrix_computation(time_series)
     else:
         raise ValueError("Enter a valid method: nilearn or custom")
-
+    plot_matrix(conn_matrix)
     return conn_matrix
 
 

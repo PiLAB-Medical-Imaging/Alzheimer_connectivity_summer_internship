@@ -13,8 +13,8 @@ import re
 
 ### Filepaths
 
-NET_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/compiled_all_subjects_thresholded_v2.csv"
-PATIENT_DATA  = "/Users/sam/Desktop/TAU_Dg_neuro_complet_DATA.csv"
+NET_DATA = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/compiled_data_v3.csv"
+PATIENT_DATA  = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Belgium Desktop/TAU_Dg_neuro_complet_DATA.csv"
 TRACT_DATA ="/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/data_temp/30_tracts_ordered.csv"
 TRACT_IMAGE_PATH = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Analysis/TractFigs"
 HEATMAP_PATH = "/Users/sam/Documents/sams_pc/University/2025_Univ/Belgium/Analysis/heatmaps"
@@ -265,7 +265,7 @@ def network_plots(merged_df, net_type, x_var, metric):
     #g.add_legend(title="Diagnostic group")
     #._legend.set_bbox_to_anchor((0.5, 1.02))
     #g._legend.set_frame_on(False)
-    plt.show()
+    #plt.show()
     path = join(
         IMAGE_ROOT,
         f"networks_{x_var}_{metric}_{net_type}.png"
@@ -435,7 +435,7 @@ def network_rel_plots_V2(merged_df, metric, net_type):
     sns.set_theme(
         style="white",
         context="paper",
-        font_scale=1.2
+        font_scale=2
     )
 
     # -------------------------
@@ -445,16 +445,17 @@ def network_rel_plots_V2(merged_df, metric, net_type):
         data=final_df,
         x="value",               # clinical variable
         y=metric,             # network metric
-        col="network",
-        row="measure",
+        col="measure",
+        row="network",
         kind="scatter",
-        height=3.8,
-        aspect=1.1,
+        height=3,
+        aspect=2,
         alpha=0.7,
         s=25,
         facet_kws={"sharey": False, "sharex": False},
     )
 
+    g.set_axis_labels(x_var="")
     # -------------------------
     # Add regression + r per facet
     # -------------------------
@@ -483,19 +484,19 @@ def network_rel_plots_V2(merged_df, metric, net_type):
             r, p = pearsonr(clean[metric], clean["value"])
 
             ax.text(
-                0.05, 0.92,
+                0.8, 0.2,
                 f"r = {r:.2f}\np = {p:.3f}",
                 transform=ax.transAxes,
-                fontsize=9,
+                fontsize=16,
                 verticalalignment="top"
             )
 
         else:
             ax.text(
-                0.05, 0.92,
+                0.8, 0.2,
                 "Insufficient data",
                 transform=ax.transAxes,
-                fontsize=9,
+                fontsize=16,
                 verticalalignment="top"
             )
 
@@ -506,7 +507,7 @@ def network_rel_plots_V2(merged_df, metric, net_type):
     # Titles & labels
     # -------------------------
     g.set_titles(
-        row_template="{row_name}",
+        row_template="Global Mem",
         col_template="{col_name}"
     )
 
@@ -535,7 +536,13 @@ def network_rel_plots_V2(merged_df, metric, net_type):
     #plt.show()
 
 
-def network_analysis(categorical_plots, rel_plots, correlations):
+def network_analysis(
+        categorical_plots, 
+        rel_plots, 
+        correlations,
+        panel_relplots,
+        compare_plots
+):
     merged_df = merge_dfs(
         clinical_data=PATIENT_DATA,
         study_data=NET_DATA,
@@ -576,34 +583,281 @@ def network_analysis(categorical_plots, rel_plots, correlations):
                     net_type=net_type
                 )
     if correlations:
+        id_cols = [
+            "subj",
+            "session",
+            "Demented",
+            "Diagnostic cognitif détaillé_CLASSIF_1",
+            "CLASSIF_REVUE_categ",
+            "MMSE",
+            "MEMORY_Composite",
+            "LANGUAGE_Composite",
+            "EXECUTIVE_Composite",
+            "VISUOSPATIAL_Composite",
+            "GLOBAL_COGNITIVE_Composite",
+            "net_type"
+        ]
+        prefixes = ("emot_", 
+                    "dmn", 
+                    "salience", 
+                    "ecn")
+        metric_columns = []
+        for col in merged_df.columns:
+            if col.startswith(prefixes):
+                metric_columns.append(col)
+
+        intermediate_df = pd.melt(
+            frame=merged_df,
+            id_vars=id_cols,
+            value_vars=metric_columns,
+            var_name = "metric"
+        )
+        print("intermediate 2")
+        print(intermediate_df)
+        print(intermediate_df.columns)
+        intermediate_df[["network", "measure"]] = intermediate_df["metric"].str.extract(
+            r"^([^_]+)_(.+)$"
+        )
+        print("Rubber duck")
+        print(intermediate_df)
+        print(intermediate_df.columns)
         keep_cols = ['MMSE',
        'MEMORY_Composite', 'LANGUAGE_Composite', 'EXECUTIVE_Composite',
        'VISUOSPATIAL_Composite', 'GLOBAL_COGNITIVE_Composite','net_type',
-       'metric', 'score']
-        relevant_df = longer_df[keep_cols]
+       'metric', "network", "measure", "value"]
+        relevant_df = intermediate_df[keep_cols]
+        print("purple panther")
+        print(relevant_df)
+        print(relevant_df.columns)
         # Reduce to only degree and global clustering
-        mask = ((relevant_df["metric"] == "degree")| (relevant_df["metric"] == "global_clustering"))
+        mask = ((relevant_df["measure"] == "degree")|
+                (relevant_df["measure"] == "global_clustering"))
         relevant_df = relevant_df[mask]
         
         results = []
         # Loop over unique network types and metrics
-        for net in relevant_df['net_type'].unique():
-            for metric in relevant_df['metric'].unique():
-                subset = relevant_df[(relevant_df['net_type']==net) & (relevant_df['metric']==metric)]
-                for outcome in COMPOSITES:  # all outcome columns
-                    clean_subset = subset[['score', outcome]].dropna()
-                    r, p = pearsonr(clean_subset["score"], clean_subset[outcome])  # correlate metric column with outcome
-                    results.append({
-                        'net_type': net,
-                        'metric_name': metric,
-                        'outcome': outcome,
-                        'r': r,
-                        'p': p
-                    })
 
-        # Convert to DataFrame
+        for net in relevant_df['net_type'].unique():
+            for network in relevant_df['network'].unique():
+                for measure in relevant_df['measure'].unique():
+
+                    subset = relevant_df[
+                        (relevant_df['net_type'] == net) &
+                        (relevant_df['network'] == network) &
+                        (relevant_df['measure'] == measure)
+                    ]
+
+                    if len(subset) < 3:
+                        continue
+
+                    for outcome in COMPOSITES:
+
+                        clean_subset = subset[['value', outcome]].dropna()
+
+                        if len(clean_subset) < 3:
+                            continue
+
+                        # avoid zero variance crash
+                        if clean_subset["value"].std() == 0:
+                            continue
+                        if clean_subset[outcome].std() == 0:
+                            continue
+
+                        r, p = pearsonr(
+                            clean_subset["value"],
+                            clean_subset[outcome]
+                        )
+
+                        results.append({
+                            'net_type': net,
+                            'network': network,
+                            'measure': measure,
+                            'outcome': outcome,
+                            'r': r,
+                            'p': p
+                        })
+
         corr_table = pd.DataFrame(results)
         print(corr_table)
+        corr_table.to_csv(
+           "/Users/sam/Desktop/correlation_data.csv" 
+        )
+
+        out = (
+            corr_table.pivot_table(
+                index=["network", "measure", "outcome"],
+                columns="net_type",
+                values=["r", "p"]
+            )
+        )
+
+        out.to_csv( "/Users/sam/Desktop/correlation_data.csv" )
+
+
+
+
+
+        # ==========================================================
+        # 🔹 Plot: MEMORY vs Global Clustering (DMN-ext only)
+        # ==========================================================
+
+        plot_df = relevant_df.copy()
+
+        # 🔹 Keep only DMN-ext network
+        plot_df = plot_df[
+            plot_df["network"] == "dmn-ext"
+        ]
+
+        # 🔹 Keep only global clustering
+        plot_df = plot_df[
+            plot_df["measure"] == "global_clustering"
+        ]
+
+        # 🔹 Keep only desired net types
+        plot_df = plot_df[
+            plot_df["net_type"].isin(["sw", "funct", "struct"])
+        ]
+
+        # 🔹 Drop missing values
+        plot_df = plot_df[
+            ["value", "MEMORY_Composite", "net_type"]
+        ].dropna()
+
+        # 🔹 Create 1x3 relplot
+        g = sns.relplot(
+            data=plot_df,
+            x="value",
+            y="MEMORY_Composite",
+            col="net_type",
+            kind="scatter",
+            height=4,
+            aspect=1,
+            facet_kws={"sharey": True, "sharex": False},
+        )
+
+        # 🔹 Add regression line + correlation
+        for net_type, ax in g.axes_dict.items():
+
+            subset = plot_df[
+                plot_df["net_type"] == net_type
+            ]
+
+            if len(subset) > 2:
+
+                x = subset["value"]
+                y = subset["MEMORY_Composite"]
+
+                # Correlation
+                r, p = pearsonr(x, y)
+
+                # Regression
+                slope, intercept = np.polyfit(x, y, 1)
+                x_vals = np.linspace(x.min(), x.max(), 100)
+                y_vals = slope * x_vals + intercept
+
+                # 🔹 Red best-fit line
+                ax.plot(x_vals, y_vals, color="red")
+
+                # Annotate r and p
+                ax.text(
+                    0.05, 0.95,
+                    f"r = {r:.2f}\np = {p:.3f}",
+                    transform=ax.transAxes,
+                    verticalalignment="top"
+                )
+
+                ax.set_xlabel("Global Clustering (DMN-ext)")
+                ax.set_ylabel("Memory Composite")
+
+        g.fig.subplots_adjust(top=0.85)
+        g.fig.suptitle("Global Clustering (DMN-ext) vs Memory Composite")
+
+        g.savefig(
+            "/Users/sam/Desktop/dmn_ext_global_clustering_memory_panel.png",
+            dpi=300
+        )
+
+        plt.show()
+        plt.close()
+    if panel_relplots:
+        # Keep only relevant columns
+        keep_cols = [
+            'MMSE',
+            'MEMORY_Composite', 'LANGUAGE_Composite',
+            'EXECUTIVE_Composite', 'VISUOSPATIAL_Composite',
+            'GLOBAL_COGNITIVE_Composite',
+            'net_type', 'metric', 'score'
+        ]
+
+        panel_df = longer_df[keep_cols].copy()
+
+
+        # 🔹 Keep only the two desired metrics
+        panel_df = panel_df[
+            panel_df["metric"].isin(["degree", "global_clustering"])
+        ]
+
+        # 🔹 Keep only the 3 desired network types
+        panel_df = panel_df[
+            panel_df["net_type"].isin(["funct", "struct", "sw"])
+        ]
+
+        # Example outcome variable (change if desired)
+        outcome_var = "GLOBAL_COGNITIVE_Composite"
+
+        # Drop missing
+        panel_df = panel_df[["score", outcome_var, "metric", "net_type"]].dropna()
+
+        # 🔹 Create 2x3 panel relplot
+        g = sns.relplot(
+            data=panel_df,
+            x="score",
+            y=outcome_var,
+            row="metric",
+            col="net_type",
+            kind="scatter",
+            height=4,
+            aspect=1,
+            facet_kws={"sharey": True, "sharex": False},
+        )
+        # Loop through each facet axis
+        for (metric, net_type), ax in g.axes_dict.items():
+
+            # Subset data for this panel
+            subset = panel_df[
+                (panel_df["metric"] == metric) &
+                (panel_df["net_type"] == net_type)
+            ]
+
+            if len(subset) > 2:
+                x = subset["score"]
+                y = subset[outcome_var]
+
+                # 🔹 Compute correlation
+                r, p = pearsonr(x, y)
+
+                # 🔹 Fit regression line
+                slope, intercept = np.polyfit(x, y, 1)
+                x_vals = np.linspace(x.min(), x.max(), 100)
+                y_vals = slope * x_vals + intercept
+
+                # 🔹 Plot regression line
+                ax.plot(x_vals, y_vals)
+                # 🔹 Annotate r and p
+                ax.text(
+                    0.05, 0.95,
+                    f"r = {r:.2f}\np = {p:.3f}",
+                    transform=ax.transAxes,
+                    verticalalignment="top"
+                )
+
+        g.fig.subplots_adjust(top=0.9)
+        g.fig.suptitle("Network Metrics vs Global Cognition")
+
+        # 🔹 Save figure
+        g.savefig("/Users/sam/Desktop/network_panel_relplot.png", dpi=300)
+        plt.show()
+        plt.close()
 
 
 
@@ -635,8 +889,9 @@ def analyse_tract_engagement(
 
     #plot_along_tracts(merged_df)
     #seaborn_tracts(merged_df=merged_df, type="sigma")
-
+    plot_demented_vs_control(merged_df)
     for metric in COMPOSITES:
+       
         plot_high_low(
             merged_df=merged_df,
             metric=metric
@@ -990,7 +1245,91 @@ def plot_tract_behavior(
     else:
         plt.show()
 
+def plot_demented_vs_control(
+        merged_df: pd.DataFrame
+):
+    """
+    Plot tract engagement along tract points comparing
+    Demented vs Non-Demented participants.
 
+    :param merged_df: DataFrame containing tract and cognitive data
+    :type merged_df: pd.DataFrame
+    """
+
+    # 🔹 Columns containing tract engagement values
+    subset = [col for col in merged_df.columns if col.startswith("mu")]
+
+    # 🔹 Convert to long format
+    df_long = merged_df.melt(
+        id_vars=[
+            "subject",
+            "Demented",
+            "Diagnostic cognitif détaillé_CLASSIF_1",
+            "tract",
+            "MMSE",
+            "MEMORY_Composite",
+            "LANGUAGE_Composite",
+            "EXECUTIVE_Composite",
+            "VISUOSPATIAL_Composite",
+            "GLOBAL_COGNITIVE_Composite"
+        ],
+        value_vars=subset,
+        var_name="tract_point",
+        value_name="value"
+    )
+
+    # 🔹 Make Demented a readable categorical variable
+    df_long["status"] = df_long["Demented"].map({
+        0: "Non-Demented",
+        1: "Demented"
+    })
+
+    sns.set_theme(style="white", context="paper")
+
+    for i, tract_set in enumerate(TRACT_TYPES):
+
+        print(tract_set)
+        print()
+
+        pattern = r"(?:^|_)(?:" + "|".join(map(re.escape, tract_set)) + r")(?:_|$)"
+
+        plot_df = df_long[
+            df_long["tract"].str.contains(pattern, na=False, regex=True)
+        ].copy()
+
+        # 🔹 Line plot comparing Demented vs Non-Demented
+        g = sns.relplot(
+            data=plot_df,
+            x="tract_point",
+            y="value",
+            hue="status",
+            col="tract",
+            kind="line",
+            estimator="mean",
+            errorbar=("ci", 95),
+            height=4,
+            aspect=1.2,
+            col_wrap=6,
+            facet_kws={"sharey": False},
+        )
+
+        g.set_axis_labels("Tract Point", "Mean Engagement")
+
+        # 🔹 Clean x-axis tick labels
+        unique_points = plot_df["tract_point"].unique()
+        for ax in g.axes.flat:
+            ax.set_xticks(range(0, len(unique_points), 5))
+            ax.set_xticklabels(unique_points[::5].astype(str))
+
+        # 🔹 Save figure
+        path = join(
+            TRACT_IMAGE_PATH,
+            f"rel_plot_Demented_vs_Control_{TRACT_NAMES[i]}.png"
+        )
+
+        g.savefig(path, dpi=600, bbox_inches="tight")
+        #plt.show()
+        plt.close()
 
 
 def plot_high_low(
@@ -1029,17 +1368,32 @@ def plot_high_low(
             q=2,
             labels = values
     )
+
+    df_long = df_long[df_long["tract_point"] != 1]
+    df_long = df_long[df_long["tract_point"] != 31]
+    df_long["tract"] = df_long["tract"].str.removeprefix("mni_edited_")
     for i, tract_set in enumerate(TRACT_TYPES):
         # Make a new column, that is Status: high vs low
         #values = ["very low", "low", "high", "very high"]
         #df_long["status"] = np.where(df_long[metric] > med, "high", "low")
-        print(tract_set)
-        print()
-        pattern = r"(?:^|_)(?:" + "|".join(map(re.escape, PROJECTION)) + r")(?:_|$)"
+        pattern = r"(?:^|_)(?:" + "|".join(map(re.escape, tract_set)) + r")(?:_|$)"
 
         plot_df = df_long[
             df_long["tract"].str.contains(pattern, na=False, regex=True)
         ].copy()
+
+        means = (
+            plot_df.groupby(["tract", "status"])["value"]
+            .mean()
+            .unstack()
+        )
+        means["tract_type"] = TRACT_NAMES[i]
+        means["metric"] = metric
+        means["mean_diff"] = means["high"] - means["low"]
+
+        means.to_csv(
+            f"/Users/sam/Desktop/csvs/{metric}_{TRACT_NAMES[i]}_mean_difs.csv"
+        )
 
         sns.set_theme(style="white",context="paper")
 
@@ -1051,17 +1405,26 @@ def plot_high_low(
             col="tract",
             kind="line",
             estimator="mean",
-            errorbar=("ci", 95),
-            height=4,
-            aspect=1.2,
-            col_wrap=6,
+            errorbar=None,
+            height=2,
+            aspect=1,
+            col_wrap=5,
             facet_kws={"sharey": False},  
         )
         g.set_axis_labels("Tract Point", "Mean Value")
+
         for ax in g.axes.flat:
-            # Only show every 5th point from the actual tract_point column
-            ax.set_xticks(range(0, len(plot_df["tract_point"].unique()), 5))
-            ax.set_xticklabels(plot_df["tract_point"].str[3:].unique()[::5])
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_xlabel("")
+            ax.set_ylabel("")
+            ax.spines[['top','right']].set_visible(False)
+        
+        g.set_titles("{col_name}", size=16)
+        g._legend.set_title(g._legend.get_title().get_text(), prop={'size':16})
+        for text in g._legend.texts:
+            text.set_fontsize(14)
+        g.fig.subplots_adjust(wspace=0.15, hspace=0.25)
 
         #plt.show()
         path = join(
@@ -1253,7 +1616,7 @@ def mean_plots(
         sharey=False,
         kind="violin"
     )
-    plt.show()
+   #plt.show()
     
 def rel_plots(long_data, variable):
     
@@ -1273,9 +1636,12 @@ def rel_plots(long_data, variable):
 def nnf_per_tract(
         merged_df,
         tract,
-        components = 3
-):
+        components = 3, 
+        metric = "MEMORY_Composite"
+):  
+    merged_df=merged_df.drop(labels="mu_31", axis=1)
     cols = [col for col in merged_df.columns if col.startswith("mu")]  
+    print(cols)
     imputer = SimpleImputer(strategy="median")
     tract_df = merged_df[merged_df["tract"] == tract].copy()
     tract_data = tract_df[cols]
@@ -1306,18 +1672,38 @@ def nnf_per_tract(
                  "CLASSIF_REVUE_categ",
                  "MEMORY_Composite",
                  "EXECUTIVE_Composite",
+                 "LANGUAGE_Composite",
                  "VISUOSPATIAL_Composite",
-                 "GLOBAL_COGNITIVE_Composite"]],
+                 "GLOBAL_COGNITIVE_Composite",
+                 "MMSE"]],
             W_df
         ],
         axis=1
     )
-    print(W.shape)
-    print(H.shape)
-    for i in range(components):
-        plt.plot(H[i,:])
-    plt.show()
+    # H shape: (components, n_tract_points)
+    n_components, n_points = H.shape
+    colors = sns.color_palette("tab10", n_components)  # distinct colors
 
+    plt.figure(figsize=(10,6))
+
+    for i in range(n_components):
+        plt.plot(
+            range(1, n_points+1),  # x-axis = tract points
+            H[i, :],
+            marker="o",
+            linewidth=2.5,
+            markersize=6,
+            label=f"Component {i+1}",
+            color=colors[i]
+        )
+
+    plt.xlabel("Tract Point", fontsize=18)
+    plt.ylabel("Component Expression (H)", fontsize=18)
+    #plt.title(f"NMF Components for {tract}", fontsize=16)
+    plt.xticks(range(1, n_points+1))  # or use tract_point labels if available
+    plt.legend(fontsize=18, title="Components", title_fontsize=20)
+    plt.tight_layout()
+    plt.show()
     # Longify the result_df
     df_long = pd.melt(
         result_df,
@@ -1328,8 +1714,10 @@ def nnf_per_tract(
                  "CLASSIF_REVUE_categ",
                  "MEMORY_Composite",
                  "EXECUTIVE_Composite",
+                 "LANGUAGE_Composite",
                  "VISUOSPATIAL_Composite",
-                 "GLOBAL_COGNITIVE_Composite"],
+                 "GLOBAL_COGNITIVE_Composite",
+                 "MMSE"],
         value_vars=component_cols,
         var_name="component_name",
         value_name="value"
@@ -1339,12 +1727,12 @@ def nnf_per_tract(
     values = ["LOW", "HIGH"]
     #df_long["status"] = np.where(df_long[metric] > med, "high", "low")
     df_long["status"] = pd.qcut(
-        df_long["MEMORY_Composite"],
+        df_long[metric],
         q=2,
         labels = values
     )
 
-    sns.set_theme(style="whitegrid")
+    sns.set_theme(style="white",context="paper")
 
     g = sns.relplot(
         data=df_long,
@@ -1357,13 +1745,19 @@ def nnf_per_tract(
         height=4,
         aspect=1.2,
         facet_kws={"sharey": False},
-        
     )
 
-    g.set_axis_labels("Tract Point", "Mean Value")  
-    plt.title(f"Component Analysis: {tract}")
-    plt.show()
-    
+    g.set_axis_labels("Component", "Mean Value")  
+    #plt.title(f"Component Analysis: {tract}")
+    #plt.show()
+    path = f"/Users/sam/Desktop/"+ f"NNF_{metric}_components.png"
+    g.savefig(
+        path,
+        bbox_inches="tight",
+        dpi=600
+        )
+    return df_long
+
 
 
 def temp(tract_data, original_data):
@@ -1409,7 +1803,9 @@ if __name__=="__main__":
     #analyse_tract_engagement()
     #temp(TRACT_DATA,PATIENT_DATA)
     network_analysis(
-        categorical_plots=True,
-        rel_plots=False,
-        correlations=True
+        categorical_plots=False,
+        rel_plots=True,
+        correlations=False,
+        panel_relplots=False,
+        compare_plots=False
     )
